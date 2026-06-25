@@ -6,7 +6,7 @@
 
 /* ===== RESET & BASE ===== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { font-size: 16px; }
+html { font-size: 16px; color-scheme: light; }
 body {
   font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   background: var(--bg);
@@ -19,6 +19,17 @@ body {
 a { text-decoration: none; color: inherit; }
 button { cursor: pointer; font-family: inherit; }
 input, select, textarea { font-family: inherit; }
+
+/* ===== FOCO VISÍVEL (teclado) — dourado garante contraste no rail e no canvas ===== */
+:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+:focus:not(:focus-visible) { outline: none; }
+
+/* Títulos com quebra equilibrada */
+.page-title, .section-title, .card-title { text-wrap: balance; }
 
 /* ===== CSS VARIABLES — WARM EARTH (tema claro único) =====
    Paleta de marca: Off-White #E6DDCE · Bege #B3907A ·
@@ -97,7 +108,7 @@ input, select, textarea { font-family: inherit; }
   --stat-blue-bg:     var(--blue-light);
   --stat-blue-icon:   #5E7585;
 
-  --transition:       all 0.2s ease;
+  --transition:       background-color .2s ease, color .2s ease, border-color .2s ease, box-shadow .2s ease, transform .2s ease, opacity .2s ease;
 
   /* Tokens do rail espresso (sidebar) */
   --rail-bg:          #5C4A3F;
@@ -436,7 +447,7 @@ body.sidebar-collapsed .main {
 }
 .topbar-search:focus-within {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(108,99,255,0.1);
+  box-shadow: 0 0 0 3px rgba(127,102,88,0.1);
 }
 .topbar-search svg { color: var(--text-3); flex-shrink: 0; }
 .topbar-search input {
@@ -818,7 +829,7 @@ body.sidebar-collapsed .main {
   outline: none;
   transition: var(--transition);
 }
-.filter-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(108,99,255,0.1); }
+.filter-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(127,102,88,0.1); }
 .filter-divider { width: 1px; height: 20px; background: var(--border); margin: 0 4px; }
 
 /* ===== CHARTS GRID — Ofspace 60/38 split ===== */
@@ -953,7 +964,7 @@ body.sidebar-collapsed .main {
   max-width: 320px;
   transition: var(--transition);
 }
-.table-search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(108,99,255,0.1); }
+.table-search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(127,102,88,0.1); }
 .table-search svg { width: 14px; height: 14px; color: var(--text-3); flex-shrink: 0; }
 .table-search input {
   border: none; background: none; outline: none;
@@ -1108,7 +1119,7 @@ tbody td {
 .form-control:focus {
   border-color: var(--accent);
   background: var(--card);
-  box-shadow: 0 0 0 3px rgba(108,99,255,0.1);
+  box-shadow: 0 0 0 3px rgba(127,102,88,0.1);
 }
 .form-control::placeholder { color: var(--text-3); }
 textarea.form-control { resize: vertical; min-height: 80px; }
@@ -1138,7 +1149,7 @@ select.form-control { cursor: pointer; }
 .cf-datepicker-input.active {
   border-color: var(--accent);
   background: var(--card);
-  box-shadow: 0 0 0 3px rgba(108,99,255,0.1);
+  box-shadow: 0 0 0 3px rgba(127,102,88,0.1);
 }
 .cf-datepicker-input::placeholder { color: var(--text-3); }
 .cf-datepicker-icon {
@@ -1703,12 +1714,12 @@ select.form-control { cursor: pointer; }
   display: flex; align-items: center; justify-content: center;
   cursor: pointer;
   z-index: 300;
-  box-shadow: 0 4px 20px rgba(108,99,255,0.45);
-  transition: all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  box-shadow: 0 4px 20px rgba(127,102,88,0.45);
+  transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s ease;
 }
 .ai-float-btn:hover {
   transform: translateY(-3px) scale(1.06);
-  box-shadow: 0 8px 28px rgba(108,99,255,0.55);
+  box-shadow: 0 8px 28px rgba(127,102,88,0.55);
 }
 .ai-float-btn:active { transform: scale(0.96); }
 
@@ -1839,12 +1850,12 @@ select.form-control { cursor: pointer; }
   background: linear-gradient(135deg, var(--accent), #C9A06A);
   color: white;
   cursor: pointer;
-  transition: all 0.25s ease;
-  box-shadow: 0 4px 16px rgba(108,99,255,0.3);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  box-shadow: 0 4px 16px rgba(127,102,88,0.3);
 }
 .ai-action-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 22px rgba(108,99,255,0.4);
+  box-shadow: 0 6px 22px rgba(127,102,88,0.4);
 }
 .ai-action-btn:active { transform: scale(0.98); }
 
@@ -1980,4 +1991,14 @@ select.form-control { cursor: pointer; }
 .sidebar.collapsed .nav-item::after {
   background: var(--rail-bg);
   color: var(--rail-text);
+}
+
+/* ===== MOVIMENTO REDUZIDO — respeita prefers-reduced-motion ===== */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

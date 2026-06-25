@@ -7,6 +7,15 @@
 /* ===== RESET ===== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; font-family: 'DM Sans', -apple-system, sans-serif; }
+html { color-scheme: light; }
+
+/* foco visível (teclado) */
+:focus-visible {
+  outline: 2px solid #C9A06A;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+:focus:not(:focus-visible) { outline: none; }
 
 /* ===== LAYOUT — fundo #EAE2D5, card central ===== */
 .auth-wrap {
@@ -78,7 +87,7 @@ html, body { height: 100%; font-family: 'DM Sans', -apple-system, sans-serif; }
   font-weight: 600;
   color: #7C6F63;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color .2s ease, color .2s ease, box-shadow .2s ease;
   font-family: 'DM Sans', sans-serif;
 }
 .auth-tab.active {
@@ -116,7 +125,7 @@ html, body { height: 100%; font-family: 'DM Sans', -apple-system, sans-serif; }
   color: #3B3128;
   font-family: 'DM Sans', sans-serif;
   outline: none;
-  transition: all 0.2s ease;
+  transition: border-color .2s ease, box-shadow .2s ease;
   width: 100%;
 }
 .auth-input:focus {
@@ -172,7 +181,7 @@ html, body { height: 100%; font-family: 'DM Sans', -apple-system, sans-serif; }
   font-weight: 700;
   font-family: 'DM Sans', sans-serif;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color .2s ease, transform .2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -280,4 +289,13 @@ html, body { height: 100%; font-family: 'DM Sans', -apple-system, sans-serif; }
     border-radius: 20px;
   }
   .auth-form-row { grid-template-columns: 1fr; gap: 0; }
+}
+
+/* ===== MOVIMENTO REDUZIDO ===== */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
