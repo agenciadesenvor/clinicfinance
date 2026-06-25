@@ -710,7 +710,7 @@ function recentEntriesTable(items) {
 
 /* Gera cor de avatar a partir do nome (hash determinístico) */
 function avatarColor(name) {
-  const colors = ['#10B981','#3B82F6','#8B5CF6','#F59E0B','#EF4444','#06B6D4','#EC4899','#14B8A6'];
+  const colors = ['#5E8C61','#6E8595','#94808C','#C9A06A','#B85C44','#6E8595','#B3907A','#8A7B4E'];
   let h = 0;
   for (let i = 0; i < (name||'?').length; i++) h = (h * 31 + (name||'?').charCodeAt(i)) >>> 0;
   return colors[h % colors.length];
@@ -768,9 +768,9 @@ function initDashboardCharts() {
     data: {
       labels: monthly.map(m => m.label),
       datasets: [
-        { label: 'Receita',  data: monthly.map(m => m.revenue),  backgroundColor: 'rgba(16,185,129,0.8)', borderRadius: 6 },
-        { label: 'Despesas', data: monthly.map(m => m.expenses), backgroundColor: 'rgba(239,68,68,0.7)',  borderRadius: 6 },
-        { label: 'Lucro',    data: monthly.map(m => m.profit),   backgroundColor: 'rgba(212,160,23,0.8)', borderRadius: 6, type: 'line', borderColor: '#D4A017', fill: false, tension: 0.3, borderWidth: 2.5, pointRadius: 4 }
+        { label: 'Receita',  data: monthly.map(m => m.revenue),  backgroundColor: 'rgba(94,140,97,0.8)', borderRadius: 6 },
+        { label: 'Despesas', data: monthly.map(m => m.expenses), backgroundColor: 'rgba(184,92,68,0.7)',  borderRadius: 6 },
+        { label: 'Lucro',    data: monthly.map(m => m.profit),   backgroundColor: 'rgba(201,160,106,0.8)', borderRadius: 6, type: 'line', borderColor: '#C9A06A', fill: false, tension: 0.3, borderWidth: 2.5, pointRadius: 4 }
       ]
     },
     options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 14 } }, tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fCurrency(ctx.raw)}` } } }, scales: { x: { grid: { display: false } }, y: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { callback: v => fCurrency(v) } } } }
@@ -781,7 +781,7 @@ function initDashboardCharts() {
   const payData   = Object.keys(PAYMENT_METHODS).map(k => fe.filter(x => x.payment === k).reduce((s,x) => s+x.value, 0));
   createChart('chartPayment', {
     type: 'doughnut',
-    data: { labels: payLabels, datasets: [{ data: payData, backgroundColor: ['#10B981','#3B82F6','#F59E0B','#8B5CF6'], borderWidth: 2, borderColor: 'var(--card)', hoverOffset: 6 }] },
+    data: { labels: payLabels, datasets: [{ data: payData, backgroundColor: ['#5E8C61','#6E8595','#C9A06A','#94808C'], borderWidth: 2, borderColor: 'var(--card)', hoverOffset: 6 }] },
     options: { responsive: true, cutout: '62%', plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 14, font: { size: 12 } } }, tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${fCurrency(ctx.raw)}` } } } }
   });
 }
@@ -1127,12 +1127,12 @@ function renderSaidas() {
 
   const originBadge = (origin) => {
     if (origin === 'product') return '<span style="font-size:11px;background:rgba(139,92,246,0.1);color:#7C3AED;padding:2px 8px;border-radius:6px;font-weight:600">Produto</span>';
-    if (origin === 'clinic')  return '<span style="font-size:11px;background:rgba(16,185,129,0.1);color:#059669;padding:2px 8px;border-radius:6px;font-weight:600">Consultório</span>';
+    if (origin === 'clinic')  return '<span style="font-size:11px;background:rgba(94,140,97,0.1);color:#5E8C61;padding:2px 8px;border-radius:6px;font-weight:600">Consultório</span>';
     return '<span style="font-size:11px;background:rgba(100,116,139,0.1);color:#64748B;padding:2px 8px;border-radius:6px;font-weight:600">Manual</span>';
   };
   const rowBg = (origin) => {
     if (origin === 'product') return ' style="background:rgba(139,92,246,0.04)"';
-    if (origin === 'clinic')  return ' style="background:rgba(16,185,129,0.04)"';
+    if (origin === 'clinic')  return ' style="background:rgba(94,140,97,0.04)"';
     return '';
   };
 
@@ -1298,7 +1298,7 @@ function renderProdutosContent() {
       const pp = p.procedurePrice || 0;
       const lucro  = pp > 0 ? pp - p.unitCost : null;
       const margem = pp > 0 ? ((lucro / pp) * 100) : null;
-      const margemColor = margem === null ? 'var(--text-3)' : margem >= 60 ? '#059669' : margem >= 30 ? '#A07610' : '#EF4444';
+      const margemColor = margem === null ? 'var(--text-3)' : margem >= 60 ? '#5E8C61' : margem >= 30 ? '#B07D3F' : '#B85C44';
       return `<tr>
         <td><div class="fw-600 fs-13">${esc(p.name)}</div>${p.notes ? `<div style="font-size:11px;color:var(--text-3);margin-top:1px">${esc(p.notes)}</div>` : ''}</td>
         <td>${badgeProductCategory(p.category)}</td>
@@ -1813,9 +1813,9 @@ function renderMargem() {
   </div>
   ${cards.length ? `<div class="margem-grid">
     ${cards.map(c => {
-      const barColor   = c.marginBruto>=60?'#10B981':c.marginBruto>=40?'#F59E0B':c.marginBruto>=20?'#3B82F6':'#EF4444';
+      const barColor   = c.marginBruto>=60?'#5E8C61':c.marginBruto>=40?'#C9A06A':c.marginBruto>=20?'#6E8595':'#B85C44';
       const badgeColor = c.marginBruto>=60?'badge-green':c.marginBruto>=40?'badge-gold':c.marginBruto>=20?'badge-blue':'badge-red';
-      const realColor  = c.marginReal>=60?'#10B981':c.marginReal>=40?'#F59E0B':c.marginReal>=20?'#3B82F6':'#EF4444';
+      const realColor  = c.marginReal>=60?'#5E8C61':c.marginReal>=40?'#C9A06A':c.marginReal>=20?'#6E8595':'#B85C44';
       return `<div class="margem-card">
         <div class="margem-card-header">
           <span class="margem-procedure">${c.name}</span>
@@ -1860,7 +1860,7 @@ function renderPrecificacao() {
   </div>
   <div class="pricing-grid">
     ${rows.map(r => {
-      const barColor   = r.margin !== null ? (r.margin >= 60 ? '#10B981' : r.margin >= 40 ? '#F59E0B' : r.margin >= 20 ? '#3B82F6' : '#EF4444') : 'var(--border)';
+      const barColor   = r.margin !== null ? (r.margin >= 60 ? '#5E8C61' : r.margin >= 40 ? '#C9A06A' : r.margin >= 20 ? '#6E8595' : '#B85C44') : 'var(--border)';
       const badgeClass = r.margin !== null ? (r.margin >= 60 ? 'badge-green' : r.margin >= 40 ? 'badge-gold' : r.margin >= 20 ? 'badge-blue' : 'badge-red') : '';
       return `<div class="pricing-card">
         <div class="pricing-card-header">
@@ -2078,9 +2078,9 @@ function initGraficosCharts() {
     data: {
       labels: monthly.map(m => m.label),
       datasets: [
-        { label:'Receita',  data: monthly.map(m=>m.revenue),  borderColor:'#10B981', backgroundColor:'rgba(16,185,129,0.08)',  fill:true, tension:0.3, borderWidth:2.5, pointRadius:4, pointBackgroundColor:'#10B981' },
-        { label:'Despesas', data: monthly.map(m=>m.expenses), borderColor:'#EF4444', backgroundColor:'rgba(239,68,68,0.05)',   fill:true, tension:0.3, borderWidth:2.5, pointRadius:4, pointBackgroundColor:'#EF4444' },
-        { label:'Lucro',    data: monthly.map(m=>m.profit),   borderColor:'#D4A017', backgroundColor:'rgba(212,160,23,0.06)',  fill:true, tension:0.3, borderWidth:2.5, pointRadius:4, pointBackgroundColor:'#D4A017' }
+        { label:'Receita',  data: monthly.map(m=>m.revenue),  borderColor:'#5E8C61', backgroundColor:'rgba(94,140,97,0.08)',  fill:true, tension:0.3, borderWidth:2.5, pointRadius:4, pointBackgroundColor:'#5E8C61' },
+        { label:'Despesas', data: monthly.map(m=>m.expenses), borderColor:'#B85C44', backgroundColor:'rgba(184,92,68,0.05)',   fill:true, tension:0.3, borderWidth:2.5, pointRadius:4, pointBackgroundColor:'#B85C44' },
+        { label:'Lucro',    data: monthly.map(m=>m.profit),   borderColor:'#C9A06A', backgroundColor:'rgba(201,160,106,0.06)',  fill:true, tension:0.3, borderWidth:2.5, pointRadius:4, pointBackgroundColor:'#C9A06A' }
       ]
     },
     options: { responsive:true, plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, padding:16 } }, tooltip:{ callbacks:{ label: ctx => ` ${ctx.dataset.label}: ${fCurrency(ctx.raw)}` } } }, scales:{ x:{ grid:{ display:false } }, y:{ grid:{ color:'rgba(0,0,0,0.04)' }, ticks:{ callback: v => fCurrency(v) } } } }
@@ -2089,7 +2089,7 @@ function initGraficosCharts() {
   const procData = Object.entries(PROCEDURES).map(([k,v]) => ({ label:v, val: fe.filter(e=>e.procedure===k).reduce((s,e)=>s+e.value,0) })).filter(x=>x.val>0).sort((a,b)=>b.val-a.val);
   createChart('gChartProc', {
     type:'bar',
-    data:{ labels: procData.map(p=>p.label), datasets:[{ label:'Receita', data: procData.map(p=>p.val), backgroundColor:['#10B981','#3B82F6','#8B5CF6','#F59E0B','#EF4444','#14B8A6','#F97316'], borderRadius:8 }] },
+    data:{ labels: procData.map(p=>p.label), datasets:[{ label:'Receita', data: procData.map(p=>p.val), backgroundColor:['#5E8C61','#6E8595','#94808C','#C9A06A','#B85C44','#8A7B4E','#B07D3F'], borderRadius:8 }] },
     options:{ indexAxis:'y', responsive:true, plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label: ctx => ` ${fCurrency(ctx.raw)}` } } }, scales:{ x:{ grid:{ color:'rgba(0,0,0,0.04)' }, ticks:{ callback: v => fCurrency(v) } }, y:{ grid:{ display:false } } } }
   });
 
@@ -2103,7 +2103,7 @@ function initGraficosCharts() {
   ];
   createChart('gChartCat', {
     type:'doughnut',
-    data:{ labels: catLabels, datasets:[{ data: catData, backgroundColor:['#EF4444','#F59E0B','#3B82F6','#8B5CF6','#14B8A6','#6366F1','#EC4899'], borderWidth:2, borderColor:'#fff', hoverOffset:6 }] },
+    data:{ labels: catLabels, datasets:[{ data: catData, backgroundColor:['#B85C44','#C9A06A','#6E8595','#94808C','#8A7B4E','#7F6658','#B3907A'], borderWidth:2, borderColor:'#fff', hoverOffset:6 }] },
     options:{ responsive:true, cutout:'58%', plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, padding:14 } }, tooltip:{ callbacks:{ label: ctx => ` ${ctx.label}: ${fCurrency(ctx.raw)}` } } } }
   });
 
@@ -2111,7 +2111,7 @@ function initGraficosCharts() {
   const payData   = Object.keys(PAYMENT_METHODS).map(k => fe.filter(e=>e.payment===k).reduce((s,e)=>s+e.value,0));
   createChart('gChartPay', {
     type:'doughnut',
-    data:{ labels: payLabels, datasets:[{ data: payData, backgroundColor:['#10B981','#3B82F6','#F59E0B','#8B5CF6'], borderWidth:2, borderColor:'#fff', hoverOffset:6 }] },
+    data:{ labels: payLabels, datasets:[{ data: payData, backgroundColor:['#5E8C61','#6E8595','#C9A06A','#94808C'], borderWidth:2, borderColor:'#fff', hoverOffset:6 }] },
     options:{ responsive:true, cutout:'58%', plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, padding:14 } }, tooltip:{ callbacks:{ label: ctx => ` ${ctx.label}: ${fCurrency(ctx.raw)}` } } } }
   });
 
@@ -2127,7 +2127,7 @@ function initGraficosCharts() {
   }).filter(x => x.margin !== 0);
   createChart('gChartMargin', {
     type:'bar',
-    data:{ labels: margins.map(m=>m.label), datasets:[{ label:'Margem %', data: margins.map(m=>parseFloat(m.margin.toFixed(1))), backgroundColor: margins.map(m=>m.margin>=60?'#10B981':m.margin>=40?'#F59E0B':m.margin>=20?'#3B82F6':'#EF4444'), borderRadius:8 }] },
+    data:{ labels: margins.map(m=>m.label), datasets:[{ label:'Margem %', data: margins.map(m=>parseFloat(m.margin.toFixed(1))), backgroundColor: margins.map(m=>m.margin>=60?'#5E8C61':m.margin>=40?'#C9A06A':m.margin>=20?'#6E8595':'#B85C44'), borderRadius:8 }] },
     options:{ responsive:true, plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label: ctx => ` ${ctx.raw}%` } } }, scales:{ x:{ grid:{ display:false } }, y:{ grid:{ color:'rgba(0,0,0,0.04)' }, ticks:{ callback: v => v+'%' }, max:100, min:0 } } }
   });
 }
@@ -2222,8 +2222,8 @@ function renderPerfil() {
       </form>
 
       <!-- Zona de Perigo -->
-      <div class="perfil-form-section" style="border-top:1px solid rgba(239,68,68,0.15)">
-        <div class="perfil-section-title" style="color:#EF4444">Zona de Perigo</div>
+      <div class="perfil-form-section" style="border-top:1px solid rgba(184,92,68,0.15)">
+        <div class="perfil-section-title" style="color:#B85C44">Zona de Perigo</div>
         <div class="perfil-section-sub">Ação irreversível — seus dados serão perdidos.</div>
         <button class="btn btn-danger btn-sm" onclick="confirmDeleteAccount()">
           Excluir minha conta permanentemente
@@ -2514,25 +2514,13 @@ function generatePDF(label) {
 }
 
 /* ===== THEME ===== */
+/* Tema claro único (paleta warm earth). O dark mode foi removido. */
 function initTheme() {
-  const saved = localStorage.getItem('cf-theme') || 'light';
-  document.documentElement.setAttribute('data-theme', saved);
-  updateThemeIcon(saved);
+  document.documentElement.setAttribute('data-theme', 'light');
+  const btn = document.querySelector('.topbar-icon-btn[onclick="toggleTheme()"]');
+  if (btn) btn.style.display = 'none';
 }
-function toggleTheme() {
-  const current = document.documentElement.getAttribute('data-theme') || 'light';
-  const next = current === 'dark' ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', next);
-  localStorage.setItem('cf-theme', next);
-  updateThemeIcon(next);
-}
-function updateThemeIcon(theme) {
-  const icon = document.getElementById('themeIcon');
-  if (!icon) return;
-  icon.innerHTML = theme === 'dark'
-    ? '<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>'
-    : '<circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>';
-}
+function toggleTheme() { /* desativado — tema claro único */ }
 function updateTopbarAvatar() {
   const el = document.getElementById('topbarAvatar');
   if (!el) return;

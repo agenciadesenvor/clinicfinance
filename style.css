@@ -20,53 +20,56 @@ a { text-decoration: none; color: inherit; }
 button { cursor: pointer; font-family: inherit; }
 input, select, textarea { font-family: inherit; }
 
-/* ===== CSS VARIABLES — LIGHT THEME ===== */
+/* ===== CSS VARIABLES — WARM EARTH (tema claro único) =====
+   Paleta de marca: Off-White #E6DDCE · Bege #B3907A ·
+   Marrom Taupe #7F6658 · Areia Dourada #E2C09F.
+   Assinatura: rail (sidebar) espresso com texto creme. */
 :root {
   --sidebar-w:        220px;
   --topbar-h:         64px;
 
-  /* Fundo geral */
-  --bg:               #EEEEF3;
-  --bg-2:             #F7F7FB;
+  /* Fundo geral — linho quente */
+  --bg:               #EAE2D5;
+  --bg-2:             #F2ECE0;
 
-  /* Cards e sidebar */
-  --card:             #FFFFFF;
-  --sidebar-bg:       #FFFFFF;
+  /* Cards — porcelana quente (não branco puro) */
+  --card:             #FBF8F2;
+  --sidebar-bg:       #FFFFFF; /* sobrescrito pelo rail espresso abaixo */
 
-  /* Accent principal — roxo/violeta */
-  --accent:           #6C63FF;
-  --accent-hover:     #5a52e0;
-  --accent-light:     #EDEDFF;
-  --accent-mid:       rgba(108,99,255,0.18);
-  --accent-2:         #A78BFA;
+  /* Accent principal — Marrom Taupe */
+  --accent:           #7F6658;
+  --accent-hover:     #6A5446;
+  --accent-light:     #EFE6D6;
+  --accent-mid:       rgba(127,102,88,0.16);
+  --accent-2:         #C9A06A; /* Areia Dourada — destaque */
 
-  /* Texto */
-  --text-1:           #0F0F1A;
-  --text-2:           #6B7280;
-  --text-3:           #A0AEC0;
+  /* Texto — tinta espresso quente */
+  --text-1:           #3B3128;
+  --text-2:           #7C6F63;
+  --text-3:           #A99C8C;
 
-  /* Status */
-  --green:            #22C55E;
-  --green-light:      #DCFCE7;
-  --red:              #EF4444;
-  --red-light:        #FEE2E2;
-  --yellow:           #F59E0B;
-  --yellow-light:     #FEF3C7;
-  --blue:             #3B82F6;
-  --blue-light:       #DBEAFE;
-  --purple:           #8B5CF6;
-  --purple-light:     #EDE9FE;
-  --gold:             #D97706;
-  --gold-light:       rgba(217,119,6,0.10);
+  /* Status — suavizados para harmonizar com a terra */
+  --green:            #5E8C61;
+  --green-light:      #E4EADE;
+  --red:              #B85C44;
+  --red-light:        #F3E2DB;
+  --yellow:           #C9A06A;
+  --yellow-light:     #F1E6D2;
+  --blue:             #6E8595;
+  --blue-light:       #E6EAEC;
+  --purple:           #94808C;
+  --purple-light:     #ECE5E9;
+  --gold:             #B07D3F;
+  --gold-light:       rgba(176,125,63,0.12);
 
-  /* Borders e sombras */
-  --border:           #E5E7EB;
-  --border-light:     #F3F4F6;
-  --shadow-sm:        0 1px 4px rgba(0,0,0,0.04);
-  --shadow:           0 2px 12px rgba(0,0,0,0.06);
-  --shadow-md:        0 4px 20px rgba(0,0,0,0.07);
-  --shadow-lg:        0 8px 32px rgba(0,0,0,0.10);
-  --shadow-card:      0 1px 4px rgba(0,0,0,0.04);
+  /* Borders e sombras (sombra marrom-quente, não preta) */
+  --border:           #DCD0BF;
+  --border-light:     #EBE2D4;
+  --shadow-sm:        0 1px 4px rgba(74,59,49,0.05);
+  --shadow:           0 2px 12px rgba(74,59,49,0.07);
+  --shadow-md:        0 4px 20px rgba(74,59,49,0.09);
+  --shadow-lg:        0 10px 34px rgba(74,59,49,0.12);
+  --shadow-card:      0 1px 4px rgba(74,59,49,0.05);
 
   /* Radius */
   --radius-card:      18px;
@@ -78,63 +81,31 @@ input, select, textarea { font-family: inherit; }
   --radius-xl:        24px;
 
   /* Inputs */
-  --input-bg:         #F7F7FB;
+  --input-bg:         #F3ECDF;
   --topbar-bg:        transparent;
   --topbar-border:    transparent;
-  --thead-bg:         #FAFAFA;
-  --tr-hover:         #F9F9FB;
+  --thead-bg:         #F1E9DB;
+  --tr-hover:         #F2EBDD;
 
   /* Stat card backgrounds */
   --stat-green-bg:    var(--green-light);
-  --stat-green-icon:  #16A34A;
+  --stat-green-icon:  #4F7A52;
   --stat-yellow-bg:   var(--red-light);
-  --stat-yellow-icon: #DC2626;
+  --stat-yellow-icon: #A04E38;
   --stat-purple-bg:   var(--purple-light);
-  --stat-purple-icon: #7C3AED;
+  --stat-purple-icon: #7E6B76;
   --stat-blue-bg:     var(--blue-light);
-  --stat-blue-icon:   #2563EB;
+  --stat-blue-icon:   #5E7585;
 
   --transition:       all 0.2s ease;
-}
 
-/* ===== DARK THEME ===== */
-[data-theme="dark"] {
-  --bg:               #13131A;
-  --bg-2:             #1A1A24;
-  --card:             #1E1E2A;
-  --sidebar-bg:       #1E1E2A;
-  --text-1:           #F0F0FF;
-  --text-2:           #8888AA;
-  --text-3:           #666688;
-  --border:           #2A2A3A;
-  --border-light:     #333344;
-  --topbar-bg:        transparent;
-  --topbar-border:    transparent;
-  --thead-bg:         #252535;
-  --tr-hover:         #252535;
-  --input-bg:         #252535;
-  --shadow-sm:        0 1px 4px rgba(0,0,0,0.3);
-  --shadow:           0 2px 12px rgba(0,0,0,0.35);
-  --shadow-md:        0 4px 20px rgba(0,0,0,0.4);
-  --shadow-lg:        0 8px 32px rgba(0,0,0,0.5);
-  --shadow-card:      0 1px 4px rgba(0,0,0,0.3);
-
-  --accent-light:     rgba(108,99,255,0.15);
-  --accent-mid:       rgba(108,99,255,0.22);
-  --green-light:      rgba(34,197,94,0.15);
-  --red-light:        rgba(239,68,68,0.12);
-  --yellow-light:     rgba(245,158,11,0.12);
-  --blue-light:       rgba(59,130,246,0.12);
-  --purple-light:     rgba(139,92,246,0.12);
-
-  --stat-green-bg:    rgba(34,197,94,0.12);
-  --stat-green-icon:  #4ADE80;
-  --stat-yellow-bg:   rgba(239,68,68,0.12);
-  --stat-yellow-icon: #F87171;
-  --stat-purple-bg:   rgba(139,92,246,0.12);
-  --stat-purple-icon: #A78BFA;
-  --stat-blue-bg:     rgba(59,130,246,0.12);
-  --stat-blue-icon:   #60A5FA;
+  /* Tokens do rail espresso (sidebar) */
+  --rail-bg:          #5C4A3F;
+  --rail-text:        #E6DDCE;
+  --rail-text-dim:    rgba(230,221,206,0.62);
+  --rail-hover:       rgba(230,221,206,0.09);
+  --rail-active-bg:   rgba(230,221,206,0.15);
+  --rail-border:      rgba(0,0,0,0.12);
 }
 
 /* ===== SIDEBAR ===== */
@@ -346,7 +317,7 @@ input, select, textarea { font-family: inherit; }
   align-items: center;
   gap: 10px;
   padding: 14px 16px;
-  background: linear-gradient(135deg, #6C63FF, #A78BFA);
+  background: linear-gradient(135deg, #7F6658, #C9A06A);
   border-radius: 16px;
   cursor: pointer;
   transition: var(--transition);
@@ -573,7 +544,7 @@ body.sidebar-collapsed .main {
 .form-hint { font-size: 12px; color: var(--text-2); line-height: 1.5; margin: 0; }
 .topbar-avatar {
   width: 36px; height: 36px;
-  background: linear-gradient(135deg, #6C63FF, #A78BFA);
+  background: linear-gradient(135deg, #7F6658, #C9A06A);
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   font-size: 13px; font-weight: 700; color: white;
@@ -666,6 +637,7 @@ body.sidebar-collapsed .main {
   line-height: 1;
   margin-bottom: 6px;
   color: var(--text-1);
+  font-variant-numeric: tabular-nums;
 }
 
 .stat-sub {
@@ -687,7 +659,7 @@ body.sidebar-collapsed .main {
   padding: 3px 8px;
   border-radius: var(--radius-badge);
 }
-.stat-badge.up   { background: var(--green-light); color: #16A34A; }
+.stat-badge.up   { background: var(--green-light); color: var(--green); }
 .stat-badge.down { background: var(--red-light);   color: var(--red); }
 
 /* ===== SPARKLINES ===== */
@@ -1046,7 +1018,7 @@ tbody td {
   font-weight: 500;
   white-space: nowrap;
 }
-.badge-green  { background: var(--green-light);   color: #16A34A; }
+.badge-green  { background: var(--green-light);   color: var(--green); }
 .badge-red    { background: var(--red-light);      color: var(--red); }
 .badge-gold   { background: var(--yellow-light);   color: var(--yellow); }
 .badge-blue   { background: var(--blue-light);     color: #2563EB; }
@@ -1055,8 +1027,8 @@ tbody td {
 .badge-teal   { background: rgba(20,184,166,0.12); color: #0F766E; }
 
 /* ===== VALUE COLORS ===== */
-.val-green { color: #16A34A; font-weight: 600; }
-.val-red   { color: var(--red); font-weight: 600; }
+.val-green { color: var(--green); font-weight: 600; font-variant-numeric: tabular-nums; }
+.val-red   { color: var(--red);   font-weight: 600; font-variant-numeric: tabular-nums; }
 .val-gold  { color: var(--gold); font-weight: 600; }
 .text-muted { color: var(--text-3); font-style: italic; }
 
@@ -1412,7 +1384,7 @@ select.form-control { cursor: pointer; }
   align-items: center;
   gap: 12px;
   padding: 14px 20px;
-  background: #0F0F1A;
+  background: #3B3128;
   color: white;
   border-radius: 14px;
   font-size: 13.5px;
@@ -1501,7 +1473,7 @@ select.form-control { cursor: pointer; }
 
 /* ===== PDF EXPORT CARD ===== */
 .export-card {
-  background: linear-gradient(135deg, #6C63FF 0%, #A78BFA 100%);
+  background: linear-gradient(135deg, #7F6658 0%, #C9A06A 100%);
   border-radius: var(--radius-card);
   padding: 22px 26px;
   display: flex; align-items: center; justify-content: space-between;
@@ -1551,7 +1523,7 @@ select.form-control { cursor: pointer; }
   object-fit: cover;
   border: 3px solid var(--accent);
   display: flex; align-items: center; justify-content: center;
-  background: linear-gradient(135deg, #6C63FF, #A78BFA);
+  background: linear-gradient(135deg, #7F6658, #C9A06A);
   font-size: 34px; font-weight: 800; color: white; overflow: hidden;
 }
 .perfil-avatar-img img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
@@ -1724,7 +1696,7 @@ select.form-control { cursor: pointer; }
   bottom: 28px;
   right: 28px;
   width: 56px; height: 56px;
-  background: linear-gradient(135deg, var(--accent), #A78BFA);
+  background: linear-gradient(135deg, var(--accent), #C9A06A);
   color: white;
   border: none;
   border-radius: 16px;
@@ -1864,7 +1836,7 @@ select.form-control { cursor: pointer; }
   font-size: 14px;
   font-weight: 600;
   border: none;
-  background: linear-gradient(135deg, var(--accent), #A78BFA);
+  background: linear-gradient(135deg, var(--accent), #C9A06A);
   color: white;
   cursor: pointer;
   transition: all 0.25s ease;
@@ -1945,4 +1917,67 @@ select.form-control { cursor: pointer; }
   .ai-float-btn { bottom: 20px; right: 20px; width: 52px; height: 52px; }
   .toast-container { bottom: 80px; right: 16px; left: 16px; }
   .toast { min-width: unset; width: 100%; }
+}
+
+/* ============================================================
+   ASSINATURA — RAIL ESPRESSO (sidebar escura, texto creme)
+   A única peça ousada da paleta; tudo o mais fica disciplinado.
+   ============================================================ */
+.sidebar {
+  background: var(--rail-bg);
+  border-right: 1px solid var(--rail-border);
+}
+.brand-name { color: var(--rail-text); }
+.brand-sub  { color: var(--rail-text-dim); }
+.brand-icon { background: rgba(230,221,206,0.12); }
+.brand-icon svg,
+.brand-icon svg path[fill]   { fill: var(--accent-2); }
+.brand-icon svg path[stroke] { stroke: var(--accent-2); }
+
+.nav-section-label { color: var(--rail-text-dim); }
+
+.nav-item { color: var(--rail-text-dim); }
+.nav-item:hover { background: var(--rail-hover); color: var(--rail-text); }
+.nav-item.active { background: var(--rail-active-bg); color: var(--rail-text); }
+.nav-item.active .nav-icon { color: var(--accent-2); opacity: 1; }
+
+/* indicador ativo — tab dourada (eco do chip da identidade) */
+.sidebar .nav-item.active::before {
+  display: block;
+  content: '';
+  position: absolute;
+  left: -12px; top: 50%; transform: translateY(-50%);
+  width: 3px; height: 20px;
+  background: var(--accent-2);
+  border-radius: 0 3px 3px 0;
+}
+.sidebar.collapsed .nav-item.active::before { left: -10px; height: 18px; }
+
+.sidebar-toggle {
+  background: rgba(230,221,206,0.08);
+  border: 1px solid var(--rail-border);
+  color: var(--rail-text-dim);
+}
+.sidebar-toggle:hover {
+  background: rgba(230,221,206,0.18);
+  color: var(--rail-text);
+  border-color: rgba(230,221,206,0.3);
+}
+
+/* footer — card translúcido creme no lugar do gradiente roxo */
+.user-card {
+  background: rgba(230,221,206,0.10);
+  border: 1px solid var(--rail-border);
+}
+.user-card:hover { background: rgba(230,221,206,0.16); transform: translateY(-1px); }
+.user-avatar { background: rgba(230,221,206,0.22); color: var(--rail-text); }
+.user-name { color: var(--rail-text); }
+.user-role { color: var(--rail-text-dim); }
+.user-logout { color: var(--rail-text-dim); }
+.user-logout:hover { color: var(--rail-text); background: rgba(230,221,206,0.12); }
+
+/* tooltip da sidebar colapsada — sobre o canvas, mantém legível */
+.sidebar.collapsed .nav-item::after {
+  background: var(--rail-bg);
+  color: var(--rail-text);
 }
