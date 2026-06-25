@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ClinicFinance — Controle Financeiro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Overlay mobile -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebarCollapse()" title="Retrair / Expandir menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="sidebar-brand">
+      <div class="brand-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2L2 7l10 5 10-5-10-5z" fill="#10B981"/>
+          <path d="M2 17l10 5 10-5M2 12l10 5 10-5" stroke="#10B981" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <span class="brand-name">ClinicFinance</span>
+        <span class="brand-sub">Gestão Financeira</span>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">Principal</div>
+      <a href="#" class="nav-item active" data-view="dashboard" data-tooltip="Dashboard">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+        </svg>
+        <span>Dashboard</span>
+      </a>
+      <a href="#" class="nav-item" data-view="entradas" data-tooltip="Entradas">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 19V5M5 12l7-7 7 7"/>
+        </svg>
+        <span>Entradas</span>
+      </a>
+      <a href="#" class="nav-item" data-view="saidas" data-tooltip="Saídas">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 5v14M5 12l7 7 7-7"/>
+        </svg>
+        <span>Saídas</span>
+      </a>
+      <a href="#" class="nav-item" data-view="consultorio" data-tooltip="Consultório">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+        <span>Consultório</span>
+      </a>
+
+      <div class="nav-section-label">Análises</div>
+      <a href="#" class="nav-item" data-view="produtos" data-tooltip="Produtos">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
+          <line x1="7" y1="7" x2="7.01" y2="7"/>
+        </svg>
+        <span>Produtos & Insumos</span>
+      </a>
+      <a href="#" class="nav-item" data-view="margem" data-tooltip="Margem de Lucro">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+        </svg>
+        <span>Margem de Lucro</span>
+      </a>
+      <a href="#" class="nav-item" data-view="precificacao" data-tooltip="Precificação">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
+          <line x1="7" y1="7" x2="7.01" y2="7"/>
+        </svg>
+        <span>Precificação</span>
+      </a>
+      <a href="#" class="nav-item" data-view="graficos" data-tooltip="Gráficos">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
+          <line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/>
+        </svg>
+        <span>Gráficos</span>
+      </a>
+
+      <div class="nav-section-label">Conta</div>
+      <a href="#" class="nav-item" data-view="perfil" data-tooltip="Meu Perfil">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
+        <span>Meu Perfil</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <!-- Preenchido dinamicamente pelo JS com dados reais do Supabase -->
+      <div class="user-card" id="sidebarUserCard">
+        <div class="user-avatar" id="sidebarAvatar">…</div>
+        <div class="user-info">
+          <span class="user-name" id="sidebarName">Carregando…</span>
+          <span class="user-role" id="sidebarRole">—</span>
+        </div>
+        <button class="user-logout" id="btnLogout" title="Sair" onclick="handleLogout()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main" id="main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="menu-btn" id="menuBtn" onclick="toggleSidebar()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+          </svg>
+        </button>
+        <h1 class="page-title" id="pageTitle">Dashboard</h1>
+      </div>
+      <div class="topbar-center">
+        <div class="topbar-search">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+          </svg>
+          <input type="text" placeholder="Buscar no sistema…" />
+        </div>
+      </div>
+      <div class="topbar-right">
+        <span class="date-badge" id="dateBadge"></span>
+        <button class="topbar-icon-btn" onclick="toggleTheme()" title="Alternar tema">
+          <svg id="themeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+          </svg>
+        </button>
+        <button class="topbar-icon-btn notif-btn" title="Notificações">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/>
+          </svg>
+          <span class="notif-badge">1</span>
+        </button>
+        <div class="topbar-avatar" id="topbarAvatar" onclick="navigateTo('perfil')" title="Meu Perfil">?</div>
+      </div>
+    </header>
+
+    <!-- Auth loading screen -->
+    <div id="authLoading" style="display:flex;align-items:center;justify-content:center;height:calc(100vh - 64px);flex-direction:column;gap:14px">
+      <div style="width:36px;height:36px;border:3px solid #E2E8F0;border-top-color:#10B981;border-radius:50%;animation:spin 0.7s linear infinite"></div>
+      <p style="font-size:14px;color:#64748B">Verificando sessão…</p>
+    </div>
+
+    <div class="content" id="content" style="display:none">
+      <!-- Rendered by JS -->
+    </div>
+  </main>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="modalOverlay" onclick="closeModalOnOverlay(event)">
+    <div class="modal" id="modal">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modalTitle"></h3>
+        <button class="modal-close" onclick="closeModal()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body" id="modalBody"></div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- AI Float Button -->
+  <button class="ai-float-btn" id="aiFloatBtn" onclick="toggleAiPanel()" title="ClinicAI — Assistente Inteligente">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+    </svg>
+  </button>
+
+  <!-- AI Panel Overlay -->
+  <div class="ai-overlay" id="aiOverlay" onclick="closeAiPanel()"></div>
+
+  <!-- AI Panel -->
+  <div class="ai-panel" id="aiPanel">
+    <div class="ai-panel-header">
+      <div class="ai-panel-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);flex-shrink:0">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+        </svg>
+        ClinicAI
+        <span class="ai-beta-badge">Beta</span>
+      </div>
+      <button class="ai-panel-close" onclick="closeAiPanel()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+    <div class="ai-tabs">
+      <button class="ai-tab active" data-tab="insights" onclick="setAiTab('insights')">✦ Insights</button>
+      <button class="ai-tab" data-tab="preco" onclick="setAiTab('preco')">R$ Preço</button>
+      <button class="ai-tab" data-tab="relatorio" onclick="setAiTab('relatorio')">📄 Relatório</button>
+    </div>
+    <div class="ai-panel-body" id="aiPanelBody">
+      <!-- Rendered by ai.js -->
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="app.js?v=4"></script>
+  <script src="ai.js?v=1"></script>
+</body>
+</html>

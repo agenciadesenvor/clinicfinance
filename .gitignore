@@ -1,0 +1,10 @@
+# macOS
+.DS_Store
+
+# Claude Code
+.claude/
+
+# Logs / temporários
+*.log
+node_modules/
+.vercel
