@@ -760,7 +760,7 @@ function recentPanel(items) {
 
 function initDashboardCharts() {
   const { entries, exits, clinic, products } = getData();
-  Chart.defaults.font.family = 'Inter, sans-serif';
+  Chart.defaults.font.family = 'DM Sans, sans-serif';
   Chart.defaults.color = '#64748B';
   const monthly = getMonthlyData(entries, exits, clinic, 6, products);
   createChart('chartRevExp', {
@@ -2069,7 +2069,7 @@ function initGraficosCharts() {
   const fe = filterByPeriod(entries);
   const fx = filterByPeriod(exits);
   const fc = filterClinicByPeriod(clinic);
-  Chart.defaults.font.family = 'Inter, sans-serif';
+  Chart.defaults.font.family = 'DM Sans, sans-serif';
   Chart.defaults.color = '#64748B';
 
   const monthly = getMonthlyData(entries, exits, clinic, 6, products);

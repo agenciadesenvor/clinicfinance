@@ -6,7 +6,7 @@
 
 /* ===== RESET ===== */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; font-family: 'Inter', -apple-system, sans-serif; }
+html, body { height: 100%; font-family: 'DM Sans', -apple-system, sans-serif; }
 
 /* ===== LAYOUT — fundo #EEEEF3, card central ===== */
 .auth-wrap {
@@ -78,7 +78,7 @@ html, body { height: 100%; font-family: 'Inter', -apple-system, sans-serif; }
   color: #6B7280;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-family: 'Inter', sans-serif;
+  font-family: 'DM Sans', sans-serif;
 }
 .auth-tab.active {
   background: #fff;
@@ -113,7 +113,7 @@ html, body { height: 100%; font-family: 'Inter', -apple-system, sans-serif; }
   background: #F7F7FB;
   font-size: 14px;
   color: #0F0F1A;
-  font-family: 'Inter', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   outline: none;
   transition: all 0.2s ease;
   width: 100%;
@@ -169,7 +169,7 @@ html, body { height: 100%; font-family: 'Inter', -apple-system, sans-serif; }
   border: none;
   font-size: 14.5px;
   font-weight: 700;
-  font-family: 'Inter', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
