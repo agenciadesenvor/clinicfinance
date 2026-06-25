@@ -458,6 +458,111 @@ function filterByPeriod(arr) {
   return arr.filter(x => { const d = new Date(x.date + 'T12:00:00'); return d >= s && d <= e; });
 }
 
+/* Filtro específico do Consultório: gastos FIXOS (mensais) valem para
+   todos os períodos/meses; gastos pontuais são filtrados pela data. */
+function filterClinicByPeriod(arr) {
+  const { s, e } = getDateRange();
+  return arr.filter(x => {
+    if (x.recurrence === 'mensal') return true;
+    const d = new Date(x.date + 'T12:00:00');
+    return d >= s && d <= e;
+  });
+}
+
+/* ===== NOTIFICAÇÕES — pagamentos do consultório próximos do vencimento ===== */
+const NOTIF_WINDOW_DAYS = 7; // avisa pagamentos que vencem dentro deste prazo
+const toISODate = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const daysInMonth = (y, m) => new Date(y, m + 1, 0).getDate();
+
+/* Próxima ocorrência de um dia do mês a partir de "from" (inclui hoje). */
+function nextMonthlyDue(day, from) {
+  const y = from.getFullYear(), m = from.getMonth();
+  let d = new Date(y, m, Math.min(day, daysInMonth(y, m)));
+  if (d < from) { const nm = m + 1; d = new Date(y, nm, Math.min(day, daysInMonth(y, nm))); }
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+/* Lista os gastos do consultório cujo vencimento cai dentro da janela. */
+function getUpcomingClinicPayments(windowDays = NOTIF_WINDOW_DAYS) {
+  const clinic = getData().clinic || [];
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  const out = [];
+  clinic.forEach(e => {
+    if (!e.date) return;
+    let due;
+    if (e.recurrence === 'mensal') {
+      // gasto fixo: usa o DIA da data cadastrada como dia de vencimento mensal
+      const day = new Date(e.date + 'T12:00:00').getDate();
+      due = nextMonthlyDue(day, now);
+    } else {
+      // gasto pontual: usa a própria data (só avisa se for hoje ou futura)
+      due = new Date(e.date + 'T12:00:00'); due.setHours(0, 0, 0, 0);
+    }
+    const diffDays = Math.round((due - now) / 86400000);
+    if (diffDays >= 0 && diffDays <= windowDays) out.push({ ...e, due, diffDays });
+  });
+  return out.sort((a, b) => a.due - b.due);
+}
+
+function updateNotifBadge() {
+  const badge = document.getElementById('notifBadge');
+  if (!badge) return;
+  const n = getUpcomingClinicPayments().length;
+  if (n > 0) { badge.textContent = n > 9 ? '9+' : n; badge.style.display = ''; }
+  else badge.style.display = 'none';
+}
+
+function renderNotifDropdown() {
+  const body = document.getElementById('notifDropdownBody');
+  if (!body) return;
+  const list = getUpcomingClinicPayments();
+  if (!list.length) {
+    body.innerHTML = `<div class="notif-empty">Nenhum pagamento próximo do vencimento.</div>`;
+    return;
+  }
+  body.innerHTML = list.map(e => {
+    const when = e.diffDays === 0 ? 'Vence hoje'
+               : e.diffDays === 1 ? 'Vence amanhã'
+               : `Vence em ${e.diffDays} dias`;
+    const urgency = e.diffDays <= 1 ? 'notif-urgent' : e.diffDays <= 3 ? 'notif-soon' : '';
+    return `<div class="notif-item ${urgency}" onclick="navigateTo('consultorio');closeNotifPanel()">
+      <div class="notif-item-main">
+        <div class="notif-item-title">${esc(e.description)}</div>
+        <div class="notif-item-sub">${CLINIC_CATEGORIES[e.category] || e.category} · ${fCurrency(e.value)}${e.recurrence === 'mensal' ? ' · fixo' : ''}</div>
+      </div>
+      <div class="notif-item-when">
+        <span class="notif-when-label">${when}</span>
+        <span class="notif-when-date">${fDateShort(toISODate(e.due))}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+let _notifOutsideHandler = null;
+function toggleNotifPanel(ev) {
+  if (ev) ev.stopPropagation();
+  const dd = document.getElementById('notifDropdown');
+  if (!dd) return;
+  const open = dd.classList.toggle('open');
+  if (open) {
+    renderNotifDropdown();
+    _notifOutsideHandler = (e) => {
+      const wrap = document.querySelector('.notif-wrap');
+      if (wrap && !wrap.contains(e.target)) closeNotifPanel();
+    };
+    document.addEventListener('click', _notifOutsideHandler);
+  } else if (_notifOutsideHandler) {
+    document.removeEventListener('click', _notifOutsideHandler);
+    _notifOutsideHandler = null;
+  }
+}
+function closeNotifPanel() {
+  const dd = document.getElementById('notifDropdown');
+  if (dd) dd.classList.remove('open');
+  if (_notifOutsideHandler) { document.removeEventListener('click', _notifOutsideHandler); _notifOutsideHandler = null; }
+}
+
 /* ===== NAVIGATION ===== */
 function navigateTo(view) {
   destroyAllCharts();
@@ -526,7 +631,7 @@ function renderDashboard() {
   const { entries, exits, clinic, products } = getData();
   const fe = filterByPeriod(entries);
   const fx = filterByPeriod(exits);
-  const fc = filterByPeriod(clinic);
+  const fc = filterClinicByPeriod(clinic);
   const revenue      = fe.reduce((s,e) => s + e.value, 0);
   const expSaidas    = fx.reduce((s,e) => s + e.value, 0);
   const expClinic    = fc.reduce((s,e) => s + e.value, 0);
@@ -996,7 +1101,7 @@ async function deleteEntry(id) {
 function renderSaidas() {
   const { exits, products, clinic } = getData();
   const fe = filterByPeriod(exits);
-  const fc = filterByPeriod(clinic);
+  const fc = filterClinicByPeriod(clinic);
   const q  = state.searchTerms.saidas.toLowerCase();
 
   // Produtos cadastrados como saída
@@ -1487,7 +1592,7 @@ function viewNota(id) {
 /* ===== CONSULTÓRIO ===== */
 function renderConsultorio() {
   const clinic = getData().clinic;
-  const fc = filterByPeriod(clinic);
+  const fc = filterClinicByPeriod(clinic);
   const q  = (state.searchTerms.consultorio || '').toLowerCase();
   const filtered = q ? fc.filter(e => e.description.toLowerCase().includes(q) || CLINIC_CATEGORIES[e.category]?.toLowerCase().includes(q)) : fc;
   const sorted = filtered.slice().sort((a,b) => b.date.localeCompare(a.date));
@@ -1605,6 +1710,9 @@ function openConsultorioModal(id = null) {
             <option value="pontual" ${e?.recurrence === 'pontual' ? 'selected' : ''}>Pontual (variável)</option>
           </select>
         </div>
+        <div class="form-group form-full">
+          <p class="form-hint">Gastos <strong>mensais (fixos)</strong> aparecem em todos os meses e geram aviso de vencimento. O <strong>dia da data</strong> acima é usado como dia de vencimento (ex.: todo dia 05).</p>
+        </div>
       </div>
       <div class="form-actions">
         <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
@@ -1643,6 +1751,7 @@ async function saveConsultorio(event) {
   }
   closeModal();
   renderView('consultorio');
+  updateNotifBadge();
 }
 
 async function deleteClinic(id) {
@@ -1652,6 +1761,7 @@ async function deleteClinic(id) {
   state.data.clinic = state.data.clinic.filter(x => x.id !== id);
   toast('Gasto excluído.', 'success');
   renderView('consultorio');
+  updateNotifBadge();
 }
 
 /* ===== MARGEM ===== */
@@ -1659,7 +1769,7 @@ function renderMargem() {
   const { entries, exits, products, clinic, entradaInsumos, pricing } = getData();
   const fe = filterByPeriod(entries);
   const fx = filterByPeriod(exits);
-  const fc = filterByPeriod(clinic);
+  const fc = filterClinicByPeriod(clinic);
 
   const cards = Object.entries(PROCEDURES).map(([key, name]) => {
     const procEntries = fe.filter(e => e.procedure === key);
@@ -1958,7 +2068,7 @@ function initGraficosCharts() {
   const { entries, exits, products, clinic } = getData();
   const fe = filterByPeriod(entries);
   const fx = filterByPeriod(exits);
-  const fc = filterByPeriod(clinic);
+  const fc = filterClinicByPeriod(clinic);
   Chart.defaults.font.family = 'Inter, sans-serif';
   Chart.defaults.color = '#64748B';
 
@@ -2278,7 +2388,7 @@ function generatePDF(label) {
   const { entries, exits, clinic, products } = getData();
   const fe = filterByPeriod(entries);
   const fx = filterByPeriod(exits);
-  const fc = filterByPeriod(clinic);
+  const fc = filterClinicByPeriod(clinic);
   const { s, e } = getDateRange();
   state.filter.period = origPeriod;
 
@@ -2481,6 +2591,7 @@ document.addEventListener('DOMContentLoaded', () => {
       // Só renderiza se esta carga não foi cancelada
       if (!signal.aborted) {
         renderView(state.currentView);
+        updateNotifBadge();
       }
     } else {
       if (_loadController) { _loadController.abort(); _loadController = null; }
