@@ -149,6 +149,7 @@ function docFieldLine(doc, label, value, x, y, width) {
 
 /* ===== Leitura de valores do DOM ===== */
 const docVal = id => (document.getElementById(id)?.value || '').trim();
+const docDateStr = id => { const v = docVal(id); return v ? fDate(v) : ''; };
 
 function checkboxPdf(doc, x, y, checked) {
   doc.setDrawColor(...DOC_TAUPE); doc.setLineWidth(0.3);
@@ -174,16 +175,35 @@ function renderExames() {
     </label>`;
   }).join('');
 
-  return `
+  const html = `
   <div class="section-header">
-    <div><div class="section-title">Receituário de Exames</div><div class="section-sub">Marque os exames e gere o PDF com a identidade da clínica</div></div>
-    <button class="btn btn-primary" onclick="pdfExames()">${iconDownload()} Gerar PDF</button>
+    <div><div class="section-title">Receituário de Exames</div><div class="section-sub">Marque os exames, salve na sua conta e gere o PDF</div></div>
+    <div class="doc-actions">
+      <button class="btn btn-secondary" onclick="newDoc('exames')">${iconPlus()} Novo</button>
+      <button class="btn btn-secondary" onclick="pdfExames()">${iconDownload()} Gerar PDF</button>
+      <button class="btn btn-primary" id="btnSalvarExames" onclick="saveDoc('exames')">${iconCheck()} Salvar</button>
+    </div>
   </div>
 
   <div class="card doc-card">
-    <div class="form-group form-full" style="margin-bottom:18px">
-      <label class="form-label" for="exPaciente">Paciente</label>
-      <input type="text" class="form-control" id="exPaciente" placeholder="Nome da paciente…" />
+    <div class="doc-block-title">Exames salvos</div>
+    <div class="table-search doc-search">${iconSearch()}
+      <input type="text" id="examesSearch" placeholder="Buscar por nome da paciente…" oninput="searchDoc('exames', this.value)" aria-label="Buscar receituário de exames por nome da paciente" autocomplete="off" spellcheck="false" />
+    </div>
+    <div id="examesList" class="doc-list">${docListLoadingHTML()}</div>
+  </div>
+
+  <div class="card doc-card" style="margin-top:20px">
+    <div class="doc-block-title"><span id="examesFormTitle">Novo receituário de exames</span></div>
+    <div class="form-grid" style="margin-bottom:14px">
+      <div class="form-group">
+        <label class="form-label" for="exPaciente">Paciente</label>
+        <input type="text" class="form-control" id="exPaciente" placeholder="Nome da paciente…" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="exData">Data</label>
+        <input type="date" class="form-control" id="exData" value="${today()}" />
+      </div>
     </div>
 
     <div class="doc-toolbar">
@@ -204,6 +224,9 @@ function renderExames() {
       <textarea class="form-control" id="exOutros" rows="2" placeholder="Outros exames não listados…"></textarea>
     </div>
   </div>`;
+
+  setTimeout(() => loadDocs('exames'), 0);
+  return html;
 }
 
 function examesToggleAll(state) {
@@ -225,7 +248,12 @@ async function pdfExames() {
   doc.setFontSize(11);
   doc.text('PACIENTE:', 14, y);
   doc.setFont('helvetica', 'normal'); doc.setTextColor(40, 34, 28);
-  doc.text(docVal('exPaciente'), 38, y); y += 12;
+  doc.text(docVal('exPaciente'), 38, y);
+  doc.setFont('helvetica', 'bold'); doc.setTextColor(...DOC_TAUPE);
+  doc.text('Data: ', 160, y);
+  doc.setFont('helvetica', 'normal'); doc.setTextColor(40, 34, 28);
+  doc.text(docDateStr('exData') || '__/__/____', 173, y);
+  y += 12;
 
   // checklist em 2 colunas
   const half = Math.ceil(EXAM_LIST.length / 2);
@@ -269,22 +297,44 @@ async function pdfExames() {
    ABA 2 — RECEITUÁRIO (texto livre → PDF)
    ============================================================ */
 function renderReceituario() {
-  return `
+  const html = `
   <div class="section-header">
-    <div><div class="section-title">Receituário</div><div class="section-sub">Escreva a prescrição e gere o PDF</div></div>
-    <button class="btn btn-primary" onclick="pdfReceituario()">${iconDownload()} Gerar PDF</button>
+    <div><div class="section-title">Receituário</div><div class="section-sub">Escreva a prescrição, salve na sua conta e gere o PDF</div></div>
+    <div class="doc-actions">
+      <button class="btn btn-secondary" onclick="newDoc('receituario')">${iconPlus()} Novo</button>
+      <button class="btn btn-secondary" onclick="pdfReceituario()">${iconDownload()} Gerar PDF</button>
+      <button class="btn btn-primary" id="btnSalvarRec" onclick="saveDoc('receituario')">${iconCheck()} Salvar</button>
+    </div>
   </div>
 
   <div class="card doc-card">
-    <div class="form-group form-full" style="margin-bottom:18px">
-      <label class="form-label" for="recPaciente">Paciente</label>
-      <input type="text" class="form-control" id="recPaciente" placeholder="Nome da paciente…" />
+    <div class="doc-block-title">Receituários salvos</div>
+    <div class="table-search doc-search">${iconSearch()}
+      <input type="text" id="recSearch" placeholder="Buscar por nome da paciente…" oninput="searchDoc('receituario', this.value)" aria-label="Buscar receituário por nome da paciente" autocomplete="off" spellcheck="false" />
+    </div>
+    <div id="recList" class="doc-list">${docListLoadingHTML()}</div>
+  </div>
+
+  <div class="card doc-card" style="margin-top:20px">
+    <div class="doc-block-title"><span id="recFormTitle">Novo receituário</span></div>
+    <div class="form-grid" style="margin-bottom:6px">
+      <div class="form-group">
+        <label class="form-label" for="recPaciente">Paciente</label>
+        <input type="text" class="form-control" id="recPaciente" placeholder="Nome da paciente…" />
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="recData">Data</label>
+        <input type="date" class="form-control" id="recData" value="${today()}" />
+      </div>
     </div>
     <div class="form-group form-full">
       <label class="form-label" for="recTexto">Prescrição</label>
-      <textarea class="form-control doc-textarea" id="recTexto" rows="16" placeholder="Digite a prescrição…"></textarea>
+      <textarea class="form-control doc-textarea" id="recTexto" rows="14" placeholder="Digite a prescrição…"></textarea>
     </div>
   </div>`;
+
+  setTimeout(() => loadDocs('receituario'), 0);
+  return html;
 }
 
 async function pdfReceituario() {
@@ -300,6 +350,10 @@ async function pdfReceituario() {
   doc.text('PACIENTE:', 14, y);
   doc.setFont('helvetica', 'normal'); doc.setTextColor(40, 34, 28);
   doc.text(docVal('recPaciente'), 42, y);
+  doc.setFont('helvetica', 'bold'); doc.setTextColor(...DOC_TAUPE);
+  doc.text('Data: ', 160, y);
+  doc.setFont('helvetica', 'normal'); doc.setTextColor(40, 34, 28);
+  doc.text(docDateStr('recData') || '__/__/____', 174, y);
   y += 14;
 
   const texto = docVal('recTexto');
@@ -342,22 +396,26 @@ function renderAnamnese() {
   <div class="section-header">
     <div><div class="section-title">Ficha de Anamnese</div><div class="section-sub">Harmonização Facial — preencha, salve na sua conta e gere o PDF</div></div>
     <div class="doc-actions">
-      <button class="btn btn-secondary" onclick="newAnamnese()">${iconPlus()} Nova ficha</button>
+      <button class="btn btn-secondary" onclick="newDoc('anamnese')">${iconPlus()} Nova ficha</button>
       <button class="btn btn-secondary" onclick="pdfAnamnese()">${iconDownload()} Gerar PDF</button>
-      <button class="btn btn-primary" id="btnSalvarAnamnese" onclick="saveAnamnese()">${iconCheck()} Salvar ficha</button>
+      <button class="btn btn-primary" id="btnSalvarAnamnese" onclick="saveDoc('anamnese')">${iconCheck()} Salvar ficha</button>
     </div>
   </div>
 
   <div class="card doc-card">
     <div class="doc-block-title">Fichas salvas</div>
     <div class="table-search doc-search">${iconSearch()}
-      <input type="text" id="anamneseSearch" placeholder="Buscar por nome da paciente…" oninput="searchAnamnese(this.value)" aria-label="Buscar ficha por nome da paciente" autocomplete="off" spellcheck="false" />
+      <input type="text" id="anamneseSearch" placeholder="Buscar por nome da paciente…" oninput="searchDoc('anamnese', this.value)" aria-label="Buscar ficha por nome da paciente" autocomplete="off" spellcheck="false" />
     </div>
-    <div id="anamneseList" class="doc-list">${anamneseListLoadingHTML()}</div>
+    <div id="anamneseList" class="doc-list">${docListLoadingHTML()}</div>
   </div>
 
   <div class="card doc-card" style="margin-top:20px">
     <div class="doc-block-title"><span id="anamneseFormTitle">Nova ficha — dados da paciente</span></div>
+    <div class="form-group" style="max-width:240px;margin-bottom:16px">
+      <label class="form-label" for="an_data">Data da consulta</label>
+      <input type="date" class="form-control" id="an_data" value="${today()}" />
+    </div>
     <div class="form-grid">${fields}</div>
 
     <div class="form-group form-full" style="margin-top:8px">
@@ -379,58 +437,94 @@ function renderAnamnese() {
     <p class="doc-term">Termo de responsabilidade: ao gerar este documento, a paciente declara estar ciente e de acordo com todas as informações acima relacionadas.</p>
   </div>`;
 
-  setTimeout(loadAnamneses, 0);
+  setTimeout(() => loadDocs('anamnese'), 0);
   return html;
 }
 
-/* ===== Persistência da Ficha de Anamnese (Supabase) ===== */
-let _anamneses = [];
-let _anamneseSearch = '';
-let _editingAnamneseId = null;
+/* ===== Persistência de Documentos (Supabase) — genérico p/ as 3 abas ===== */
+const DOC_CONFIG = {
+  anamnese: {
+    table: 'anamneses', noun: 'ficha',
+    nameId: 'an_paciente', dateId: 'an_data',
+    listId: 'anamneseList', titleId: 'anamneseFormTitle', saveBtnId: 'btnSalvarAnamnese',
+    titleNew: 'Nova ficha — dados da paciente',
+    emptyLabel: 'Nenhuma ficha salva ainda. Preencha abaixo e clique em “Salvar ficha”.',
+    collect: () => collectAnamneseData(),
+    fill: (d) => fillAnamneseForm(d)
+  },
+  receituario: {
+    table: 'receituarios', noun: 'receituário',
+    nameId: 'recPaciente', dateId: 'recData',
+    listId: 'recList', titleId: 'recFormTitle', saveBtnId: 'btnSalvarRec',
+    titleNew: 'Novo receituário',
+    emptyLabel: 'Nenhum receituário salvo ainda.',
+    collect: () => ({ texto: docVal('recTexto') }),
+    fill: (d) => { const el = document.getElementById('recTexto'); if (el) el.value = (d && d.texto) || ''; }
+  },
+  exames: {
+    table: 'exames', noun: 'receituário de exames',
+    nameId: 'exPaciente', dateId: 'exData',
+    listId: 'examesList', titleId: 'examesFormTitle', saveBtnId: 'btnSalvarExames',
+    titleNew: 'Novo receituário de exames',
+    emptyLabel: 'Nenhum receituário de exames salvo ainda.',
+    collect: () => ({ selecionados: EXAM_LIST.filter((_, i) => document.getElementById('exam_' + i)?.checked), outros: docVal('exOutros') }),
+    fill: (d) => {
+      d = d || {}; const sel = d.selecionados || [];
+      EXAM_LIST.forEach((name, i) => { const el = document.getElementById('exam_' + i); if (el) el.checked = sel.includes(name); });
+      const o = document.getElementById('exOutros'); if (o) o.value = d.outros || '';
+    }
+  }
+};
 
-function anamneseListLoadingHTML() {
-  return `<div class="doc-list-empty">Carregando fichas…</div>`;
-}
+const _docStore = {
+  anamnese:    { list: [], search: '', editingId: null },
+  receituario: { list: [], search: '', editingId: null },
+  exames:      { list: [], search: '', editingId: null }
+};
 
-async function loadAnamneses() {
-  const listEl = document.getElementById('anamneseList');
-  if (typeof currentUser === 'undefined' || !currentUser) { if (listEl) listEl.innerHTML = `<div class="doc-list-empty">Faça login para ver as fichas salvas.</div>`; return; }
-  const { data, error } = await db('anamneses')
-    .select('id,patient_name,created_at')
+function docListLoadingHTML() { return `<div class="doc-list-empty">Carregando…</div>`; }
+
+async function loadDocs(type) {
+  const cfg = DOC_CONFIG[type], st = _docStore[type];
+  const listEl = document.getElementById(cfg.listId);
+  if (typeof currentUser === 'undefined' || !currentUser) { if (listEl) listEl.innerHTML = `<div class="doc-list-empty">Faça login para ver os registros salvos.</div>`; return; }
+  const { data, error } = await db(cfg.table)
+    .select('id,patient_name,doc_date,created_at')
     .eq('user_id', currentUser.id)
     .order('created_at', { ascending: false });
-  if (error) { if (listEl) listEl.innerHTML = `<div class="doc-list-empty">Erro ao carregar fichas.</div>`; return; }
-  _anamneses = data || [];
-  renderAnamneseList();
+  if (error) { if (listEl) listEl.innerHTML = `<div class="doc-list-empty">Erro ao carregar.</div>`; return; }
+  st.list = data || [];
+  renderDocList(type);
 }
 
-function renderAnamneseList() {
-  const listEl = document.getElementById('anamneseList');
+function renderDocList(type) {
+  const cfg = DOC_CONFIG[type], st = _docStore[type];
+  const listEl = document.getElementById(cfg.listId);
   if (!listEl) return;
-  const term = _anamneseSearch.trim().toLowerCase();
-  const items = term ? _anamneses.filter(a => (a.patient_name || '').toLowerCase().includes(term)) : _anamneses;
+  const term = st.search.trim().toLowerCase();
+  const items = term ? st.list.filter(a => (a.patient_name || '').toLowerCase().includes(term)) : st.list;
   if (!items.length) {
-    listEl.innerHTML = `<div class="doc-list-empty">${_anamneses.length ? 'Nenhuma ficha encontrada para essa busca.' : 'Nenhuma ficha salva ainda. Preencha abaixo e clique em “Salvar ficha”.'}</div>`;
+    listEl.innerHTML = `<div class="doc-list-empty">${st.list.length ? 'Nenhum resultado para essa busca.' : cfg.emptyLabel}</div>`;
     return;
   }
   listEl.innerHTML = items.map(a => {
-    const d = a.created_at ? new Date(a.created_at).toLocaleDateString('pt-BR') : '';
+    const d = a.doc_date ? fDate(a.doc_date) : (a.created_at ? new Date(a.created_at).toLocaleDateString('pt-BR') : '');
     const name = a.patient_name || '(sem nome)';
-    const active = a.id === _editingAnamneseId ? ' doc-list-item-active' : '';
+    const active = a.id === st.editingId ? ' doc-list-item-active' : '';
     return `<div class="doc-list-item${active}">
-      <button type="button" class="doc-list-info" onclick="openAnamnese('${a.id}')">
+      <button type="button" class="doc-list-info" onclick="openDoc('${type}','${a.id}')">
         <span class="doc-list-name">${esc(name)}</span>
         <span class="doc-list-date">${d}</span>
       </button>
       <div class="td-actions">
-        <button type="button" class="btn btn-ghost btn-icon" title="Abrir ficha" aria-label="Abrir ficha de ${esc(name)}" onclick="openAnamnese('${a.id}')">${iconEdit()}</button>
-        <button type="button" class="btn btn-danger btn-icon" title="Excluir ficha" aria-label="Excluir ficha de ${esc(name)}" onclick="deleteAnamnese('${a.id}')">${iconTrash()}</button>
+        <button type="button" class="btn btn-ghost btn-icon" title="Abrir" aria-label="Abrir ${cfg.noun} de ${esc(name)}" onclick="openDoc('${type}','${a.id}')">${iconEdit()}</button>
+        <button type="button" class="btn btn-danger btn-icon" title="Excluir" aria-label="Excluir ${cfg.noun} de ${esc(name)}" onclick="deleteDoc('${type}','${a.id}')">${iconTrash()}</button>
       </div>
     </div>`;
   }).join('');
 }
 
-function searchAnamnese(term) { _anamneseSearch = term || ''; renderAnamneseList(); }
+function searchDoc(type, term) { _docStore[type].search = term || ''; renderDocList(type); }
 
 function collectAnamneseData() {
   const data = { fields: {}, objetivo: docVal('an_objetivo'), observacoes: docVal('an_obs'), respostas: [] };
@@ -452,57 +546,63 @@ function fillAnamneseForm(data) {
   });
 }
 
-function setAnamneseFormTitle(txt) { const t = document.getElementById('anamneseFormTitle'); if (t) t.textContent = txt; }
+function setDocTitle(type, txt) { const t = document.getElementById(DOC_CONFIG[type].titleId); if (t) t.textContent = txt; }
 
-function newAnamnese() {
-  _editingAnamneseId = null;
-  fillAnamneseForm({});
-  setAnamneseFormTitle('Nova ficha — dados da paciente');
-  renderAnamneseList();
-  const el = document.getElementById('an_paciente'); if (el) el.focus();
+function newDoc(type) {
+  const cfg = DOC_CONFIG[type], st = _docStore[type];
+  st.editingId = null;
+  cfg.fill({});
+  const nameEl = document.getElementById(cfg.nameId); if (nameEl) nameEl.value = '';
+  const dateEl = document.getElementById(cfg.dateId); if (dateEl) dateEl.value = today();
+  setDocTitle(type, cfg.titleNew);
+  renderDocList(type);
+  if (nameEl) nameEl.focus();
 }
 
-async function saveAnamnese() {
+async function saveDoc(type) {
+  const cfg = DOC_CONFIG[type], st = _docStore[type];
   if (typeof currentUser === 'undefined' || !currentUser) { toast('Faça login para salvar.', 'error'); return; }
-  const name = docVal('an_paciente');
-  if (!name) { toast('Informe o nome da paciente para salvar.', 'error'); const el = document.getElementById('an_paciente'); if (el) el.focus(); return; }
-  const btn = document.getElementById('btnSalvarAnamnese');
-  if (btn) btn.disabled = true;
-  const payload = { patient_name: name, data: collectAnamneseData(), updated_at: new Date().toISOString() };
+  const name = docVal(cfg.nameId);
+  if (!name) { toast('Informe o nome da paciente para salvar.', 'error'); const el = document.getElementById(cfg.nameId); if (el) el.focus(); return; }
+  const btn = document.getElementById(cfg.saveBtnId); if (btn) btn.disabled = true;
+  const payload = { patient_name: name, doc_date: docVal(cfg.dateId) || null, data: cfg.collect(), updated_at: new Date().toISOString() };
   let error;
-  if (_editingAnamneseId) {
-    ({ error } = await db('anamneses').update(payload).eq('id', _editingAnamneseId));
+  if (st.editingId) {
+    ({ error } = await db(cfg.table).update(payload).eq('id', st.editingId));
   } else {
     const id = (typeof uid === 'function' ? uid() : crypto.randomUUID());
-    ({ error } = await db('anamneses').insert({ id, user_id: currentUser.id, ...payload }));
-    if (!error) _editingAnamneseId = id;
+    ({ error } = await db(cfg.table).insert({ id, user_id: currentUser.id, ...payload }));
+    if (!error) st.editingId = id;
   }
   if (btn) btn.disabled = false;
   if (error) { toast('Erro ao salvar: ' + error.message, 'error'); return; }
-  toast('Ficha salva!', 'success');
-  setAnamneseFormTitle('Editando ficha — ' + name);
-  await loadAnamneses();
+  toast('Salvo!', 'success');
+  setDocTitle(type, 'Editando — ' + name);
+  await loadDocs(type);
 }
 
-async function openAnamnese(id) {
-  const { data, error } = await db('anamneses').select('*').eq('id', id).single();
-  if (error || !data) { toast('Erro ao abrir ficha.', 'error'); return; }
-  _editingAnamneseId = id;
-  fillAnamneseForm(data.data);
-  const nameEl = document.getElementById('an_paciente'); if (nameEl && !nameEl.value) nameEl.value = data.patient_name || '';
-  setAnamneseFormTitle('Editando ficha — ' + (data.patient_name || ''));
-  renderAnamneseList();
-  toast('Ficha carregada.', 'success');
-  const t = document.getElementById('anamneseFormTitle'); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+async function openDoc(type, id) {
+  const cfg = DOC_CONFIG[type], st = _docStore[type];
+  const { data, error } = await db(cfg.table).select('*').eq('id', id).single();
+  if (error || !data) { toast('Erro ao abrir registro.', 'error'); return; }
+  st.editingId = id;
+  cfg.fill(data.data);
+  const nameEl = document.getElementById(cfg.nameId); if (nameEl) nameEl.value = data.patient_name || '';
+  const dateEl = document.getElementById(cfg.dateId); if (dateEl) dateEl.value = data.doc_date || '';
+  setDocTitle(type, 'Editando — ' + (data.patient_name || ''));
+  renderDocList(type);
+  toast('Registro carregado.', 'success');
+  const t = document.getElementById(cfg.titleId); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-async function deleteAnamnese(id) {
-  if (!confirm('Excluir esta ficha definitivamente?')) return;
-  const { error } = await db('anamneses').delete().eq('id', id);
+async function deleteDoc(type, id) {
+  const cfg = DOC_CONFIG[type], st = _docStore[type];
+  if (!confirm('Excluir este registro definitivamente?')) return;
+  const { error } = await db(cfg.table).delete().eq('id', id);
   if (error) { toast('Erro ao excluir.', 'error'); return; }
-  if (_editingAnamneseId === id) { _editingAnamneseId = null; newAnamnese(); }
-  toast('Ficha excluída.', 'success');
-  await loadAnamneses();
+  if (st.editingId === id) { st.editingId = null; newDoc(type); }
+  toast('Registro excluído.', 'success');
+  await loadDocs(type);
 }
 
 function anamneseAnswer(i) {
@@ -522,7 +622,12 @@ async function pdfAnamnese() {
 
   doc.setFont('helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(...DOC_TAUPE);
   doc.text('FICHA DE ANAMNESE — HARMONIZAÇÃO FACIAL', 105, y, { align: 'center' });
-  y += 9;
+  y += 8;
+  doc.setFontSize(9);
+  doc.text('Data da consulta: ', 14, y);
+  doc.setFont('helvetica', 'normal'); doc.setTextColor(40, 34, 28);
+  doc.text(docDateStr('an_data') || '__/__/____', 47, y);
+  y += 7;
 
   // dados da paciente (2 colunas)
   ANAMNESE_FIELDS.forEach(f => {
@@ -581,7 +686,7 @@ async function pdfAnamnese() {
   doc.setDrawColor(120, 105, 92); doc.setLineWidth(0.3);
   doc.line(14, y, 70, y); doc.line(100, y, 196, y);
   doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(...DOC_TAUPE);
-  doc.text('Data', 14, y + 4);
+  doc.text('Data: ' + (docDateStr('an_data') || ''), 14, y + 4);
   doc.text('Assinatura da(o) paciente', 100, y + 4);
 
   docFooter(doc);
