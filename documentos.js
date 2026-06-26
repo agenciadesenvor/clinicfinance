@@ -38,7 +38,7 @@ const EXAM_LIST = [
 
 const ANAMNESE_FIELDS = [
   { id:'paciente',    label:'Paciente',               full:true  },
-  { id:'nascimento',  label:'Data de Nascimento'                  },
+  { id:'nascimento',  label:'Data de Nascimento', type:'date'      },
   { id:'estadoCivil', label:'Estado civil'                        },
   { id:'profissao',   label:'Profissão'                           },
   { id:'endereco',    label:'Endereço',               full:true  },
@@ -150,6 +150,15 @@ function docFieldLine(doc, label, value, x, y, width) {
 /* ===== Leitura de valores do DOM ===== */
 const docVal = id => (document.getElementById(id)?.value || '').trim();
 const docDateStr = id => { const v = docVal(id); return v ? fDate(v) : ''; };
+
+/* Define um campo de data respeitando o date picker customizado do app
+   (que troca o input nativo por um oculto + um display de texto). */
+function setDocDate(id, iso) {
+  const hidden = document.getElementById(id);
+  if (hidden) hidden.value = iso || '';
+  const disp = document.getElementById(id + '_display');
+  if (disp) disp.value = iso ? new Date(iso + 'T12:00:00').toLocaleDateString('pt-BR') : '';
+}
 
 function checkboxPdf(doc, x, y, checked) {
   doc.setDrawColor(...DOC_TAUPE); doc.setLineWidth(0.3);
@@ -376,7 +385,7 @@ function renderAnamnese() {
   const fields = ANAMNESE_FIELDS.map(f => `
     <div class="form-group ${f.full ? 'form-full' : ''}">
       <label class="form-label" for="an_${f.id}">${f.label}</label>
-      <input type="text" class="form-control" id="an_${f.id}" />
+      <input type="${f.type || 'text'}" class="form-control" id="an_${f.id}" />
     </div>`).join('');
 
   const questions = ANAMNESE_QUESTIONS.map((item, i) => `
@@ -536,7 +545,10 @@ function collectAnamneseData() {
 function fillAnamneseForm(data) {
   data = data || {};
   const fields = data.fields || {};
-  ANAMNESE_FIELDS.forEach(f => { const el = document.getElementById('an_' + f.id); if (el) el.value = fields[f.id] || ''; });
+  ANAMNESE_FIELDS.forEach(f => {
+    if (f.type === 'date') { setDocDate('an_' + f.id, fields[f.id] || ''); }
+    else { const el = document.getElementById('an_' + f.id); if (el) el.value = fields[f.id] || ''; }
+  });
   const obj = document.getElementById('an_objetivo'); if (obj) obj.value = data.objetivo || '';
   const obs = document.getElementById('an_obs'); if (obs) obs.value = data.observacoes || '';
   ANAMNESE_QUESTIONS.forEach((item, i) => {
@@ -553,7 +565,7 @@ function newDoc(type) {
   st.editingId = null;
   cfg.fill({});
   const nameEl = document.getElementById(cfg.nameId); if (nameEl) nameEl.value = '';
-  const dateEl = document.getElementById(cfg.dateId); if (dateEl) dateEl.value = today();
+  setDocDate(cfg.dateId, today());
   setDocTitle(type, cfg.titleNew);
   renderDocList(type);
   if (nameEl) nameEl.focus();
@@ -588,7 +600,7 @@ async function openDoc(type, id) {
   st.editingId = id;
   cfg.fill(data.data);
   const nameEl = document.getElementById(cfg.nameId); if (nameEl) nameEl.value = data.patient_name || '';
-  const dateEl = document.getElementById(cfg.dateId); if (dateEl) dateEl.value = data.doc_date || '';
+  setDocDate(cfg.dateId, data.doc_date || '');
   setDocTitle(type, 'Editando — ' + (data.patient_name || ''));
   renderDocList(type);
   toast('Registro carregado.', 'success');
@@ -631,7 +643,7 @@ async function pdfAnamnese() {
 
   // dados da paciente (2 colunas)
   ANAMNESE_FIELDS.forEach(f => {
-    const val = docVal('an_' + f.id);
+    const val = f.type === 'date' ? docDateStr('an_' + f.id) : docVal('an_' + f.id);
     if (f.full) {
       docFieldLine(doc, f.label + ':', val, 14, y, 182); y += 7.5;
     } else {
