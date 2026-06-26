@@ -1451,6 +1451,7 @@ select.form-control { cursor: pointer; }
   background: var(--accent);
   color: white;
 }
+.subtab-count { font-size: 11px; opacity: 0.75; margin-left: 2px; font-weight: 600; }
 
 /* ===== PHOTO UPLOAD ===== */
 .photo-upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }

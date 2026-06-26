@@ -401,53 +401,81 @@ function renderAnamnese() {
       ${item.detail ? `<input type="text" class="form-control doc-question-detail" id="and_${i}" placeholder="${esc(item.detail)}" />` : ''}
     </div>`).join('');
 
+  const isSaved = _anamneseTab === 'saved';
   const html = `
   <div class="section-header">
     <div><div class="section-title">Ficha de Anamnese</div><div class="section-sub">Harmonização Facial — preencha, salve na sua conta e gere o PDF</div></div>
-    <div class="doc-actions">
+    <div class="doc-actions" id="anamneseFormActions"${isSaved ? ' style="display:none"' : ''}>
       <button class="btn btn-secondary" onclick="newDoc('anamnese')">${iconPlus()} Nova ficha</button>
       <button class="btn btn-secondary" onclick="pdfAnamnese()">${iconDownload()} Gerar PDF</button>
       <button class="btn btn-primary" id="btnSalvarAnamnese" onclick="saveDoc('anamnese')">${iconCheck()} Salvar ficha</button>
     </div>
   </div>
 
-  <div class="card doc-card">
-    <div class="doc-block-title">Fichas salvas</div>
-    <div class="table-search doc-search">${iconSearch()}
-      <input type="text" id="anamneseSearch" placeholder="Buscar por nome da paciente…" oninput="searchDoc('anamnese', this.value)" aria-label="Buscar ficha por nome da paciente" autocomplete="off" spellcheck="false" />
-    </div>
-    <div id="anamneseList" class="doc-list">${docListLoadingHTML()}</div>
+  <div class="subtabs">
+    <button type="button" class="subtab-btn ${isSaved ? '' : 'active'}" id="anTabBtnForm" onclick="setAnamneseTab('form')">Ficha</button>
+    <button type="button" class="subtab-btn ${isSaved ? 'active' : ''}" id="anTabBtnSaved" onclick="setAnamneseTab('saved')">Fichas salvas <span id="anSavedCount" class="subtab-count"></span></button>
   </div>
 
-  <div class="card doc-card" style="margin-top:20px">
-    <div class="doc-block-title"><span id="anamneseFormTitle">Nova ficha — dados da paciente</span></div>
-    <div class="form-group" style="max-width:240px;margin-bottom:16px">
-      <label class="form-label" for="an_data">Data da consulta</label>
-      <input type="date" class="form-control" id="an_data" value="${today()}" />
-    </div>
-    <div class="form-grid">${fields}</div>
+  <div id="anamnesePaneForm"${isSaved ? ' style="display:none"' : ''}>
+    <div class="card doc-card">
+      <div class="doc-block-title"><span id="anamneseFormTitle">Nova ficha — dados da paciente</span></div>
+      <div class="form-group" style="max-width:240px;margin-bottom:16px">
+        <label class="form-label" for="an_data">Data da consulta</label>
+        <input type="date" class="form-control" id="an_data" value="${today()}" />
+      </div>
+      <div class="form-grid">${fields}</div>
 
-    <div class="form-group form-full" style="margin-top:8px">
-      <label class="form-label" for="an_objetivo">Objetivo da consulta</label>
-      <textarea class="form-control" id="an_objetivo" rows="2"></textarea>
+      <div class="form-group form-full" style="margin-top:8px">
+        <label class="form-label" for="an_objetivo">Objetivo da consulta</label>
+        <textarea class="form-control" id="an_objetivo" rows="2"></textarea>
+      </div>
+    </div>
+
+    <div class="card doc-card" style="margin-top:20px">
+      <div class="doc-block-title">Questionário de saúde</div>
+      <div class="doc-questions">${questions}</div>
+    </div>
+
+    <div class="card doc-card" style="margin-top:20px">
+      <div class="form-group form-full">
+        <label class="form-label" for="an_obs">Observações</label>
+        <textarea class="form-control" id="an_obs" rows="3"></textarea>
+      </div>
+      <p class="doc-term">Termo de responsabilidade: ao gerar este documento, a paciente declara estar ciente e de acordo com todas as informações acima relacionadas.</p>
     </div>
   </div>
 
-  <div class="card doc-card" style="margin-top:20px">
-    <div class="doc-block-title">Questionário de saúde</div>
-    <div class="doc-questions">${questions}</div>
-  </div>
-
-  <div class="card doc-card" style="margin-top:20px">
-    <div class="form-group form-full">
-      <label class="form-label" for="an_obs">Observações</label>
-      <textarea class="form-control" id="an_obs" rows="3"></textarea>
+  <div id="anamnesePaneSaved"${isSaved ? '' : ' style="display:none"'}>
+    <div class="card doc-card">
+      <div class="doc-block-title">Fichas salvas dos pacientes</div>
+      <div class="table-search doc-search">${iconSearch()}
+        <input type="text" id="anamneseSearch" placeholder="Buscar por nome da paciente…" oninput="searchDoc('anamnese', this.value)" aria-label="Buscar ficha por nome da paciente" autocomplete="off" spellcheck="false" />
+      </div>
+      <div id="anamneseList" class="doc-list">${docListLoadingHTML()}</div>
     </div>
-    <p class="doc-term">Termo de responsabilidade: ao gerar este documento, a paciente declara estar ciente e de acordo com todas as informações acima relacionadas.</p>
   </div>`;
 
   setTimeout(() => loadDocs('anamnese'), 0);
   return html;
+}
+
+/* Sub-abas da Anamnese: alterna Ficha (formulário) e Fichas salvas
+   por mostrar/ocultar — sem re-render, preservando o que foi digitado. */
+let _anamneseTab = 'form';
+function setAnamneseTab(tab) {
+  _anamneseTab = tab;
+  const isForm = tab !== 'saved';
+  const form  = document.getElementById('anamnesePaneForm');
+  const saved = document.getElementById('anamnesePaneSaved');
+  const acts  = document.getElementById('anamneseFormActions');
+  const bForm = document.getElementById('anTabBtnForm');
+  const bSaved = document.getElementById('anTabBtnSaved');
+  if (form)  form.style.display  = isForm ? '' : 'none';
+  if (saved) saved.style.display = isForm ? 'none' : '';
+  if (acts)  acts.style.display  = isForm ? '' : 'none';
+  if (bForm)  bForm.classList.toggle('active', isForm);
+  if (bSaved) bSaved.classList.toggle('active', !isForm);
 }
 
 /* ===== Persistência de Documentos (Supabase) — genérico p/ as 3 abas ===== */
@@ -510,6 +538,7 @@ function renderDocList(type) {
   const cfg = DOC_CONFIG[type], st = _docStore[type];
   const listEl = document.getElementById(cfg.listId);
   if (!listEl) return;
+  if (type === 'anamnese') { const c = document.getElementById('anSavedCount'); if (c) c.textContent = st.list.length ? '(' + st.list.length + ')' : ''; }
   const term = st.search.trim().toLowerCase();
   const items = term ? st.list.filter(a => (a.patient_name || '').toLowerCase().includes(term)) : st.list;
   if (!items.length) {
@@ -568,6 +597,7 @@ function newDoc(type) {
   setDocDate(cfg.dateId, today());
   setDocTitle(type, cfg.titleNew);
   renderDocList(type);
+  if (type === 'anamnese') setAnamneseTab('form');
   if (nameEl) nameEl.focus();
 }
 
@@ -603,6 +633,7 @@ async function openDoc(type, id) {
   setDocDate(cfg.dateId, data.doc_date || '');
   setDocTitle(type, 'Editando — ' + (data.patient_name || ''));
   renderDocList(type);
+  if (type === 'anamnese') setAnamneseTab('form');
   toast('Registro carregado.', 'success');
   const t = document.getElementById(cfg.titleId); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
