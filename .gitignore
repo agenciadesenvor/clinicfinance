@@ -8,3 +8,6 @@
 *.log
 node_modules/
 .vercel
+
+# Preview temporário (não commitar)
+_preview_docs.html

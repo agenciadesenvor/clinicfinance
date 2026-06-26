@@ -14,7 +14,7 @@
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <link rel="stylesheet" href="style.css?v=10" />
+  <link rel="stylesheet" href="style.css?v=11" />
 </head>
 <body>
 
@@ -95,6 +95,15 @@
           <line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/>
         </svg>
         <span>Gráficos</span>
+      </a>
+
+      <div class="nav-section-label">Atendimento</div>
+      <a href="#" class="nav-item" data-view="crm" data-tooltip="CRM de Atendimento">
+        <svg aria-hidden="true" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+          <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+        </svg>
+        <span>CRM de Atendimento</span>
       </a>
 
       <div class="nav-section-label">Documentos</div>
@@ -265,8 +274,9 @@
   </div>
 
   <script src="config.js"></script>
-  <script src="app.js?v=9"></script>
+  <script src="app.js?v=10"></script>
   <script src="documentos.js?v=8"></script>
+  <script src="crm.js?v=1"></script>
   <script src="ai.js?v=1"></script>
 </body>
 </html>
