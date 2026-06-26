@@ -573,7 +573,8 @@ function navigateTo(view) {
   const titles = {
     dashboard:'Dashboard', entradas:'Entradas', saidas:'Saídas',
     consultorio:'Consultório', produtos:'Produtos & Insumos',
-    margem:'Margem de Lucro', precificacao:'Precificação', graficos:'Gráficos & Relatórios', perfil:'Perfil'
+    margem:'Margem de Lucro', precificacao:'Precificação', graficos:'Gráficos & Relatórios', perfil:'Perfil',
+    anamnese:'Ficha de Anamnese', receituario:'Receituário', exames:'Receituário de Exames'
   };
   document.getElementById('pageTitle').textContent = titles[view] || view;
   renderView(view);
@@ -585,7 +586,10 @@ function renderView(view) {
   const renders = {
     dashboard: renderDashboard, entradas: renderEntradas, saidas: renderSaidas,
     consultorio: renderConsultorio, produtos: renderProdutos,
-    margem: renderMargem, precificacao: renderPrecificacao, graficos: renderGraficos, perfil: renderPerfil
+    margem: renderMargem, precificacao: renderPrecificacao, graficos: renderGraficos, perfil: renderPerfil,
+    anamnese: (typeof renderAnamnese === 'function' ? renderAnamnese : () => ''),
+    receituario: (typeof renderReceituario === 'function' ? renderReceituario : () => ''),
+    exames: (typeof renderExames === 'function' ? renderExames : () => '')
   };
   content.innerHTML = (renders[view] || (() => ''))();
   if (view === 'dashboard') setTimeout(initDashboardCharts, 50);

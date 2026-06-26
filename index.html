@@ -13,7 +13,7 @@
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <link rel="stylesheet" href="style.css?v=5" />
+  <link rel="stylesheet" href="style.css?v=6" />
 </head>
 <body>
 
@@ -94,6 +94,27 @@
           <line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/>
         </svg>
         <span>Gráficos</span>
+      </a>
+
+      <div class="nav-section-label">Documentos</div>
+      <a href="#" class="nav-item" data-view="anamnese" data-tooltip="Ficha de Anamnese">
+        <svg aria-hidden="true" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
+          <line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/>
+        </svg>
+        <span>Ficha de Anamnese</span>
+      </a>
+      <a href="#" class="nav-item" data-view="receituario" data-tooltip="Receituário">
+        <svg aria-hidden="true" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2l4 4-8 8H4v-4l8-8z" transform="translate(2 2)"/><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
+        </svg>
+        <span>Receituário</span>
+      </a>
+      <a href="#" class="nav-item" data-view="exames" data-tooltip="Receituário de Exames">
+        <svg aria-hidden="true" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+        </svg>
+        <span>Receituário de Exames</span>
       </a>
 
       <div class="nav-section-label">Conta</div>
@@ -236,7 +257,8 @@
   </div>
 
   <script src="config.js"></script>
-  <script src="app.js?v=8"></script>
+  <script src="app.js?v=9"></script>
+  <script src="documentos.js?v=1"></script>
   <script src="ai.js?v=1"></script>
 </body>
 </html>

@@ -2002,3 +2002,88 @@ select.form-control { cursor: pointer; }
     scroll-behavior: auto !important;
   }
 }
+
+/* ============================================================
+   DOCUMENTOS — Anamnese / Receituário / Exames
+   ============================================================ */
+.doc-card { padding: 24px; }
+.doc-block-title {
+  font-size: 13px; font-weight: 700; color: var(--accent);
+  text-transform: uppercase; letter-spacing: 0.06em;
+  margin-bottom: 16px; padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.doc-textarea { resize: vertical; line-height: 1.6; }
+
+/* barra de ações do checklist */
+.doc-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px; gap: 12px; flex-wrap: wrap;
+}
+.doc-toolbar-label {
+  font-size: 13px; font-weight: 600; color: var(--text-2);
+}
+.doc-toolbar-actions { display: flex; gap: 8px; }
+
+/* grade de checkboxes */
+.doc-check-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 4px 28px;
+}
+.doc-check {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px; border-radius: 10px;
+  cursor: pointer; font-size: 14px; color: var(--text-1);
+  transition: background-color .15s ease;
+}
+.doc-check:hover { background: var(--bg-2); }
+.doc-check-input { position: absolute; opacity: 0; width: 0; height: 0; }
+.doc-check-box {
+  width: 20px; height: 20px; flex-shrink: 0;
+  border: 1.5px solid var(--border); border-radius: 6px;
+  background: var(--card);
+  display: flex; align-items: center; justify-content: center;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+.doc-check-input:checked + .doc-check-box {
+  background: var(--accent); border-color: var(--accent);
+}
+.doc-check-input:checked + .doc-check-box::after {
+  content: ''; width: 5px; height: 9px;
+  border: solid #fff; border-width: 0 2px 2px 0;
+  transform: rotate(45deg) translate(-1px, -1px);
+}
+.doc-check-input:focus-visible + .doc-check-box {
+  outline: 2px solid var(--accent-2); outline-offset: 2px;
+}
+
+/* questionário da anamnese */
+.doc-questions { display: flex; flex-direction: column; gap: 6px; }
+.doc-question {
+  padding: 12px 0; border-bottom: 1px solid var(--border-light);
+}
+.doc-question:last-child { border-bottom: none; }
+.doc-question-head {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+}
+.doc-question-num {
+  width: 24px; height: 24px; flex-shrink: 0;
+  background: var(--accent-light); color: var(--accent);
+  border-radius: 7px; font-size: 12px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.doc-question-text { flex: 1; min-width: 200px; font-size: 14px; color: var(--text-1); }
+.doc-radio-group { display: flex; gap: 14px; }
+.doc-radio {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 13px; color: var(--text-2); cursor: pointer;
+}
+.doc-radio input { accent-color: var(--accent); }
+.doc-question-detail { margin-top: 10px; }
+.doc-term {
+  font-size: 12px; color: var(--text-2); line-height: 1.5;
+  margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border);
+}
+
+@media (max-width: 640px) {
+  .doc-check-grid { grid-template-columns: 1fr; }
+}
