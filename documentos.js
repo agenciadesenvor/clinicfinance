@@ -38,7 +38,7 @@ const EXAM_LIST = [
 
 const ANAMNESE_FIELDS = [
   { id:'paciente',    label:'Paciente',               full:true  },
-  { id:'nascimento',  label:'Data de Nascimento', type:'date'      },
+  { id:'nascimento',  label:'Data de Nascimento', type:'date', native:true },
   { id:'estadoCivil', label:'Estado civil'                        },
   { id:'profissao',   label:'Profissão'                           },
   { id:'endereco',    label:'Endereço',               full:true  },
@@ -385,7 +385,7 @@ function renderAnamnese() {
   const fields = ANAMNESE_FIELDS.map(f => `
     <div class="form-group ${f.full ? 'form-full' : ''}">
       <label class="form-label" for="an_${f.id}">${f.label}</label>
-      <input type="${f.type || 'text'}" class="form-control" id="an_${f.id}" />
+      <input type="${f.type || 'text'}" class="form-control" id="an_${f.id}"${f.native ? ' data-cf-init="1" max="9999-12-31"' : ''} />
     </div>`).join('');
 
   const questions = ANAMNESE_QUESTIONS.map((item, i) => `
