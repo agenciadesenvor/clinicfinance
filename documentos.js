@@ -756,8 +756,11 @@ const CONTRATOS_LIST = [
   { file: '07-laser.pdf',              nome: 'Depilação a Laser (Ácrus HTM)',        grupo: 'Outros' }
 ];
 
+let _contratosTab = 'modelos';
+
 function renderContratos() {
-  const cards = CONTRATOS_LIST.map(c => `
+  const isAssin = _contratosTab === 'assinados';
+  const cards = CONTRATOS_LIST.map((c, i) => `
     <div class="contrato-card">
       <div class="contrato-icon">
         <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -771,18 +774,280 @@ function renderContratos() {
       </div>
       <div class="contrato-actions">
         <a class="btn btn-secondary btn-sm" href="contratos/${c.file}" target="_blank" rel="noopener" title="Abrir em nova aba">Abrir</a>
-        <a class="btn btn-primary btn-sm" href="contratos/${c.file}" download title="Baixar PDF">${iconDownload()} Baixar</a>
+        <a class="btn btn-secondary btn-sm" href="contratos/${c.file}" download title="Baixar PDF">${iconDownload()} Baixar</a>
+        <button type="button" class="btn btn-primary btn-sm" onclick="abrirAssinatura(${i})" title="Preencher e assinar">${iconEdit()} Assinar</button>
       </div>
     </div>`).join('');
 
-  return `
+  const html = `
   <div class="section-header">
-    <div><div class="section-title">Contratos &amp; Termos</div><div class="section-sub">Termos de Consentimento (TCLE) por procedimento — abra ou baixe o PDF</div></div>
+    <div><div class="section-title">Contratos &amp; Termos</div><div class="section-sub">Termos de Consentimento (TCLE) — baixe, ou preencha e assine na tela</div></div>
   </div>
 
-  <div class="card doc-card" style="margin-bottom:20px">
-    <p class="form-hint">Modelos oficiais da clínica (Dra. Patrícia Nascimento — CRBM 16449). Baixe o termo do procedimento, imprima e colha a assinatura da paciente. Assinatura eletrônica: em avaliação (ver opções com o desenvolvedor).</p>
+  <div class="subtabs">
+    <button type="button" class="subtab-btn ${isAssin ? '' : 'active'}" id="ctTabModelos" onclick="setContratosTab('modelos')">Modelos</button>
+    <button type="button" class="subtab-btn ${isAssin ? 'active' : ''}" id="ctTabAssinados" onclick="setContratosTab('assinados')">Termos assinados <span id="ctAssinCount" class="subtab-count"></span></button>
   </div>
 
-  <div class="contrato-grid">${cards}</div>`;
+  <div id="ctPaneModelos"${isAssin ? ' style="display:none"' : ''}>
+    <div class="card doc-card" style="margin-bottom:20px">
+      <p class="form-hint">Modelos oficiais da clínica (Dra. Patrícia Nascimento — CRBM 16449). Baixe para imprimir, ou clique em <strong>Assinar</strong> para preencher os dados da paciente e coletar a assinatura na tela (ideal em tablet). O termo assinado fica salvo na sua conta.</p>
+    </div>
+    <div class="contrato-grid">${cards}</div>
+  </div>
+
+  <div id="ctPaneAssinados"${isAssin ? '' : ' style="display:none"'}>
+    <div class="card doc-card">
+      <div class="doc-block-title">Termos assinados</div>
+      <div class="table-search doc-search">${iconSearch()}
+        <input type="text" id="ctSearch" placeholder="Buscar por nome da paciente…" oninput="searchContratoAssinado(this.value)" aria-label="Buscar termo assinado por nome" autocomplete="off" spellcheck="false" />
+      </div>
+      <div id="ctAssinList" class="doc-list">${docListLoadingHTML()}</div>
+    </div>
+  </div>`;
+
+  setTimeout(loadContratosAssinados, 0);
+  return html;
+}
+
+function setContratosTab(tab) {
+  _contratosTab = tab;
+  const isMod = tab !== 'assinados';
+  const m = document.getElementById('ctPaneModelos');
+  const a = document.getElementById('ctPaneAssinados');
+  if (m) m.style.display = isMod ? '' : 'none';
+  if (a) a.style.display = isMod ? 'none' : '';
+  const bm = document.getElementById('ctTabModelos'), ba = document.getElementById('ctTabAssinados');
+  if (bm) bm.classList.toggle('active', isMod);
+  if (ba) ba.classList.toggle('active', !isMod);
+}
+
+/* ===== Fluxo de assinatura ===== */
+function abrirAssinatura(idx) {
+  const c = CONTRATOS_LIST[idx];
+  openModal('Assinar — ' + c.nome, `
+    <form onsubmit="return false">
+      <div class="form-grid">
+        <div class="form-group form-full">
+          <label class="form-label" for="ca_nome">Paciente *</label>
+          <input type="text" class="form-control" id="ca_nome" placeholder="Nome completo" />
+        </div>
+        <div class="form-group"><label class="form-label" for="ca_cpf">CPF</label><input type="text" class="form-control" id="ca_cpf" /></div>
+        <div class="form-group"><label class="form-label" for="ca_rg">RG</label><input type="text" class="form-control" id="ca_rg" /></div>
+        <div class="form-group"><label class="form-label" for="ca_idade">Idade</label><input type="text" class="form-control" id="ca_idade" inputmode="numeric" /></div>
+        <div class="form-group"><label class="form-label" for="ca_data">Data</label><input type="date" class="form-control" id="ca_data" data-cf-init="1" value="${today()}" /></div>
+        <div class="form-group form-full"><label class="form-label" for="ca_endereco">Endereço</label><input type="text" class="form-control" id="ca_endereco" /></div>
+        <div class="form-group form-full"><label class="form-label" for="ca_cidade">Cidade / UF</label><input type="text" class="form-control" id="ca_cidade" value="Santa Cruz do Capibaribe/PE" /></div>
+        <div class="form-group form-full"><label class="form-label" for="ca_area">Procedimento / área(s) <span style="color:var(--text-3)">(opcional)</span></label><input type="text" class="form-control" id="ca_area" placeholder="Ex.: lábios, malar…" /></div>
+      </div>
+
+      <div class="form-group form-full" style="margin-top:6px">
+        <label class="form-label">Assinatura da paciente *</label>
+        <div class="sign-wrap">
+          <canvas id="ca_sign" class="sign-canvas" width="640" height="220"></canvas>
+          <button type="button" class="sign-clear" onclick="limparAssinatura()">Limpar</button>
+        </div>
+        <p class="form-hint">Assine no quadro acima com o dedo (tablet) ou mouse.</p>
+      </div>
+
+      <label class="doc-radio" style="margin:6px 0 2px"><input type="checkbox" id="ca_consent" /> Li e concordo com o termo de consentimento deste procedimento.</label>
+
+      <div class="form-actions">
+        <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+        <button type="button" class="btn btn-primary" id="ca_btn" onclick="gerarTermoAssinado(${idx})">${iconCheck()} Gerar termo assinado</button>
+      </div>
+    </form>`);
+  setTimeout(() => initSignaturePad('ca_sign'), 30);
+}
+
+function initSignaturePad(id) {
+  const c = document.getElementById(id);
+  if (!c) return;
+  const ctx = c.getContext('2d');
+  ctx.lineWidth = 2.4; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.strokeStyle = '#3B3128';
+  let drawing = false, last = null;
+  const pos = (e) => {
+    const r = c.getBoundingClientRect();
+    const t = (e.touches && e.touches[0]) ? e.touches[0] : e;
+    return { x: (t.clientX - r.left) * (c.width / r.width), y: (t.clientY - r.top) * (c.height / r.height) };
+  };
+  const start = (e) => { drawing = true; last = pos(e); e.preventDefault(); };
+  const move = (e) => { if (!drawing) return; const p = pos(e); ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke(); last = p; c.dataset.signed = '1'; e.preventDefault(); };
+  const end = () => { drawing = false; };
+  c.addEventListener('pointerdown', start);
+  c.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', end);
+}
+
+function limparAssinatura() {
+  const c = document.getElementById('ca_sign');
+  if (!c) return;
+  c.getContext('2d').clearRect(0, 0, c.width, c.height);
+  c.dataset.signed = '';
+}
+
+function u8ToBase64(u8) {
+  let s = ''; const chunk = 0x8000;
+  for (let i = 0; i < u8.length; i += chunk) s += String.fromCharCode.apply(null, u8.subarray(i, i + chunk));
+  return btoa(s);
+}
+
+async function gerarTermoAssinado(idx) {
+  const c = CONTRATOS_LIST[idx];
+  if (typeof currentUser === 'undefined' || !currentUser) { toast('Faça login para salvar.', 'error'); return; }
+  if (!window.PDFLib) { toast('Biblioteca de PDF não carregada.', 'error'); return; }
+  const nome = docVal('ca_nome');
+  if (!nome) { toast('Informe o nome da paciente.', 'error'); const el = document.getElementById('ca_nome'); if (el) el.focus(); return; }
+  const sign = document.getElementById('ca_sign');
+  if (!sign || sign.dataset.signed !== '1') { toast('Colete a assinatura no quadro.', 'error'); return; }
+  if (!document.getElementById('ca_consent')?.checked) { toast('Marque o aceite do termo.', 'error'); return; }
+
+  const btn = document.getElementById('ca_btn'); if (btn) { btn.disabled = true; btn.textContent = 'Gerando…'; }
+  const form = {
+    nome, cpf: docVal('ca_cpf'), rg: docVal('ca_rg'), idade: docVal('ca_idade'),
+    endereco: docVal('ca_endereco'), cidade: docVal('ca_cidade'), area: docVal('ca_area'),
+    data: docVal('ca_data') || today()
+  };
+  try {
+    const signPng = sign.toDataURL('image/png');
+    const bytes = await buildSignedPdf(c, form, signPng);
+    // download imediato
+    const blob = new Blob([bytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `termo-${docSlug(c.nome)}-${docSlug(nome)}-${form.data}.pdf`;
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    // salva na conta
+    const id = (typeof uid === 'function' ? uid() : crypto.randomUUID());
+    const { error } = await db('contratos_assinados').insert({
+      id, user_id: currentUser.id, patient_name: nome, doc_date: form.data,
+      procedimento: c.nome, pdf_base64: u8ToBase64(bytes),
+      data: form, updated_at: new Date().toISOString()
+    });
+    if (error) { toast('PDF gerado, mas falhou ao salvar: ' + error.message, 'error'); }
+    else { toast('Termo assinado gerado e salvo!', 'success'); }
+    closeModal();
+    _contratosTab = 'assinados';
+    renderView('contratos');
+  } catch (e) {
+    console.error(e);
+    toast('Erro ao gerar o termo: ' + e.message, 'error');
+    if (btn) { btn.disabled = false; btn.textContent = 'Gerar termo assinado'; }
+  }
+}
+
+function docSlug(s) {
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'termo';
+}
+
+/* Monta o PDF assinado: termo original + página de assinatura eletrônica anexada. */
+async function buildSignedPdf(contract, form, signPngDataUrl) {
+  const { PDFDocument, StandardFonts, rgb } = window.PDFLib;
+  const tplBytes = await fetch('contratos/' + contract.file).then(r => r.arrayBuffer());
+  const pdf = await PDFDocument.load(tplBytes);
+  const font = await pdf.embedFont(StandardFonts.Helvetica);
+  const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+  const page = pdf.addPage([595.28, 841.89]); // A4
+  const taupe = rgb(0.5, 0.4, 0.345);
+  const ink = rgb(0.16, 0.13, 0.11);
+  let y = 800;
+  const line = (txt, opts = {}) => { page.drawText(String(txt || ''), { x: opts.x || 40, y, size: opts.size || 11, font: opts.bold ? bold : font, color: opts.color || ink }); y -= (opts.gap || 18); };
+
+  line('PÁGINA DE ASSINATURA ELETRÔNICA', { bold: true, size: 13, color: taupe, gap: 10 });
+  page.drawLine({ start: { x: 40, y: y + 4 }, end: { x: 555, y: y + 4 }, thickness: 1, color: taupe }); y -= 16;
+  line('Termo: ' + contract.nome, { bold: true, gap: 22 });
+
+  const field = (label, val) => {
+    page.drawText(label, { x: 40, y, size: 10, font: bold, color: taupe });
+    page.drawText(String(val || '—'), { x: 40 + font.widthOfTextAtSize('', 10) + bold.widthOfTextAtSize(label, 10) + 6, y, size: 11, font, color: ink });
+    y -= 20;
+  };
+  field('Paciente:', form.nome);
+  field('CPF:', form.cpf); field('RG:', form.rg); field('Idade:', form.idade);
+  field('Endereço:', form.endereco); field('Cidade/UF:', form.cidade);
+  if (form.area) field('Procedimento/área(s):', form.area);
+  field('Data:', (form.data ? form.data.split('-').reverse().join('/') : ''));
+  y -= 6;
+
+  const consent = 'Declaro que li, compreendi e concordo de forma livre, informada e inequívoca com o presente Termo de Consentimento, assinando-o eletronicamente.';
+  consent.match(/.{1,95}(\s|$)/g).forEach(l => { page.drawText(l.trim(), { x: 40, y, size: 10, font, color: ink }); y -= 14; });
+  y -= 30;
+
+  const pngBytes = await fetch(signPngDataUrl).then(r => r.arrayBuffer());
+  const png = await pdf.embedPng(pngBytes);
+  const sw = 220, sh = sw * (png.height / png.width);
+  page.drawImage(png, { x: 40, y: y - sh, width: sw, height: sh });
+  const ly = y - sh - 4;
+  page.drawLine({ start: { x: 40, y: ly }, end: { x: 300, y: ly }, thickness: 0.8, color: rgb(0.45, 0.4, 0.36) });
+  page.drawText('Assinatura da paciente', { x: 40, y: ly - 12, size: 9, font, color: taupe });
+  page.drawText('Assinatura da profissional: ____________________________', { x: 320, y: ly - 12, size: 9, font, color: taupe });
+
+  const carimbo = 'Assinado eletronicamente em ' + new Date().toLocaleString('pt-BR') + ' — Dra. Patrícia Nascimento da Silva, CRBM 16449.';
+  page.drawText(carimbo, { x: 40, y: 40, size: 8, font, color: rgb(0.45, 0.4, 0.36) });
+
+  return await pdf.save();
+}
+
+/* ===== Lista de termos assinados ===== */
+let _contratosAssinados = [];
+let _ctSearch = '';
+
+async function loadContratosAssinados() {
+  const listEl = document.getElementById('ctAssinList');
+  if (typeof currentUser === 'undefined' || !currentUser) { if (listEl) listEl.innerHTML = `<div class="doc-list-empty">Faça login para ver os termos assinados.</div>`; return; }
+  const { data, error } = await db('contratos_assinados')
+    .select('id,patient_name,procedimento,doc_date,created_at')
+    .eq('user_id', currentUser.id).order('created_at', { ascending: false });
+  if (error) { if (listEl) listEl.innerHTML = `<div class="doc-list-empty">Erro ao carregar.</div>`; return; }
+  _contratosAssinados = data || [];
+  renderContratosAssinadosList();
+}
+
+function renderContratosAssinadosList() {
+  const listEl = document.getElementById('ctAssinList');
+  const cnt = document.getElementById('ctAssinCount');
+  if (cnt) cnt.textContent = _contratosAssinados.length ? '(' + _contratosAssinados.length + ')' : '';
+  if (!listEl) return;
+  const term = _ctSearch.trim().toLowerCase();
+  const items = term ? _contratosAssinados.filter(a => (a.patient_name || '').toLowerCase().includes(term)) : _contratosAssinados;
+  if (!items.length) {
+    listEl.innerHTML = `<div class="doc-list-empty">${_contratosAssinados.length ? 'Nenhum resultado para essa busca.' : 'Nenhum termo assinado ainda. Vá em Modelos → Assinar.'}</div>`;
+    return;
+  }
+  listEl.innerHTML = items.map(a => {
+    const d = a.doc_date ? fDate(a.doc_date) : (a.created_at ? new Date(a.created_at).toLocaleDateString('pt-BR') : '');
+    const name = a.patient_name || '(sem nome)';
+    return `<div class="doc-list-item">
+      <div class="doc-list-info" style="cursor:default">
+        <span class="doc-list-name">${esc(name)}</span>
+        <span class="doc-list-date">${esc(a.procedimento || '')} · ${d}</span>
+      </div>
+      <div class="td-actions">
+        <button type="button" class="btn btn-ghost btn-icon" title="Baixar PDF" aria-label="Baixar termo de ${esc(name)}" onclick="baixarContratoAssinado('${a.id}')">${iconDownload()}</button>
+        <button type="button" class="btn btn-danger btn-icon" title="Excluir" aria-label="Excluir termo de ${esc(name)}" onclick="excluirContratoAssinado('${a.id}')">${iconTrash()}</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function searchContratoAssinado(term) { _ctSearch = term || ''; renderContratosAssinadosList(); }
+
+async function baixarContratoAssinado(id) {
+  const { data, error } = await db('contratos_assinados').select('patient_name,procedimento,doc_date,pdf_base64').eq('id', id).single();
+  if (error || !data || !data.pdf_base64) { toast('Erro ao abrir o termo.', 'error'); return; }
+  const u8 = Uint8Array.from(atob(data.pdf_base64), ch => ch.charCodeAt(0));
+  const blob = new Blob([u8], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `termo-${docSlug(data.procedimento)}-${docSlug(data.patient_name)}-${data.doc_date || ''}.pdf`;
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+
+async function excluirContratoAssinado(id) {
+  if (!confirm('Excluir este termo assinado definitivamente?')) return;
+  const { error } = await db('contratos_assinados').delete().eq('id', id);
+  if (error) { toast('Erro ao excluir.', 'error'); return; }
+  toast('Termo excluído.', 'success');
+  await loadContratosAssinados();
 }

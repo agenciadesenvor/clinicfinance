@@ -2146,3 +2146,20 @@ select.form-control { cursor: pointer; }
   .contrato-actions { flex-direction: row; width: 100%; }
   .contrato-actions .btn { flex: 1; }
 }
+
+/* ===== ASSINATURA (canvas) ===== */
+.sign-wrap { position: relative; }
+.sign-canvas {
+  width: 100%; height: 200px; display: block;
+  background: var(--bg-2);
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius-sm);
+  touch-action: none; cursor: crosshair;
+}
+.sign-clear {
+  position: absolute; top: 8px; right: 8px;
+  font-size: 12px; font-weight: 600; color: var(--text-2);
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: 8px; padding: 4px 10px; cursor: pointer;
+}
+.sign-clear:hover { color: var(--accent); border-color: var(--accent); }
