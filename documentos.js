@@ -736,3 +736,53 @@ async function pdfAnamnese() {
   doc.save(`ficha-anamnese-${today()}.pdf`);
   toast('PDF da ficha de anamnese gerado!', 'success');
 }
+
+/* ============================================================
+   ABA 4 — CONTRATOS / TERMOS DE CONSENTIMENTO (download)
+   Arquivos originais (PDF) servidos da pasta /contratos.
+   ============================================================ */
+const CONTRATOS_LIST = [
+  { file: '13-contrato-geral.pdf',     nome: 'Termo Geral — qualquer procedimento', grupo: 'Geral' },
+  { file: '01-toxina-botulinica.pdf',  nome: 'Toxina Botulínica',                    grupo: 'Injetáveis' },
+  { file: '06-modelacao.pdf',          nome: 'Preenchimento / Harmonização — Ácido Hialurônico', grupo: 'Preenchimento' },
+  { file: '04-rinomodelacao.pdf',      nome: 'Rinomodelação com Ácido Hialurônico',  grupo: 'Preenchimento' },
+  { file: '02-hidroxiapatita.pdf',     nome: 'Bioestimulador — Hidroxiapatita de Cálcio (CaHA)', grupo: 'Bioestimuladores' },
+  { file: '03-plla.pdf',               nome: 'Bioestimulador — Ácido Poli-L-Láctico (PLLA)',     grupo: 'Bioestimuladores' },
+  { file: '08-fios-pdo.pdf',           nome: 'Fios de PDO',                          grupo: 'Injetáveis' },
+  { file: '09-pdrn.pdf',               nome: 'PDRN — Polidesoxirribonucleotídeo',    grupo: 'Regeneração' },
+  { file: '10-microagulhamento.pdf',   nome: 'Microagulhamento',                     grupo: 'Regeneração' },
+  { file: '11-peeling-quimico.pdf',    nome: 'Peeling Químico',                      grupo: 'Pele' },
+  { file: '12-limpeza-de-pele.pdf',    nome: 'Limpeza de Pele Profunda',             grupo: 'Pele' },
+  { file: '07-laser.pdf',              nome: 'Depilação a Laser (Ácrus HTM)',        grupo: 'Outros' }
+];
+
+function renderContratos() {
+  const cards = CONTRATOS_LIST.map(c => `
+    <div class="contrato-card">
+      <div class="contrato-icon">
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
+          <line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/>
+        </svg>
+      </div>
+      <div class="contrato-info">
+        <span class="contrato-nome">${esc(c.nome)}</span>
+        <span class="badge badge-gold">${esc(c.grupo)}</span>
+      </div>
+      <div class="contrato-actions">
+        <a class="btn btn-secondary btn-sm" href="contratos/${c.file}" target="_blank" rel="noopener" title="Abrir em nova aba">Abrir</a>
+        <a class="btn btn-primary btn-sm" href="contratos/${c.file}" download title="Baixar PDF">${iconDownload()} Baixar</a>
+      </div>
+    </div>`).join('');
+
+  return `
+  <div class="section-header">
+    <div><div class="section-title">Contratos &amp; Termos</div><div class="section-sub">Termos de Consentimento (TCLE) por procedimento — abra ou baixe o PDF</div></div>
+  </div>
+
+  <div class="card doc-card" style="margin-bottom:20px">
+    <p class="form-hint">Modelos oficiais da clínica (Dra. Patrícia Nascimento — CRBM 16449). Baixe o termo do procedimento, imprima e colha a assinatura da paciente. Assinatura eletrônica: em avaliação (ver opções com o desenvolvedor).</p>
+  </div>
+
+  <div class="contrato-grid">${cards}</div>`;
+}

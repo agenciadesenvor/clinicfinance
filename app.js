@@ -574,7 +574,8 @@ function navigateTo(view) {
     dashboard:'Dashboard', entradas:'Entradas', saidas:'Saídas',
     consultorio:'Consultório', produtos:'Produtos & Insumos',
     margem:'Margem de Lucro', precificacao:'Precificação', graficos:'Gráficos & Relatórios', perfil:'Perfil',
-    anamnese:'Ficha de Anamnese', receituario:'Receituário', exames:'Receituário de Exames'
+    anamnese:'Ficha de Anamnese', receituario:'Receituário', exames:'Receituário de Exames',
+    contratos:'Contratos & Termos'
   };
   document.getElementById('pageTitle').textContent = titles[view] || view;
   renderView(view);
@@ -589,7 +590,8 @@ function renderView(view) {
     margem: renderMargem, precificacao: renderPrecificacao, graficos: renderGraficos, perfil: renderPerfil,
     anamnese: (typeof renderAnamnese === 'function' ? renderAnamnese : () => ''),
     receituario: (typeof renderReceituario === 'function' ? renderReceituario : () => ''),
-    exames: (typeof renderExames === 'function' ? renderExames : () => '')
+    exames: (typeof renderExames === 'function' ? renderExames : () => ''),
+    contratos: (typeof renderContratos === 'function' ? renderContratos : () => '')
   };
   content.innerHTML = (renders[view] || (() => ''))();
   if (view === 'dashboard') setTimeout(initDashboardCharts, 50);
