@@ -338,14 +338,26 @@ function renderAnamnese() {
       ${item.detail ? `<input type="text" class="form-control doc-question-detail" id="and_${i}" placeholder="${esc(item.detail)}" />` : ''}
     </div>`).join('');
 
-  return `
+  const html = `
   <div class="section-header">
-    <div><div class="section-title">Ficha de Anamnese</div><div class="section-sub">Harmonização Facial — preencha e gere o PDF</div></div>
-    <button class="btn btn-primary" onclick="pdfAnamnese()">${iconDownload()} Gerar PDF</button>
+    <div><div class="section-title">Ficha de Anamnese</div><div class="section-sub">Harmonização Facial — preencha, salve na sua conta e gere o PDF</div></div>
+    <div class="doc-actions">
+      <button class="btn btn-secondary" onclick="newAnamnese()">${iconPlus()} Nova ficha</button>
+      <button class="btn btn-secondary" onclick="pdfAnamnese()">${iconDownload()} Gerar PDF</button>
+      <button class="btn btn-primary" id="btnSalvarAnamnese" onclick="saveAnamnese()">${iconCheck()} Salvar ficha</button>
+    </div>
   </div>
 
   <div class="card doc-card">
-    <div class="doc-block-title">Dados da paciente</div>
+    <div class="doc-block-title">Fichas salvas</div>
+    <div class="table-search doc-search">${iconSearch()}
+      <input type="text" id="anamneseSearch" placeholder="Buscar por nome da paciente…" oninput="searchAnamnese(this.value)" aria-label="Buscar ficha por nome da paciente" autocomplete="off" spellcheck="false" />
+    </div>
+    <div id="anamneseList" class="doc-list">${anamneseListLoadingHTML()}</div>
+  </div>
+
+  <div class="card doc-card" style="margin-top:20px">
+    <div class="doc-block-title"><span id="anamneseFormTitle">Nova ficha — dados da paciente</span></div>
     <div class="form-grid">${fields}</div>
 
     <div class="form-group form-full" style="margin-top:8px">
@@ -366,6 +378,131 @@ function renderAnamnese() {
     </div>
     <p class="doc-term">Termo de responsabilidade: ao gerar este documento, a paciente declara estar ciente e de acordo com todas as informações acima relacionadas.</p>
   </div>`;
+
+  setTimeout(loadAnamneses, 0);
+  return html;
+}
+
+/* ===== Persistência da Ficha de Anamnese (Supabase) ===== */
+let _anamneses = [];
+let _anamneseSearch = '';
+let _editingAnamneseId = null;
+
+function anamneseListLoadingHTML() {
+  return `<div class="doc-list-empty">Carregando fichas…</div>`;
+}
+
+async function loadAnamneses() {
+  const listEl = document.getElementById('anamneseList');
+  if (typeof currentUser === 'undefined' || !currentUser) { if (listEl) listEl.innerHTML = `<div class="doc-list-empty">Faça login para ver as fichas salvas.</div>`; return; }
+  const { data, error } = await db('anamneses')
+    .select('id,patient_name,created_at')
+    .eq('user_id', currentUser.id)
+    .order('created_at', { ascending: false });
+  if (error) { if (listEl) listEl.innerHTML = `<div class="doc-list-empty">Erro ao carregar fichas.</div>`; return; }
+  _anamneses = data || [];
+  renderAnamneseList();
+}
+
+function renderAnamneseList() {
+  const listEl = document.getElementById('anamneseList');
+  if (!listEl) return;
+  const term = _anamneseSearch.trim().toLowerCase();
+  const items = term ? _anamneses.filter(a => (a.patient_name || '').toLowerCase().includes(term)) : _anamneses;
+  if (!items.length) {
+    listEl.innerHTML = `<div class="doc-list-empty">${_anamneses.length ? 'Nenhuma ficha encontrada para essa busca.' : 'Nenhuma ficha salva ainda. Preencha abaixo e clique em “Salvar ficha”.'}</div>`;
+    return;
+  }
+  listEl.innerHTML = items.map(a => {
+    const d = a.created_at ? new Date(a.created_at).toLocaleDateString('pt-BR') : '';
+    const name = a.patient_name || '(sem nome)';
+    const active = a.id === _editingAnamneseId ? ' doc-list-item-active' : '';
+    return `<div class="doc-list-item${active}">
+      <button type="button" class="doc-list-info" onclick="openAnamnese('${a.id}')">
+        <span class="doc-list-name">${esc(name)}</span>
+        <span class="doc-list-date">${d}</span>
+      </button>
+      <div class="td-actions">
+        <button type="button" class="btn btn-ghost btn-icon" title="Abrir ficha" aria-label="Abrir ficha de ${esc(name)}" onclick="openAnamnese('${a.id}')">${iconEdit()}</button>
+        <button type="button" class="btn btn-danger btn-icon" title="Excluir ficha" aria-label="Excluir ficha de ${esc(name)}" onclick="deleteAnamnese('${a.id}')">${iconTrash()}</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function searchAnamnese(term) { _anamneseSearch = term || ''; renderAnamneseList(); }
+
+function collectAnamneseData() {
+  const data = { fields: {}, objetivo: docVal('an_objetivo'), observacoes: docVal('an_obs'), respostas: [] };
+  ANAMNESE_FIELDS.forEach(f => data.fields[f.id] = docVal('an_' + f.id));
+  ANAMNESE_QUESTIONS.forEach((item, i) => data.respostas.push({ answer: anamneseAnswer(i), detail: item.detail ? docVal('and_' + i) : '' }));
+  return data;
+}
+
+function fillAnamneseForm(data) {
+  data = data || {};
+  const fields = data.fields || {};
+  ANAMNESE_FIELDS.forEach(f => { const el = document.getElementById('an_' + f.id); if (el) el.value = fields[f.id] || ''; });
+  const obj = document.getElementById('an_objetivo'); if (obj) obj.value = data.objetivo || '';
+  const obs = document.getElementById('an_obs'); if (obs) obs.value = data.observacoes || '';
+  ANAMNESE_QUESTIONS.forEach((item, i) => {
+    const r = (data.respostas && data.respostas[i]) || {};
+    document.querySelectorAll(`input[name="anq_${i}"]`).forEach(el => { el.checked = (el.value === r.answer); });
+    const det = document.getElementById('and_' + i); if (det) det.value = r.detail || '';
+  });
+}
+
+function setAnamneseFormTitle(txt) { const t = document.getElementById('anamneseFormTitle'); if (t) t.textContent = txt; }
+
+function newAnamnese() {
+  _editingAnamneseId = null;
+  fillAnamneseForm({});
+  setAnamneseFormTitle('Nova ficha — dados da paciente');
+  renderAnamneseList();
+  const el = document.getElementById('an_paciente'); if (el) el.focus();
+}
+
+async function saveAnamnese() {
+  if (typeof currentUser === 'undefined' || !currentUser) { toast('Faça login para salvar.', 'error'); return; }
+  const name = docVal('an_paciente');
+  if (!name) { toast('Informe o nome da paciente para salvar.', 'error'); const el = document.getElementById('an_paciente'); if (el) el.focus(); return; }
+  const btn = document.getElementById('btnSalvarAnamnese');
+  if (btn) btn.disabled = true;
+  const payload = { patient_name: name, data: collectAnamneseData(), updated_at: new Date().toISOString() };
+  let error;
+  if (_editingAnamneseId) {
+    ({ error } = await db('anamneses').update(payload).eq('id', _editingAnamneseId));
+  } else {
+    const id = (typeof uid === 'function' ? uid() : crypto.randomUUID());
+    ({ error } = await db('anamneses').insert({ id, user_id: currentUser.id, ...payload }));
+    if (!error) _editingAnamneseId = id;
+  }
+  if (btn) btn.disabled = false;
+  if (error) { toast('Erro ao salvar: ' + error.message, 'error'); return; }
+  toast('Ficha salva!', 'success');
+  setAnamneseFormTitle('Editando ficha — ' + name);
+  await loadAnamneses();
+}
+
+async function openAnamnese(id) {
+  const { data, error } = await db('anamneses').select('*').eq('id', id).single();
+  if (error || !data) { toast('Erro ao abrir ficha.', 'error'); return; }
+  _editingAnamneseId = id;
+  fillAnamneseForm(data.data);
+  const nameEl = document.getElementById('an_paciente'); if (nameEl && !nameEl.value) nameEl.value = data.patient_name || '';
+  setAnamneseFormTitle('Editando ficha — ' + (data.patient_name || ''));
+  renderAnamneseList();
+  toast('Ficha carregada.', 'success');
+  const t = document.getElementById('anamneseFormTitle'); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function deleteAnamnese(id) {
+  if (!confirm('Excluir esta ficha definitivamente?')) return;
+  const { error } = await db('anamneses').delete().eq('id', id);
+  if (error) { toast('Erro ao excluir.', 'error'); return; }
+  if (_editingAnamneseId === id) { _editingAnamneseId = null; newAnamnese(); }
+  toast('Ficha excluída.', 'success');
+  await loadAnamneses();
 }
 
 function anamneseAnswer(i) {
