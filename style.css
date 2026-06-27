@@ -2379,3 +2379,30 @@ select.form-control { cursor: pointer; }
 .crm-chart-title { font-size: 13px; font-weight: 600; color: var(--text-2); margin-bottom: 10px; text-align: center; }
 .crm-chart-box .chart-wrap { position: relative; height: 200px; }
 @media (max-width: 900px) { .crm-metrics-grid { grid-template-columns: 1fr; } }
+
+/* ===== Ficha 360° (CRM) ===== */
+.crm-ficha-section { margin-top: 18px; }
+.crm-ficha-section .doc-block-title { margin-bottom: 8px; }
+.crm-ficha-row {
+  display: flex; align-items: center; gap: 12px; padding: 9px 8px;
+  border-bottom: 1px solid var(--border); cursor: pointer; transition: var(--transition);
+}
+.crm-ficha-row:last-child { border-bottom: none; }
+.crm-ficha-row:hover { background: var(--bg-2); }
+.crm-ficha-date { font-size: 12.5px; color: var(--text-2); font-weight: 600; min-width: 120px; }
+.crm-ficha-main { flex: 1; font-size: 13.5px; color: var(--text-1); }
+
+.crm-doc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.crm-doc-cat {
+  background: var(--bg-2); border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px; text-align: center; cursor: pointer; transition: var(--transition);
+}
+.crm-doc-cat:hover { border-color: var(--accent); background: var(--accent-light); }
+.crm-doc-count { font-size: 22px; font-weight: 800; color: var(--accent); line-height: 1; }
+.crm-doc-label { font-size: 12.5px; font-weight: 600; color: var(--text-1); margin-top: 4px; }
+.crm-doc-last { font-size: 10.5px; color: var(--text-3); margin-top: 2px; }
+
+@media (max-width: 600px) {
+  .crm-doc-grid { grid-template-columns: 1fr 1fr; }
+  .crm-ficha-date { min-width: 90px; }
+}

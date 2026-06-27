@@ -338,6 +338,16 @@ async function openCrmDetail(id) {
       </div>
       ${p.observacoes ? `<div class="crm-detail-obs"><span class="crm-info-label">Observações</span><p>${esc(p.observacoes)}</p></div>` : ''}
 
+      <div class="crm-ficha-section">
+        <span class="doc-block-title" style="padding:0">Agendamentos</span>
+        <div id="crmFichaAgenda"><div class="doc-list-empty">Carregando…</div></div>
+      </div>
+
+      <div class="crm-ficha-section">
+        <span class="doc-block-title" style="padding:0">Documentos</span>
+        <div id="crmFichaDocs"><div class="doc-list-empty">Carregando…</div></div>
+      </div>
+
       <div class="crm-timeline-head">
         <span class="doc-block-title" style="padding:0">Linha do tempo</span>
       </div>
@@ -349,7 +359,60 @@ async function openCrmDetail(id) {
       <div id="crmTimeline"><div class="doc-list-empty">Carregando histórico…</div></div>
     </div>`, true);
 
+  loadCrmFicha(p.id, p.nome);
   loadInteracoes(p.id);
+}
+
+/* normaliza nome (minúsculas, sem acento) para cruzar documentos */
+function crmNorm(s) { return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim(); }
+
+/* Ficha 360°: carrega agendamentos (por id/nome) e documentos (por nome) */
+async function loadCrmFicha(pacienteId, nome) {
+  if (typeof currentUser === 'undefined' || !currentUser) return;
+  const uidv = currentUser.id;
+  const nomeNorm = crmNorm(nome);
+  const sel = t => db(t).select('id,patient_name,doc_date,created_at').eq('user_id', uidv).order('created_at', { ascending: false });
+  const [ag, an, re, ex, ct] = await Promise.all([
+    db('agendamentos').select('id,data,hora_inicio,procedimento,status,paciente_id,paciente_nome').eq('user_id', uidv).order('data', { ascending: false }),
+    sel('anamneses'), sel('receituarios'), sel('exames'), sel('contratos_assinados')
+  ]);
+
+  const agItems = (ag.data || []).filter(a => a.paciente_id === pacienteId || crmNorm(a.paciente_nome) === nomeNorm);
+  renderFichaAgenda(agItems);
+
+  const match = arr => (arr || []).filter(d => crmNorm(d.patient_name) === nomeNorm);
+  renderFichaDocs({ anamnese: match(an.data), receituario: match(re.data), exames: match(ex.data), contratos: match(ct.data) });
+}
+
+function renderFichaAgenda(items) {
+  const el = document.getElementById('crmFichaAgenda');
+  if (!el) return;
+  if (!items.length) { el.innerHTML = `<div class="doc-list-empty">Nenhum agendamento.</div>`; return; }
+  el.innerHTML = items.slice(0, 8).map(a => {
+    const st = (typeof AG_STATUS !== 'undefined' && AG_STATUS[a.status]) || { label: a.status || 'Agendado', badge: 'badge-gray' };
+    return `<div class="crm-ficha-row" onclick="navigateTo('agenda');closeModal()">
+      <span class="crm-ficha-date">${fDate(a.data)}${a.hora_inicio ? ' · ' + a.hora_inicio.slice(0, 5) : ''}</span>
+      <span class="crm-ficha-main">${a.procedimento ? esc(a.procedimento) : 'Consulta'}</span>
+      <span class="badge ${st.badge}">${st.label}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderFichaDocs(g) {
+  const el = document.getElementById('crmFichaDocs');
+  if (!el) return;
+  const defs = [['anamnese', 'Anamneses', 'anamnese'], ['receituario', 'Receituários', 'receituario'], ['exames', 'Exames', 'exames'], ['contratos', 'Contratos', 'contratos']];
+  const total = defs.reduce((s, [k]) => s + (g[k] || []).length, 0);
+  if (!total) { el.innerHTML = `<div class="doc-list-empty">Nenhum documento vinculado a este nome.</div>`; return; }
+  el.innerHTML = `<div class="crm-doc-grid">${defs.map(([key, label, view]) => {
+    const arr = g[key] || [];
+    const last = arr.length ? (arr[0].doc_date || (arr[0].created_at || '').slice(0, 10)) : '';
+    return `<div class="crm-doc-cat" onclick="navigateTo('${view}');closeModal()" title="Abrir ${label}">
+      <div class="crm-doc-count">${arr.length}</div>
+      <div class="crm-doc-label">${label}</div>
+      <div class="crm-doc-last">${arr.length ? (last ? 'último: ' + fDate(last) : 'salvo') : '—'}</div>
+    </div>`;
+  }).join('')}</div>`;
 }
 
 function crmInfo(label, value) {
