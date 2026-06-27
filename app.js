@@ -324,7 +324,7 @@ const state = {
   editingId: null,
   chartInstances: {},
   editingPrecId: null,
-  data: { entries: [], exits: [], products: [], clinic: [], notas: [], pricing: [], pricingInsumos: [], entradaInsumos: [], precificacoes: [], precProdutos: [], precSupplies: [] }
+  data: { entries: [], exits: [], products: [], clinic: [], notas: [], pricing: [], pricingInsumos: [], entradaInsumos: [], precificacoes: [], precProdutos: [], precSupplies: [], crmPacientes: [], agendaHoje: [] }
 };
 
 /* ===== LOAD ALL DATA ===== */
@@ -354,6 +354,14 @@ async function loadAllData(signal) {
     ]);
     if (signal?.aborted) return;
 
+    // CRM + Agenda (para o sininho de notificações e o Dashboard).
+    // Tabelas podem não existir ainda (db() devolve [] em caso de erro) → sem quebrar.
+    const [crmP, agH] = await Promise.all([
+      db('crm_pacientes', signal).select('id,nome,telefone,status,proximo_contato').eq('user_id', uid),
+      db('agendamentos', signal).select('id,paciente_nome,procedimento,hora_inicio,hora_fim,status,data').eq('user_id', uid).eq('data', today())
+    ]);
+    if (signal?.aborted) return;
+
     state.data = {
       entries:        (en.data || []).map(mapEntry),
       exits:          (ex.data || []).map(mapExit),
@@ -362,7 +370,9 @@ async function loadAllData(signal) {
       notas:          (nf.data || []).map(mapNota),
       pricing:        (pc.data || []).map(mapPricing),
       pricingInsumos: (pi.data || []).map(mapPricingInsumo),
-      entradaInsumos: (ei.data || []).map(mapEntradaInsumo)
+      entradaInsumos: (ei.data || []).map(mapEntradaInsumo),
+      crmPacientes:   (crmP.data || []).map(r => ({ id: r.id, nome: r.nome, telefone: r.telefone || '', status: r.status || 'novo', proximoContato: r.proximo_contato || '' })),
+      agendaHoje:     (agH.data || []).map(r => ({ id: r.id, pacienteNome: r.paciente_nome || '', procedimento: r.procedimento || '', horaInicio: r.hora_inicio || '', horaFim: r.hora_fim || '', status: r.status || 'agendado' }))
     };
     currentProfile = pf.data || {};
     updateSidebarProfile();
@@ -505,10 +515,24 @@ function getUpcomingClinicPayments(windowDays = NOTIF_WINDOW_DAYS) {
   return out.sort((a, b) => a.due - b.due);
 }
 
+/* Follow-ups do CRM com data vencida ou para hoje */
+function getFollowupsDue() {
+  const t = today();
+  return (state.data.crmPacientes || [])
+    .filter(p => p.proximoContato && p.proximoContato <= t && p.status !== 'inativo')
+    .sort((a, b) => a.proximoContato.localeCompare(b.proximoContato));
+}
+/* Consultas de hoje (não canceladas) */
+function getTodayAppointments() {
+  return (state.data.agendaHoje || [])
+    .filter(a => a.status !== 'cancelado')
+    .sort((a, b) => (a.horaInicio || '').localeCompare(b.horaInicio || ''));
+}
+
 function updateNotifBadge() {
   const badge = document.getElementById('notifBadge');
   if (!badge) return;
-  const n = getUpcomingClinicPayments().length;
+  const n = getTodayAppointments().length + getFollowupsDue().length + getUpcomingClinicPayments().length;
   if (n > 0) { badge.textContent = n > 9 ? '9+' : n; badge.style.display = ''; }
   else badge.style.display = 'none';
 }
@@ -516,27 +540,53 @@ function updateNotifBadge() {
 function renderNotifDropdown() {
   const body = document.getElementById('notifDropdownBody');
   if (!body) return;
-  const list = getUpcomingClinicPayments();
-  if (!list.length) {
-    body.innerHTML = `<div class="notif-empty">Nenhum pagamento próximo do vencimento.</div>`;
-    return;
+  const appts = getTodayAppointments();
+  const follow = getFollowupsDue();
+  const pays = getUpcomingClinicPayments();
+  const t = today();
+  let html = '';
+
+  if (appts.length) {
+    html += `<div class="notif-section">Consultas de hoje</div>`;
+    html += appts.map(a => `<div class="notif-item" onclick="navigateTo('agenda');closeNotifPanel()">
+      <div class="notif-item-main">
+        <div class="notif-item-title">${esc(a.pacienteNome)}</div>
+        <div class="notif-item-sub">${a.procedimento ? esc(a.procedimento) : 'Consulta'}</div>
+      </div>
+      <div class="notif-item-when"><span class="notif-when-label">${a.horaInicio ? a.horaInicio.slice(0, 5) : 'Hoje'}</span></div>
+    </div>`).join('');
   }
-  body.innerHTML = list.map(e => {
-    const when = e.diffDays === 0 ? 'Vence hoje'
-               : e.diffDays === 1 ? 'Vence amanhã'
-               : `Vence em ${e.diffDays} dias`;
-    const urgency = e.diffDays <= 1 ? 'notif-urgent' : e.diffDays <= 3 ? 'notif-soon' : '';
-    return `<div class="notif-item ${urgency}" onclick="navigateTo('consultorio');closeNotifPanel()">
+
+  if (follow.length) {
+    html += `<div class="notif-section">Follow-ups</div>`;
+    html += follow.map(p => {
+      const overdue = p.proximoContato < t;
+      return `<div class="notif-item ${overdue ? 'notif-urgent' : 'notif-soon'}" onclick="navigateTo('crm');closeNotifPanel()">
+      <div class="notif-item-main">
+        <div class="notif-item-title">${esc(p.nome)}</div>
+        <div class="notif-item-sub">${p.telefone ? esc(p.telefone) : 'Retornar contato'}</div>
+      </div>
+      <div class="notif-item-when"><span class="notif-when-label">${overdue ? 'Atrasado' : 'Hoje'}</span><span class="notif-when-date">${fDateShort(p.proximoContato)}</span></div>
+    </div>`;
+    }).join('');
+  }
+
+  if (pays.length) {
+    html += `<div class="notif-section">Vencimentos</div>`;
+    html += pays.map(e => {
+      const when = e.diffDays === 0 ? 'Vence hoje' : e.diffDays === 1 ? 'Vence amanhã' : `Vence em ${e.diffDays} dias`;
+      const urgency = e.diffDays <= 1 ? 'notif-urgent' : e.diffDays <= 3 ? 'notif-soon' : '';
+      return `<div class="notif-item ${urgency}" onclick="navigateTo('consultorio');closeNotifPanel()">
       <div class="notif-item-main">
         <div class="notif-item-title">${esc(e.description)}</div>
         <div class="notif-item-sub">${CLINIC_CATEGORIES[e.category] || e.category} · ${fCurrency(e.value)}${e.recurrence === 'mensal' ? ' · fixo' : ''}</div>
       </div>
-      <div class="notif-item-when">
-        <span class="notif-when-label">${when}</span>
-        <span class="notif-when-date">${fDateShort(toISODate(e.due))}</span>
-      </div>
+      <div class="notif-item-when"><span class="notif-when-label">${when}</span><span class="notif-when-date">${fDateShort(toISODate(e.due))}</span></div>
     </div>`;
-  }).join('');
+    }).join('');
+  }
+
+  body.innerHTML = html || `<div class="notif-empty">Nada por aqui. Tudo em dia! ✨</div>`;
 }
 
 let _notifOutsideHandler = null;
@@ -635,6 +685,32 @@ function periodFilterHTML(extraClass = '') {
   </div>`;
 }
 
+/* Painel "Hoje" do Dashboard — consultas + follow-ups */
+function dashTodayPanel() {
+  const appts = getTodayAppointments();
+  const follow = getFollowupsDue();
+  const t = today();
+  const hoje = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
+  return `<div class="card dash-today">
+    <div class="card-header"><span class="card-title">Hoje</span><span class="card-sub">${hoje}</span></div>
+    <div class="card-body" style="padding-top:10px">
+      <div class="dash-today-label">Consultas (${appts.length})</div>
+      ${appts.length ? appts.map(a => `<div class="dash-today-item" onclick="navigateTo('agenda')">
+        <span class="dash-today-time">${a.horaInicio ? a.horaInicio.slice(0, 5) : '—'}</span>
+        <span class="dash-today-name">${esc(a.pacienteNome)}</span>
+      </div>`).join('') : '<div class="dash-today-empty">Sem consultas hoje.</div>'}
+      <div class="dash-today-label" style="margin-top:14px">Follow-ups (${follow.length})</div>
+      ${follow.length ? follow.slice(0, 5).map(p => {
+        const overdue = p.proximoContato < t;
+        return `<div class="dash-today-item" onclick="navigateTo('crm')">
+        <span class="dash-today-tag ${overdue ? 'over' : ''}">${overdue ? 'Atrasado' : 'Hoje'}</span>
+        <span class="dash-today-name">${esc(p.nome)}</span>
+      </div>`;
+      }).join('') : '<div class="dash-today-empty">Nenhum follow-up.</div>'}
+    </div>
+  </div>`;
+}
+
 /* ===== DASHBOARD ===== */
 function renderDashboard() {
   const { entries, exits, clinic, products } = getData();
@@ -690,6 +766,7 @@ function renderDashboard() {
       </div>
     </div>
     <div class="dash-right">
+      ${dashTodayPanel()}
       ${recentPanel(recentSorted.slice(0,10))}
     </div>
   </div>`;

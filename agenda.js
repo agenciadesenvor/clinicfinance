@@ -23,7 +23,8 @@ const AG_MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho'
 /* ===== Store ===== */
 const _agenda = (() => {
   const d = new Date();
-  return { year: d.getFullYear(), month: d.getMonth(), appts: [], patients: [] };
+  const ref = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  return { year: d.getFullYear(), month: d.getMonth(), mode: 'mes', ref, appts: [], patients: [] };
 })();
 
 /* ===== Helpers ===== */
@@ -57,11 +58,18 @@ function renderAgenda() {
   <div class="card ag-card">
     <div class="ag-toolbar">
       <div class="ag-nav">
-        <button class="btn btn-ghost btn-icon" onclick="agShift(-1)" aria-label="Mês anterior">${svg('<polyline points="15 18 9 12 15 6"/>')}</button>
+        <button class="btn btn-ghost btn-icon" onclick="agShift(-1)" aria-label="Anterior">${svg('<polyline points="15 18 9 12 15 6"/>')}</button>
         <span class="ag-month" id="agMonthLabel"></span>
-        <button class="btn btn-ghost btn-icon" onclick="agShift(1)" aria-label="Próximo mês">${svg('<polyline points="9 18 15 12 9 6"/>')}</button>
+        <button class="btn btn-ghost btn-icon" onclick="agShift(1)" aria-label="Próximo">${svg('<polyline points="9 18 15 12 9 6"/>')}</button>
       </div>
-      <button class="btn btn-secondary btn-sm" onclick="agToday()">Hoje</button>
+      <div class="ag-modes">
+        <div class="ag-seg">
+          <button class="ag-mode-btn" data-mode="mes" onclick="agSetMode('mes')">Mês</button>
+          <button class="ag-mode-btn" data-mode="semana" onclick="agSetMode('semana')">Semana</button>
+          <button class="ag-mode-btn" data-mode="dia" onclick="agSetMode('dia')">Dia</button>
+        </div>
+        <button class="btn btn-secondary btn-sm" onclick="agToday()">Hoje</button>
+      </div>
     </div>
     <div id="agCalendar"><div class="doc-list-empty">Carregando…</div></div>
   </div>
@@ -94,21 +102,126 @@ async function loadAgenda() {
   }
   _agenda.appts = (ag.data || []).map(mapAgendamento);
   _agenda.patients = pac.data || [];
-  renderCalendar();
+  agRenderBody();
   renderUpcoming();
 }
 
-/* ===== Navegação de mês ===== */
-function agShift(delta) {
-  _agenda.month += delta;
-  if (_agenda.month < 0) { _agenda.month = 11; _agenda.year--; }
-  if (_agenda.month > 11) { _agenda.month = 0; _agenda.year++; }
-  renderCalendar();
+/* ===== Navegação / modos ===== */
+function agRefDate() { const [y, m, d] = _agenda.ref.split('-').map(Number); return new Date(y, m - 1, d); }
+function agSetRef(dt) { _agenda.ref = agDateStr(dt.getFullYear(), dt.getMonth(), dt.getDate()); _agenda.year = dt.getFullYear(); _agenda.month = dt.getMonth(); }
+
+function agSetMode(mode) {
+  _agenda.mode = mode;
+  agRenderBody();
 }
+
+function agShift(delta) {
+  if (_agenda.mode === 'mes') {
+    _agenda.month += delta;
+    if (_agenda.month < 0) { _agenda.month = 11; _agenda.year--; }
+    if (_agenda.month > 11) { _agenda.month = 0; _agenda.year++; }
+    _agenda.ref = agDateStr(_agenda.year, _agenda.month, 1);
+  } else {
+    const dt = agRefDate();
+    dt.setDate(dt.getDate() + (_agenda.mode === 'semana' ? 7 * delta : delta));
+    agSetRef(dt);
+  }
+  agRenderBody();
+}
+
 function agToday() {
   const d = new Date();
-  _agenda.year = d.getFullYear(); _agenda.month = d.getMonth();
-  renderCalendar();
+  agSetRef(d);
+  agRenderBody();
+}
+
+/* dispatcher: escolhe a visão conforme o modo */
+function agRenderBody() {
+  document.querySelectorAll('.ag-mode-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === _agenda.mode));
+  if (_agenda.mode === 'semana') renderWeek();
+  else if (_agenda.mode === 'dia') renderDay();
+  else renderCalendar();
+}
+
+function agByDay() {
+  const m = {};
+  _agenda.appts.forEach(a => { (m[a.data] = m[a.data] || []).push(a); });
+  Object.values(m).forEach(arr => arr.sort((a, b) => (a.horaInicio || '').localeCompare(b.horaInicio || '')));
+  return m;
+}
+
+/* início da semana (domingo) que contém o ref */
+function agWeekStart() {
+  const dt = agRefDate();
+  dt.setDate(dt.getDate() - dt.getDay());
+  return dt;
+}
+
+/* ===== Visão Semana ===== */
+function renderWeek() {
+  const el = document.getElementById('agCalendar');
+  const label = document.getElementById('agMonthLabel');
+  if (!el) return;
+  const start = agWeekStart();
+  const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(start); d.setDate(start.getDate() + i); return d; });
+  const last = days[6];
+  if (label) label.textContent = start.getMonth() === last.getMonth()
+    ? `${start.getDate()}–${last.getDate()} de ${AG_MONTHS[start.getMonth()].toLowerCase()} ${start.getFullYear()}`
+    : `${start.getDate()} ${AG_MONTHS[start.getMonth()].slice(0,3).toLowerCase()} – ${last.getDate()} ${AG_MONTHS[last.getMonth()].slice(0,3).toLowerCase()} ${last.getFullYear()}`;
+
+  const byDay = agByDay();
+  const todayStr = today();
+  el.innerHTML = `<div class="ag-week">${days.map(d => {
+    const ds = agDateStr(d.getFullYear(), d.getMonth(), d.getDate());
+    const items = byDay[ds] || [];
+    return `<div class="ag-week-col${ds === todayStr ? ' ag-today' : ''}">
+      <div class="ag-week-head" onclick="openAgendaModal(null,'${ds}')">
+        <span class="ag-week-wd">${AG_WEEKDAYS[d.getDay()]}</span>
+        <span class="ag-week-num">${d.getDate()}</span>
+      </div>
+      <div class="ag-week-body">
+        ${items.length ? items.map(a => agEventChip(a)).join('') : '<div class="ag-week-empty">—</div>'}
+      </div>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+/* ===== Visão Dia ===== */
+function renderDay() {
+  const el = document.getElementById('agCalendar');
+  const label = document.getElementById('agMonthLabel');
+  if (!el) return;
+  const d = agRefDate();
+  const ds = agDateStr(d.getFullYear(), d.getMonth(), d.getDate());
+  if (label) label.textContent = `${AG_WEEKDAYS[d.getDay()]}, ${d.getDate()} de ${AG_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  const items = (agByDay()[ds] || []);
+  el.innerHTML = `<div class="ag-day">
+    ${items.length
+      ? items.map(a => agEventRow(a)).join('')
+      : `<div class="empty-state" style="padding:32px 0">${iconCalendar()}<h3>Nada agendado</h3><p>Clique em "Novo Agendamento" para marcar uma consulta neste dia.</p></div>`}
+    <button class="ag-day-add" onclick="openAgendaModal(null,'${ds}')">${iconPlus()} Agendar neste dia</button>
+  </div>`;
+}
+
+/* chip de evento (visão semana) */
+function agEventChip(a) {
+  const st = AG_STATUS[a.status] || AG_STATUS.agendado;
+  return `<button class="ag-ev ${st.badge}" onclick="openAgendaModal('${a.id}')" title="${esc(a.pacienteNome)}${a.procedimento ? ' — ' + esc(a.procedimento) : ''}">
+    ${a.horaInicio ? `<span class="ag-ev-time">${agHora(a.horaInicio)}</span>` : ''}${esc(a.pacienteNome)}</button>`;
+}
+
+/* linha de evento (visão dia) */
+function agEventRow(a) {
+  const st = AG_STATUS[a.status] || AG_STATUS.agendado;
+  return `<div class="ag-day-row" onclick="openAgendaModal('${a.id}')">
+    <div class="ag-day-time">${a.horaInicio ? agHora(a.horaInicio) : '—'}${a.horaFim ? `<span>${agHora(a.horaFim)}</span>` : ''}</div>
+    <div class="ag-day-bar ${st.badge}"></div>
+    <div class="ag-day-info">
+      <span class="ag-up-name">${esc(a.pacienteNome)}</span>
+      ${a.procedimento ? `<span class="ag-up-proc">${esc(a.procedimento)}</span>` : ''}
+    </div>
+    <span class="badge ${st.badge}">${st.label}</span>
+  </div>`;
 }
 
 /* ===== Calendário ===== */
@@ -246,6 +359,13 @@ async function saveAgendamento(ev) {
   const procedimento = document.getElementById('agProcedimento').value.trim() || null;
   const observacoes = document.getElementById('agObs').value.trim() || null;
   const status = document.getElementById('agStatus').value;
+
+  // Aviso de conflito de horário (mesma data, horários sobrepostos)
+  if (horaInicio && horaFim && status !== 'cancelado') {
+    const conflito = _agenda.appts.find(x => x.id !== id && x.data === data && x.status !== 'cancelado'
+      && x.horaInicio && x.horaFim && horaInicio < x.horaFim && x.horaInicio < horaFim);
+    if (conflito && !confirm(`⚠️ Conflito de horário com "${conflito.pacienteNome}" (${agHora(conflito.horaInicio)}–${agHora(conflito.horaFim)}) no mesmo dia.\n\nDeseja agendar mesmo assim?`)) return;
+  }
 
   const payload = {
     paciente_id: selId, paciente_nome: nome, procedimento, data,

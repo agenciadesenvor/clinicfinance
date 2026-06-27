@@ -53,6 +53,15 @@ function renderCrm() {
 
   <div class="stats-grid" id="crmStats" style="margin-bottom:24px"></div>
 
+  <div class="card crm-metrics" id="crmMetrics" style="margin-bottom:24px;display:none">
+    <div class="card-header"><span class="card-title">Métricas do CRM</span><span class="card-sub">Visão geral dos pacientes e leads</span></div>
+    <div class="card-body crm-metrics-grid">
+      <div class="crm-chart-box"><div class="crm-chart-title">Funil por etapa</div><div class="chart-wrap"><canvas id="crmChartFunil" height="200"></canvas></div></div>
+      <div class="crm-chart-box"><div class="crm-chart-title">Leads por origem</div><div class="chart-wrap"><canvas id="crmChartOrigem" height="200"></canvas></div></div>
+      <div class="crm-chart-box"><div class="crm-chart-title">Novos cadastros por mês</div><div class="chart-wrap"><canvas id="crmChartMes" height="200"></canvas></div></div>
+    </div>
+  </div>
+
   <div class="table-container">
     <div class="crm-filter-bar" id="crmFilterBar"></div>
     <div class="table-toolbar">
@@ -82,6 +91,55 @@ async function loadCrm() {
   renderCrmStats();
   renderCrmFilters();
   renderCrmTable();
+  renderCrmCharts();
+}
+
+/* ===== Métricas (gráficos) ===== */
+function renderCrmCharts() {
+  const card = document.getElementById('crmMetrics');
+  if (!card) return;
+  const ps = _crm.pacientes;
+  if (!ps.length || typeof Chart === 'undefined' || typeof createChart !== 'function') { card.style.display = 'none'; return; }
+  card.style.display = '';
+
+  const BROWN = '#7F6658', GOLD = '#C9A06A', TXT = '#7C6F63', GRID = 'rgba(127,102,88,0.08)';
+  const base_ = { responsive: true, maintainAspectRatio: false };
+
+  // Funil por etapa
+  const funilKeys = Object.keys(CRM_STATUS);
+  const funilData = funilKeys.map(k => ps.filter(p => p.status === k).length);
+  // Leads por origem
+  const origemKeys = Object.keys(CRM_ORIGEM).filter(k => ps.some(p => p.origem === k));
+  const origemData = origemKeys.map(k => ps.filter(p => p.origem === k).length);
+  const palette = ['#7F6658', '#C9A06A', '#B3907A', '#9C7C66', '#D8BF9E', '#6A5446', '#A99C8C'];
+  // Novos cadastros nos últimos 6 meses
+  const meses = [], labels = [];
+  const base = new Date();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(base.getFullYear(), base.getMonth() - i, 1);
+    meses.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`);
+    labels.push(['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'][d.getMonth()]);
+  }
+  const porMes = meses.map(key => ps.filter(p => (p.createdAt || '').slice(0, 7) === key).length);
+
+  // Cria os gráficos no próximo frame (após o layout calcular a largura dos canvases)
+  requestAnimationFrame(() => {
+    createChart('crmChartFunil', {
+      type: 'bar',
+      data: { labels: funilKeys.map(k => CRM_STATUS[k].label), datasets: [{ data: funilData, backgroundColor: BROWN, borderRadius: 6, maxBarThickness: 38 }] },
+      options: { ...base_, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0, color: TXT }, grid: { color: GRID } }, x: { ticks: { color: TXT, font: { size: 10 } }, grid: { display: false } } } }
+    });
+    createChart('crmChartOrigem', {
+      type: 'doughnut',
+      data: { labels: origemKeys.map(k => CRM_ORIGEM[k]), datasets: [{ data: origemData, backgroundColor: palette, borderWidth: 0 }] },
+      options: { ...base_, cutout: '62%', plugins: { legend: { position: 'bottom', labels: { color: TXT, font: { size: 11 }, boxWidth: 12, padding: 10 } } } }
+    });
+    createChart('crmChartMes', {
+      type: 'line',
+      data: { labels, datasets: [{ data: porMes, borderColor: BROWN, backgroundColor: 'rgba(127,102,88,0.12)', fill: true, tension: 0.35, pointBackgroundColor: GOLD, pointRadius: 4 }] },
+      options: { ...base_, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0, color: TXT }, grid: { color: GRID } }, x: { ticks: { color: TXT }, grid: { display: false } } } }
+    });
+  });
 }
 
 function crmFiltered() {

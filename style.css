@@ -2301,9 +2301,81 @@ select.form-control { cursor: pointer; }
 .ag-up-name { font-size: 14px; font-weight: 600; color: var(--text-1); }
 .ag-up-proc { font-size: 12.5px; color: var(--text-3); }
 
+/* Modos Mês/Semana/Dia */
+.ag-modes { display: flex; align-items: center; gap: 10px; }
+.ag-seg { display: inline-flex; background: var(--bg-2); border: 1px solid var(--border); border-radius: 999px; padding: 3px; }
+.ag-mode-btn {
+  border: none; background: none; cursor: pointer; font: inherit;
+  font-size: 12.5px; font-weight: 600; color: var(--text-2);
+  padding: 5px 14px; border-radius: 999px; transition: var(--transition);
+}
+.ag-mode-btn:hover { color: var(--accent); }
+.ag-mode-btn.active { background: var(--accent); color: #fff; }
+
+/* Visão Semana */
+.ag-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.ag-week-col { background: var(--bg-2); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; min-height: 140px; display: flex; flex-direction: column; }
+.ag-week-col.ag-today { border-color: var(--accent); }
+.ag-week-head { display: flex; flex-direction: column; align-items: center; padding: 8px 4px; cursor: pointer; border-bottom: 1px solid var(--border); }
+.ag-week-head:hover { background: var(--accent-light); }
+.ag-week-wd { font-size: 10.5px; font-weight: 700; color: var(--text-3); text-transform: uppercase; }
+.ag-week-num { font-size: 15px; font-weight: 700; color: var(--text-1); }
+.ag-today .ag-week-num { color: var(--accent); }
+.ag-week-body { display: flex; flex-direction: column; gap: 4px; padding: 6px; }
+.ag-week-empty { text-align: center; color: var(--text-3); font-size: 12px; padding: 6px 0; }
+
+/* Visão Dia */
+.ag-day { display: flex; flex-direction: column; gap: 8px; }
+.ag-day-row { display: flex; align-items: center; gap: 14px; padding: 12px 10px; background: var(--bg-2); border: 1px solid var(--border); border-radius: 10px; cursor: pointer; transition: var(--transition); }
+.ag-day-row:hover { border-color: var(--accent); }
+.ag-day-time { display: flex; flex-direction: column; min-width: 56px; font-size: 14px; font-weight: 700; color: var(--text-1); }
+.ag-day-time span { font-size: 12px; font-weight: 500; color: var(--text-3); }
+.ag-day-bar { width: 4px; align-self: stretch; border-radius: 4px; background: currentColor; }
+.ag-day-info { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.ag-day-add { margin-top: 4px; border: 1px dashed var(--border); background: none; color: var(--accent); font: inherit; font-weight: 600; font-size: 13px; padding: 12px; border-radius: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.ag-day-add:hover { background: var(--accent-light); border-color: var(--accent); }
+.ag-day-add svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+@media (max-width: 640px) {
+  .ag-week { grid-template-columns: 1fr; }
+  .ag-week-col { min-height: auto; }
+  .ag-modes { flex-wrap: wrap; }
+}
+
 @media (max-width: 640px) {
   .ag-cell { min-height: 64px; }
   .ag-ev { font-size: 0; padding: 3px; }
   .ag-ev-time { font-size: 0; }
   .ag-ev::before { content: ''; display: block; width: 100%; height: 5px; border-radius: 3px; background: currentColor; }
 }
+
+/* ===== Notificações (seções) + Painel "Hoje" do Dashboard ===== */
+.notif-section {
+  font-size: 11px; font-weight: 700; color: var(--text-3);
+  text-transform: uppercase; letter-spacing: .04em;
+  padding: 10px 16px 4px;
+}
+.notif-section:first-child { padding-top: 4px; }
+
+.dash-today { margin-bottom: 16px; }
+.dash-today-label { font-size: 12px; font-weight: 700; color: var(--text-2); margin-bottom: 6px; }
+.dash-today-item {
+  display: flex; align-items: center; gap: 10px; padding: 8px 6px;
+  border-radius: 8px; cursor: pointer; transition: var(--transition);
+}
+.dash-today-item:hover { background: var(--bg-2); }
+.dash-today-time { font-size: 13px; font-weight: 700; color: var(--accent); min-width: 42px; }
+.dash-today-name { font-size: 13.5px; color: var(--text-1); font-weight: 500; }
+.dash-today-tag {
+  font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+  background: var(--green-light); color: var(--green); min-width: 42px; text-align: center;
+}
+.dash-today-tag.over { background: var(--red-light); color: var(--red); }
+.dash-today-empty { font-size: 12.5px; color: var(--text-3); padding: 4px 6px; }
+
+/* ===== Métricas do CRM ===== */
+.crm-metrics-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; padding-top: 12px; }
+.crm-chart-box { display: flex; flex-direction: column; }
+.crm-chart-title { font-size: 13px; font-weight: 600; color: var(--text-2); margin-bottom: 10px; text-align: center; }
+.crm-chart-box .chart-wrap { position: relative; height: 200px; }
+@media (max-width: 900px) { .crm-metrics-grid { grid-template-columns: 1fr; } }
