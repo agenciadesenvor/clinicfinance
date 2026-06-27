@@ -248,47 +248,13 @@
   <!-- Toast -->
   <div class="toast-container" id="toastContainer" role="status" aria-live="polite"></div>
 
-  <!-- AI Float Button -->
-  <button type="button" class="ai-float-btn" id="aiFloatBtn" aria-label="Abrir ClinicAI" onclick="toggleAiPanel()" title="ClinicAI — Assistente Inteligente">
-    <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-    </svg>
-  </button>
-
-  <!-- AI Panel Overlay -->
-  <div class="ai-overlay" id="aiOverlay" onclick="closeAiPanel()"></div>
-
-  <!-- AI Panel -->
-  <div class="ai-panel" id="aiPanel">
-    <div class="ai-panel-header">
-      <div class="ai-panel-title">
-        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--accent);flex-shrink:0">
-          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-        </svg>
-        ClinicAI
-        <span class="ai-beta-badge">Beta</span>
-      </div>
-      <button type="button" class="ai-panel-close" onclick="closeAiPanel()" aria-label="Fechar">
-        <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-        </svg>
-      </button>
-    </div>
-    <div class="ai-tabs">
-      <button type="button" class="ai-tab active" data-tab="insights" onclick="setAiTab('insights')">✦ Insights</button>
-      <button type="button" class="ai-tab" data-tab="preco" onclick="setAiTab('preco')">R$ Preço</button>
-      <button type="button" class="ai-tab" data-tab="relatorio" onclick="setAiTab('relatorio')">📄 Relatório</button>
-    </div>
-    <div class="ai-panel-body" id="aiPanelBody">
-      <!-- Rendered by ai.js -->
-    </div>
-  </div>
+  <!-- ClinicAI (botão flutuante + painel) desativado temporariamente — restaurar do histórico do git quando for reativar -->
 
   <script src="config.js"></script>
   <script src="app.js?v=13"></script>
   <script src="documentos.js?v=8"></script>
   <script src="crm.js?v=3"></script>
   <script src="agenda.js?v=3"></script>
-  <script src="ai.js?v=1"></script>
+  <!-- <script src="ai.js?v=1"></script> ClinicAI desativado temporariamente -->
 </body>
 </html>
