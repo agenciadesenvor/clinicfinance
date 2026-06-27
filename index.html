@@ -15,7 +15,7 @@
   <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://accounts.google.com/gsi/client" async></script>
-  <link rel="stylesheet" href="style.css?v=14" />
+  <link rel="stylesheet" href="style.css?v=15" />
 </head>
 <body>
 
@@ -27,16 +27,19 @@
     <button type="button" class="sidebar-toggle" id="sidebarToggle" aria-label="Retrair ou expandir menu" onclick="toggleSidebarCollapse()" title="Retrair / Expandir menu">
       <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
     </button>
-    <div class="sidebar-brand">
-      <div class="brand-icon">
-        <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none">
-          <path d="M12 2L2 7l10 5 10-5-10-5z" fill="#10B981"/>
-          <path d="M2 17l10 5 10-5M2 12l10 5 10-5" stroke="#10B981" stroke-width="2" stroke-linecap="round"/>
-        </svg>
-      </div>
-      <div class="brand-text">
-        <span class="brand-name">ClinicFinance</span>
-        <span class="brand-sub">Gestão Financeira</span>
+    <div class="sidebar-brand" id="sidebarBrand">
+      <img class="sidebar-logo" id="sidebarLogo" alt="Logo da empresa" style="display:none" />
+      <div class="brand-default" id="brandDefault">
+        <div class="brand-icon">
+          <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <path d="M12 2L2 7l10 5 10-5-10-5z" fill="#10B981"/>
+            <path d="M2 17l10 5 10-5M2 12l10 5 10-5" stroke="#10B981" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <span class="brand-name">ClinicFinance</span>
+          <span class="brand-sub">Gestão Financeira</span>
+        </div>
       </div>
     </div>
 
@@ -282,7 +285,7 @@
   </div>
 
   <script src="config.js"></script>
-  <script src="app.js?v=12"></script>
+  <script src="app.js?v=13"></script>
   <script src="documentos.js?v=8"></script>
   <script src="crm.js?v=3"></script>
   <script src="agenda.js?v=3"></script>

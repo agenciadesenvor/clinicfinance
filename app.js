@@ -173,6 +173,24 @@ function updateSidebarProfile() {
     }
   }
   updateTopbarAvatar();
+  applyBrandLogo();
+}
+
+/* Troca o "ClinicFinance" da sidebar pela logo da empresa (se houver) */
+function applyBrandLogo() {
+  const logo = currentProfile.logo_data || '';
+  const img = document.getElementById('sidebarLogo');
+  const def = document.getElementById('brandDefault');
+  if (!img || !def) return;
+  if (logo) {
+    img.src = logo;
+    img.style.display = '';
+    def.style.display = 'none';
+  } else {
+    img.removeAttribute('src');
+    img.style.display = 'none';
+    def.style.display = '';
+  }
 }
 
 /* ===== DATA MAPPERS (DB snake_case → JS camelCase) ===== */
@@ -343,7 +361,7 @@ async function loadAllData(signal) {
     const [cl, nf, pf] = await Promise.all([
       db('consultorio', signal).select('*').eq('user_id', uid).order('date', { ascending: false }),
       db('notas_fiscais', signal).select('id,date,supplier,number,value,description,user_id').eq('user_id', uid).order('date', { ascending: false }),
-      db('profiles', signal).select('id,email,cpf,first_name,last_name,specialty,avatar_data').eq('id', uid).single(),
+      db('profiles', signal).select('id,email,cpf,first_name,last_name,specialty,avatar_data,logo_data').eq('id', uid).single(),
     ]);
     if (signal?.aborted) return;
 
@@ -2226,6 +2244,7 @@ function renderPerfil() {
   const lastName   = currentProfile.last_name   || '';
   const specialty  = currentProfile.specialty   || '';
   const avatarData = currentProfile.avatar_data || '';
+  const logoData   = currentProfile.logo_data   || '';
   const fullName   = [firstName, lastName].filter(Boolean).join(' ') || '—';
   const initials   = [firstName[0], lastName[0]].filter(Boolean).join('').toUpperCase() || '?';
 
@@ -2296,6 +2315,25 @@ function renderPerfil() {
           </div>
         </div>
 
+        <!-- Logo da empresa -->
+        <div class="perfil-form-section">
+          <div class="perfil-section-title">Logo da empresa</div>
+          <div class="perfil-section-sub">Substitui o "ClinicFinance" no menu lateral. Ideal: PNG com fundo transparente ou SVG.</div>
+          <div class="perfil-logo-row">
+            <div class="perfil-logo-preview" id="pfLogoDisp">
+              ${logoData ? `<img src="${logoData}" alt="Logo" />` : '<span class="perfil-logo-empty">Sem logo</span>'}
+            </div>
+            <div class="perfil-logo-actions">
+              <label class="btn btn-secondary btn-sm" style="cursor:pointer">
+                ${svg('<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>', 'width="14" height="14"')} Enviar logo
+                <input type="file" accept=".png,.svg,image/png,image/svg+xml" onchange="handleLogoUpload(this)" style="display:none" />
+              </label>
+              <button type="button" class="btn btn-ghost btn-sm" id="pfLogoRemove" style="${logoData ? '' : 'display:none'}" onclick="removeLogo()">Remover</button>
+              <div class="perfil-logo-hint">PNG ou SVG · até 1,5 MB</div>
+            </div>
+          </div>
+        </div>
+
         <!-- Ações -->
         <div class="perfil-form-section" style="background:#FAFBFD">
           <div style="display:flex;gap:12px;justify-content:flex-end">
@@ -2330,6 +2368,57 @@ function handlePerfilPhoto(input) {
   });
 }
 
+/* ===== Logo da empresa ===== */
+function handleLogoUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 1.5 * 1024 * 1024) { toast('Arquivo muito grande (máx 1,5 MB).', 'error'); input.value = ''; return; }
+  const isSvg = file.type === 'image/svg+xml' || /\.svg$/i.test(file.name);
+  if (isSvg) {
+    const reader = new FileReader();
+    reader.onload = e => setLogoPreview(e.target.result);   // data:image/svg+xml;base64,...
+    reader.readAsDataURL(file);
+  } else if (file.type.startsWith('image/')) {
+    // PNG/raster: redimensiona preservando transparência (mantém PNG)
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const img = new Image();
+      img.onload = () => {
+        const maxPx = 600;
+        const ratio = Math.min(maxPx / img.width, maxPx / img.height, 1);
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * ratio);
+        c.height = Math.round(img.height * ratio);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        setLogoPreview(c.toDataURL('image/png'));
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  } else {
+    toast('Formato inválido. Use PNG ou SVG.', 'error');
+  }
+  input.value = '';
+}
+
+function setLogoPreview(data) {
+  state.pendingPhotos._perfilLogo = data;
+  state.pendingPhotos._perfilLogoRemove = false;
+  const disp = document.getElementById('pfLogoDisp');
+  if (disp) disp.innerHTML = `<img src="${data}" alt="Logo" />`;
+  const rm = document.getElementById('pfLogoRemove');
+  if (rm) rm.style.display = '';
+}
+
+function removeLogo() {
+  state.pendingPhotos._perfilLogo = null;
+  state.pendingPhotos._perfilLogoRemove = true;
+  const disp = document.getElementById('pfLogoDisp');
+  if (disp) disp.innerHTML = '<span class="perfil-logo-empty">Sem logo</span>';
+  const rm = document.getElementById('pfLogoRemove');
+  if (rm) rm.style.display = 'none';
+}
+
 async function savePerfil(event) {
   event.preventDefault();
   const btn = document.getElementById('savePerfilBtn');
@@ -2351,6 +2440,11 @@ async function savePerfil(event) {
   if (state.pendingPhotos._perfilAvatar) {
     payload.avatar_data = state.pendingPhotos._perfilAvatar;
   }
+  if (state.pendingPhotos._perfilLogo) {
+    payload.logo_data = state.pendingPhotos._perfilLogo;
+  } else if (state.pendingPhotos._perfilLogoRemove) {
+    payload.logo_data = '';
+  }
 
   const { error } = await db('profiles').upsert(payload, { onConflict: 'id' });
   if (btn) { btn.disabled = false; btn.innerHTML = iconCheck() + ' Salvar Alterações'; }
@@ -2358,6 +2452,8 @@ async function savePerfil(event) {
 
   currentProfile = { ...currentProfile, ...payload };
   state.pendingPhotos._perfilAvatar = null;
+  state.pendingPhotos._perfilLogo = null;
+  state.pendingPhotos._perfilLogoRemove = false;
   updateSidebarProfile();
   toast('Perfil atualizado com sucesso!', 'success');
 }
