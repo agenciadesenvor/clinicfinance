@@ -254,7 +254,7 @@ function openCrmModal(id = null) {
         </div>
         <div class="form-group">
           <label class="form-label" for="crmNascimento">Data de nascimento</label>
-          <input type="date" class="form-control" id="crmNascimento" value="${p?.nascimento || ''}" />
+          <input type="date" class="form-control" id="crmNascimento" value="${p?.nascimento || ''}" data-cf-init="1" max="9999-12-31" />
         </div>
         <div class="form-group">
           <label class="form-label" for="crmInstagram">Instagram</label>
