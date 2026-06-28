@@ -465,6 +465,19 @@ const esc = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').repl
 const today = () => new Date().toISOString().split('T')[0];
 const uid = () => crypto.randomUUID();
 
+/* Converte valor digitado (aceita vírgula BR e ponto de milhar) em número.
+   Ex.: "150,50" -> 150.5 · "1.500,00" -> 1500 · "150.50" -> 150.5 · "150" -> 150 */
+function parseMoney(s) {
+  if (typeof s === 'number') return s;
+  s = String(s == null ? '' : s).trim().replace(/[^\d.,-]/g, '');
+  if (!s) return NaN;
+  if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.'); // vírgula = decimal
+  const n = parseFloat(s);
+  return isNaN(n) ? NaN : n;
+}
+/* Formata número para exibir num input de texto em pt-BR (usa vírgula) */
+const moneyIn = v => (v || v === 0) && v !== '' ? String(v).replace('.', ',') : '';
+
 function getDateRange() {
   const now = new Date();
   const y = now.getFullYear(), m = now.getMonth(), d = now.getDate();
@@ -1000,7 +1013,7 @@ function openEntradaModal(id = null) {
         </div>
         <div class="form-group">
           <label class="form-label">Valor Recebido (R$) *</label>
-          <input type="number" class="form-control" id="eValue" value="${e?.value || ''}" step="0.01" min="0" placeholder="0,00" required />
+          <input type="text" inputmode="decimal" class="form-control" id="eValue" value="${moneyIn(e?.value)}" placeholder="0,00" required />
         </div>
         <div class="form-group form-full">
           <label class="form-label">Forma de Pagamento *</label>
@@ -1069,7 +1082,7 @@ async function saveEntrada(event) {
     date:       document.getElementById('eDate').value,
     clientName: document.getElementById('eClient').value.trim(),
     procedure:  document.getElementById('eProcedure').value,
-    value:      parseFloat(document.getElementById('eValue').value),
+    value:      parseMoney(document.getElementById('eValue').value),
     payment:    document.getElementById('ePayment').value,
     photoBefore: state.pendingPhotos.before || null,
     photoAfter:  state.pendingPhotos.after  || null
@@ -1307,7 +1320,7 @@ function openSaidaModal(id = null) {
         </div>
         <div class="form-group form-full">
           <label class="form-label">Valor (R$) *</label>
-          <input type="number" class="form-control" id="xValue" value="${e?.value || ''}" step="0.01" min="0" placeholder="0,00" required />
+          <input type="text" inputmode="decimal" class="form-control" id="xValue" value="${moneyIn(e?.value)}" placeholder="0,00" required />
         </div>
       </div>
       <div class="form-actions">
@@ -1327,7 +1340,7 @@ async function saveSaida(event) {
     date:        document.getElementById('xDate').value,
     category:    document.getElementById('xCategory').value,
     description: document.getElementById('xDesc').value.trim(),
-    value:       parseFloat(document.getElementById('xValue').value)
+    value:       parseMoney(document.getElementById('xValue').value)
   };
 
   const rowExit = dbExit(exit);
@@ -1455,11 +1468,11 @@ function openProdutoModal(id = null) {
         </div>
         <div class="form-group">
           <label class="form-label">Custo Unitário (R$) *</label>
-          <input type="number" class="form-control" id="pUnitCost" value="${p?.unitCost || ''}" step="0.01" min="0" placeholder="0,00" required oninput="calcProdTotal()" />
+          <input type="text" inputmode="decimal" class="form-control" id="pUnitCost" value="${moneyIn(p?.unitCost)}" placeholder="0,00" required oninput="calcProdTotal()" />
         </div>
         <div class="form-group">
           <label class="form-label">Custo Total (R$)</label>
-          <input type="number" class="form-control" id="pTotalCost" value="${p?.totalCost || ''}" step="0.01" min="0" placeholder="Calculado automaticamente" />
+          <input type="text" inputmode="decimal" class="form-control" id="pTotalCost" value="${moneyIn(p?.totalCost)}" placeholder="Calculado automaticamente" />
         </div>
         <div class="form-group">
           <label class="form-label">Procedimento Relacionado</label>
@@ -1470,7 +1483,7 @@ function openProdutoModal(id = null) {
         </div>
         <div class="form-group">
           <label class="form-label">Valor Cobrado no Procedimento (R$)</label>
-          <input type="number" class="form-control" id="pProcedurePrice" value="${p?.procedurePrice || ''}" step="0.01" min="0" placeholder="Preço cobrado ao paciente" oninput="calcProdTotal()" />
+          <input type="text" inputmode="decimal" class="form-control" id="pProcedurePrice" value="${moneyIn(p?.procedurePrice)}" placeholder="Preço cobrado ao paciente" oninput="calcProdTotal()" />
         </div>
         <div class="form-group form-full">
           <label class="form-label">Observações</label>
@@ -1486,7 +1499,7 @@ function openProdutoModal(id = null) {
 
 function calcProdTotal() {
   const qty   = parseFloat(document.getElementById('pQty')?.value || 0);
-  const unit  = parseFloat(document.getElementById('pUnitCost')?.value || 0);
+  const unit  = parseMoney(document.getElementById('pUnitCost')?.value) || 0;
   const total = document.getElementById('pTotalCost');
   if (total && qty && unit) total.value = (qty * unit).toFixed(2);
 }
@@ -1497,16 +1510,16 @@ async function saveProduto(event) {
   if (btn) { btn.disabled = true; btn.textContent = 'Salvando…'; }
 
   const qty      = parseFloat(document.getElementById('pQty').value);
-  const unitCost = parseFloat(document.getElementById('pUnitCost').value);
+  const unitCost = parseMoney(document.getElementById('pUnitCost').value);
   const prod = {
     id:             state.editingId || uid(),
     name:           document.getElementById('pName').value.trim(),
     category:       document.getElementById('pCategory').value,
     supplier:       document.getElementById('pSupplier').value.trim(),
     qty, unitCost,
-    totalCost:      parseFloat(document.getElementById('pTotalCost').value) || qty * unitCost,
+    totalCost:      parseMoney(document.getElementById('pTotalCost').value) || qty * unitCost,
     procedure:      document.getElementById('pProcedure').value,
-    procedurePrice: parseFloat(document.getElementById('pProcedurePrice').value) || 0,
+    procedurePrice: parseMoney(document.getElementById('pProcedurePrice').value) || 0,
     notes:          document.getElementById('pNotes').value.trim()
   };
 
@@ -1607,7 +1620,7 @@ function openNotaModal(id = null) {
         </div>
         <div class="form-group">
           <label class="form-label">Valor Total (R$) *</label>
-          <input type="number" class="form-control" id="nValue" value="${n?.value || ''}" step="0.01" min="0" placeholder="0,00" required />
+          <input type="text" inputmode="decimal" class="form-control" id="nValue" value="${moneyIn(n?.value)}" placeholder="0,00" required />
         </div>
         <div class="form-group">
           <label class="form-label">Observações</label>
@@ -1651,7 +1664,7 @@ async function saveNota(event) {
     number:      document.getElementById('nNumber').value.trim(),
     supplier:    document.getElementById('nSupplier').value.trim(),
     description: document.getElementById('nDesc').value.trim(),
-    value:       parseFloat(document.getElementById('nValue').value),
+    value:       parseMoney(document.getElementById('nValue').value),
     notes:       document.getElementById('nNotes').value.trim(),
     fileData:    state.pendingPhotos.nf || null
   };
@@ -1805,7 +1818,7 @@ function openConsultorioModal(id = null) {
         </div>
         <div class="form-group">
           <label class="form-label">Valor (R$) *</label>
-          <input type="number" class="form-control" id="cValue" value="${e?.value || ''}" step="0.01" min="0" placeholder="0,00" required />
+          <input type="text" inputmode="decimal" class="form-control" id="cValue" value="${moneyIn(e?.value)}" placeholder="0,00" required />
         </div>
         <div class="form-group">
           <label class="form-label">Tipo de Gasto *</label>
@@ -1835,7 +1848,7 @@ async function saveConsultorio(event) {
     date:        document.getElementById('cDate').value,
     category:    document.getElementById('cCategory').value,
     description: document.getElementById('cDesc').value.trim(),
-    value:       parseFloat(document.getElementById('cValue').value),
+    value:       parseMoney(document.getElementById('cValue').value),
     recurrence:  document.getElementById('cRecurrence').value
   };
 
@@ -2027,11 +2040,11 @@ function openPrecificacaoModal(procedureKey) {
       <div class="form-grid">
         <div class="form-group">
           <label class="form-label">Preço Alvo (R$) *</label>
-          <input type="number" class="form-control" id="pc_targetPrice" value="${conf?.targetPrice || ''}" step="0.01" min="0" placeholder="0,00" required />
+          <input type="text" inputmode="decimal" class="form-control" id="pc_targetPrice" value="${moneyIn(conf?.targetPrice)}" placeholder="0,00" required />
         </div>
         <div class="form-group">
           <label class="form-label">Preço Mínimo (R$)</label>
-          <input type="number" class="form-control" id="pc_minPrice" value="${conf?.minPrice || ''}" step="0.01" min="0" placeholder="0,00" />
+          <input type="text" inputmode="decimal" class="form-control" id="pc_minPrice" value="${moneyIn(conf?.minPrice)}" placeholder="0,00" />
         </div>
         <div class="form-group">
           <label class="form-label">Tempo Estimado (min)</label>
@@ -2086,8 +2099,8 @@ async function savePrecificacao(event) {
 
   const pricingRow = {
     id: pricingId, procedure: procedureKey,
-    targetPrice:   parseFloat(document.getElementById('pc_targetPrice').value) || 0,
-    minPrice:      parseFloat(document.getElementById('pc_minPrice').value)    || 0,
+    targetPrice:   parseMoney(document.getElementById('pc_targetPrice').value) || 0,
+    minPrice:      parseMoney(document.getElementById('pc_minPrice').value)    || 0,
     estimatedTime: parseInt(document.getElementById('pc_time').value)          || 60,
     notes:         document.getElementById('pc_notes').value.trim()
   };
