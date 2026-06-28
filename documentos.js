@@ -378,15 +378,45 @@ async function pdfReceituario() {
   toast('PDF do receituário gerado!', 'success');
 }
 
+/* ===== Integração com o CRM: autocompletar dados do paciente na Anamnese ===== */
+let _anamneseCrm = [];
+async function loadAnamneseCrm() {
+  if (typeof currentUser === 'undefined' || !currentUser) return;
+  const { data, error } = await db('crm_pacientes')
+    .select('nome,telefone,email,cpf,nascimento,instagram')
+    .eq('user_id', currentUser.id).order('nome');
+  if (error) return;
+  _anamneseCrm = data || [];
+  const dl = document.getElementById('anamnesePacientes');
+  if (dl) dl.innerHTML = _anamneseCrm.map(p => `<option value="${esc(p.nome)}"></option>`).join('');
+}
+
+function anamneseAutofill(nome) {
+  const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
+  const p = _anamneseCrm.find(x => norm(x.nome) === norm(nome));
+  if (!p) return;
+  const set = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+  set('an_celular', p.telefone);
+  set('an_email', p.email);
+  set('an_cpf', p.cpf);
+  set('an_instagram', p.instagram);
+  set('an_nascimento', p.nascimento);   // campo de data nativo (YYYY-MM-DD)
+}
+
 /* ============================================================
    ABA 3 — FICHA DE ANAMNESE (formulário → PDF)
    ============================================================ */
 function renderAnamnese() {
-  const fields = ANAMNESE_FIELDS.map(f => `
+  const fields = ANAMNESE_FIELDS.map(f => {
+    const attrs = f.id === 'paciente'
+      ? ' list="anamnesePacientes" autocomplete="off" oninput="anamneseAutofill(this.value)" placeholder="Digite ou selecione um paciente do CRM…"'
+      : (f.native ? ' data-cf-init="1" max="9999-12-31"' : '');
+    return `
     <div class="form-group ${f.full ? 'form-full' : ''}">
       <label class="form-label" for="an_${f.id}">${f.label}</label>
-      <input type="${f.type || 'text'}" class="form-control" id="an_${f.id}"${f.native ? ' data-cf-init="1" max="9999-12-31"' : ''} />
-    </div>`).join('');
+      <input type="${f.type || 'text'}" class="form-control" id="an_${f.id}"${attrs} />
+    </div>`;
+  }).join('');
 
   const questions = ANAMNESE_QUESTIONS.map((item, i) => `
     <div class="doc-question">
@@ -425,6 +455,7 @@ function renderAnamnese() {
         <input type="date" class="form-control" id="an_data" value="${today()}" />
       </div>
       <div class="form-grid">${fields}</div>
+      <datalist id="anamnesePacientes"></datalist>
 
       <div class="form-group form-full" style="margin-top:8px">
         <label class="form-label" for="an_objetivo">Objetivo da consulta</label>
@@ -456,7 +487,7 @@ function renderAnamnese() {
     </div>
   </div>`;
 
-  setTimeout(() => loadDocs('anamnese'), 0);
+  setTimeout(() => { loadDocs('anamnese'); loadAnamneseCrm(); }, 0);
   return html;
 }
 
