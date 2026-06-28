@@ -408,9 +408,27 @@ let _gToken = null;          // access token em memória (dura ~1h)
 let _gExpiry = 0;
 let _gTokenClient = null;
 let _gTokenResolve = null;
+const GIS_TOKEN_KEY = 'cf_google_token';
 
 function agGisReady() { return !!(window.google && google.accounts && google.accounts.oauth2); }
 function agGoogleConnected() { return !!_gToken && Date.now() < _gExpiry; }
+
+/* persiste/restaura o token para sobreviver a reloads dentro da validade (~1h) */
+function agSaveToken() {
+  try { localStorage.setItem(GIS_TOKEN_KEY, JSON.stringify({ t: _gToken, e: _gExpiry })); localStorage.setItem('cf_google_connected', '1'); } catch (e) {}
+}
+function agRestoreToken() {
+  try {
+    const o = JSON.parse(localStorage.getItem(GIS_TOKEN_KEY) || 'null');
+    if (o && o.t && o.e && Date.now() < o.e) { _gToken = o.t; _gExpiry = o.e; return true; }
+  } catch (e) {}
+  return false;
+}
+function agClearToken() {
+  _gToken = null; _gExpiry = 0;
+  try { localStorage.removeItem(GIS_TOKEN_KEY); localStorage.removeItem('cf_google_connected'); } catch (e) {}
+  agUpdateGoogleBtn(false);
+}
 
 function agInitTokenClient() {
   if (_gTokenClient) return _gTokenClient;
@@ -422,7 +440,7 @@ function agInitTokenClient() {
       if (resp && resp.access_token) {
         _gToken = resp.access_token;
         _gExpiry = Date.now() + ((resp.expires_in || 3600) * 1000) - 60000;
-        try { localStorage.setItem('cf_google_connected', '1'); } catch (e) {}
+        agSaveToken();
         agUpdateGoogleBtn(true);
         if (_gTokenResolve) { _gTokenResolve(_gToken); _gTokenResolve = null; }
       } else if (_gTokenResolve) { _gTokenResolve(null); _gTokenResolve = null; }
@@ -450,11 +468,21 @@ async function agConnectGoogle() {
   else toast('Não foi possível conectar ao Google.', 'error');
 }
 
-/* reconecta silenciosamente se já houve conexão antes (sem janela) */
+/* espera o GIS (script async) carregar e então executa cb */
+function agWaitForGis(cb, tries) {
+  tries = (tries == null) ? 50 : tries;          // ~5s
+  if (agGisReady()) { cb(); return; }
+  if (tries <= 0) return;
+  setTimeout(() => agWaitForGis(cb, tries - 1), 100);
+}
+
+/* reconecta sozinho: 1) usa token salvo (sem chamar o Google); 2) pede token silencioso */
 function agTrySilentGoogle() {
+  if (agRestoreToken()) { agUpdateGoogleBtn(true); return; }
   let was = false;
   try { was = localStorage.getItem('cf_google_connected') === '1'; } catch (e) {}
-  if (was && agGisReady() && !agGoogleConnected()) agRequestToken(false);
+  if (!was) return;
+  agWaitForGis(() => { if (!agGoogleConnected()) agRequestToken(false); });
 }
 
 function agUpdateGoogleBtn(connected) {
@@ -466,6 +494,9 @@ function agUpdateGoogleBtn(connected) {
   btn.classList.toggle('ag-google-on', !!connected);
 }
 
+/* restaura o token salvo já no carregamento do script (estado correto antes de abrir a Agenda) */
+agRestoreToken();
+
 /* chamada à Calendar API */
 async function agGoogleApi(method, path, body) {
   const r = await fetch(`https://www.googleapis.com/calendar/v3${path}`, {
@@ -473,6 +504,7 @@ async function agGoogleApi(method, path, body) {
     headers: { 'Authorization': `Bearer ${_gToken}`, 'Content-Type': 'application/json' },
     body: body ? JSON.stringify(body) : undefined
   });
+  if (r.status === 401) { agClearToken(); throw new Error('Google: sessão expirada — reconecte.'); }
   if (!r.ok) throw new Error('Google Calendar: ' + r.status);
   return method === 'DELETE' ? {} : r.json();
 }
