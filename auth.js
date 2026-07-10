@@ -330,7 +330,12 @@ async function handleRegister(event) {
 
 /* ===== TRANSLATE ERRORS ===== */
 function translateError(msg) {
-  if (!msg) return 'Erro desconhecido. Tente novamente.';
+  if (typeof msg !== 'string') { try { msg = JSON.stringify(msg); } catch (e) { msg = ''; } }
+  if (!msg || msg === '{}' || msg === '[object Object]' || msg === 'null')
+    return 'Não foi possível enviar o e-mail agora. Isso costuma ser a configuração de e-mail (SMTP) do Supabase. Tente de novo em alguns minutos ou redefina a senha pelo painel do Supabase.';
+  const low = msg.toLowerCase();
+  if (low.includes('error sending') || low.includes('smtp') || (low.includes('email') && low.includes('send')))
+    return 'Falha ao enviar o e-mail de recuperação. É preciso configurar o envio de e-mail (SMTP) no Supabase.';
   if (msg.includes('Invalid login credentials'))      return 'E-mail ou senha incorretos.';
   if (msg.includes('Email not confirmed'))            return 'E-mail não confirmado. Verifique sua caixa de entrada.';
   if (msg.includes('User already registered'))        return 'Este e-mail já possui uma conta. Faça login.';
