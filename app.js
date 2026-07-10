@@ -2358,6 +2358,25 @@ function renderPerfil() {
 
       </form>
 
+      <!-- Alterar senha -->
+      <div class="perfil-form-section">
+        <div class="perfil-section-title">Alterar senha</div>
+        <div class="perfil-section-sub">Defina uma nova senha de acesso ao sistema (mínimo 8 caracteres).</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label" for="pfNewPass">Nova senha</label>
+            <input type="password" class="form-control" id="pfNewPass" placeholder="Mínimo 8 caracteres" autocomplete="new-password" />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="pfNewPass2">Confirmar nova senha</label>
+            <input type="password" class="form-control" id="pfNewPass2" placeholder="Repita a nova senha" autocomplete="new-password" />
+          </div>
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:12px">
+          <button type="button" class="btn btn-primary" id="pfPassBtn" onclick="savePerfilPassword()">${iconCheck()} Alterar senha</button>
+        </div>
+      </div>
+
       <!-- Zona de Perigo -->
       <div class="perfil-form-section" style="border-top:1px solid rgba(184,92,68,0.15)">
         <div class="perfil-section-title" style="color:#B85C44">Zona de Perigo</div>
@@ -2469,6 +2488,31 @@ async function savePerfil(event) {
   state.pendingPhotos._perfilLogoRemove = false;
   updateSidebarProfile();
   toast('Perfil atualizado com sucesso!', 'success');
+}
+
+async function savePerfilPassword() {
+  const p1 = document.getElementById('pfNewPass').value;
+  const p2 = document.getElementById('pfNewPass2').value;
+  if (p1.length < 8) { toast('A senha deve ter no mínimo 8 caracteres.', 'error'); return; }
+  if (p1 !== p2)     { toast('As senhas não coincidem.', 'error'); return; }
+  const btn = document.getElementById('pfPassBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Alterando…'; }
+  try {
+    if (!sb) throw new Error('Autenticação indisponível.');
+    const { error } = await sb.auth.updateUser({ password: p1 });
+    if (error) throw error;
+    document.getElementById('pfNewPass').value = '';
+    document.getElementById('pfNewPass2').value = '';
+    toast('Senha alterada com sucesso!', 'success');
+  } catch (e) {
+    let m = e.message || 'Erro ao alterar a senha.';
+    if (/same_password|different from the old|should be different/i.test(m)) m = 'A nova senha não pode ser igual à atual.';
+    else if (/at least|Password should be/i.test(m)) m = 'A senha precisa ter no mínimo 8 caracteres.';
+    else if (/session|not authenticated|JWT/i.test(m)) m = 'Sua sessão expirou. Saia e entre de novo para trocar a senha.';
+    toast(m, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = iconCheck() + ' Alterar senha'; }
+  }
 }
 
 function confirmDeleteAccount() {
