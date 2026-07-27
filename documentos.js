@@ -234,6 +234,7 @@ function renderExames() {
     </div>
   </div>`;
 
+  _docStore.exames.editingId = null; // nova montagem da aba = formulário novo
   setTimeout(() => loadDocs('exames'), 0);
   return html;
 }
@@ -342,6 +343,7 @@ function renderReceituario() {
     </div>
   </div>`;
 
+  _docStore.receituario.editingId = null; // nova montagem da aba = formulário novo
   setTimeout(() => loadDocs('receituario'), 0);
   return html;
 }
@@ -487,6 +489,7 @@ function renderAnamnese() {
     </div>
   </div>`;
 
+  _docStore.anamnese.editingId = null; // nova montagem da aba = formulário novo
   setTimeout(() => { loadDocs('anamnese'); loadAnamneseCrm(); }, 0);
   return html;
 }
@@ -707,6 +710,7 @@ async function pdfAnamnese() {
   ANAMNESE_FIELDS.forEach(f => {
     const val = f.type === 'date' ? docDateStr('an_' + f.id) : docVal('an_' + f.id);
     if (f.full) {
+      if (pdfAnamnese._col) { pdfAnamnese._col = 0; y += 7.5; } // fecha coluna pendente antes de um campo largo
       docFieldLine(doc, f.label + ':', val, 14, y, 182); y += 7.5;
     } else {
       // alterna colunas

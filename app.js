@@ -958,7 +958,7 @@ function renderEntradas() {
       <td>${badgePayment(e.payment)}</td>
       <td style="text-align:center">
         ${hasPhoto
-          ? `<button class="btn btn-ghost btn-icon" title="Ver fotos antes/depois" onclick="viewPatientPhotos('${e.id}','${esc(e.clientName||'Paciente')}')" style="color:var(--accent)">${iconCamera()}</button>`
+          ? `<button class="btn btn-ghost btn-icon" title="Ver fotos antes/depois" onclick="viewPatientPhotos('${e.id}')" style="color:var(--accent)">${iconCamera()}</button>`
           : `<span style="color:var(--text-3);font-size:12px">—</span>`}
       </td>
       <td style="text-align:right" class="val-green fw-600">${fCurrency(e.value)}</td>
@@ -1087,6 +1087,7 @@ async function saveEntrada(event) {
     photoBefore: state.pendingPhotos.before || null,
     photoAfter:  state.pendingPhotos.after  || null
   };
+  if (isNaN(entry.value)) { toast('Informe um valor válido (ex.: 150,00).', 'error'); if (btn) { btn.disabled = false; btn.textContent = 'Salvar'; } return; }
 
   const row = dbEntry(entry);
   const { error } = state.editingId
@@ -1159,14 +1160,10 @@ async function saveEntradaInsumos(entradaId) {
     }
   });
 
-  // Só faz chamadas ao banco se há insumos para salvar OU se era uma edição
-  const isEditing = !!state.editingId;
-  if (!newInsumos.length && !isEditing) return; // nova entrada sem insumos: não bloquear
-
   try {
-    if (isEditing) {
-      await db('entrada_insumos').delete().eq('entrada_id', entradaId);
-    }
+    // Sempre remove os insumos existentes deste atendimento antes de inserir os novos
+    // (idempotente: em edição remove os antigos; em nova entrada não afeta nada).
+    await db('entrada_insumos').delete().eq('entrada_id', entradaId);
     if (newInsumos.length) {
       const { error } = await db('entrada_insumos').insert(newInsumos.map(dbEntradaInsumo));
       if (error) { toast('Aviso: insumos não salvos — ' + error.message, 'error'); return; }
@@ -1178,9 +1175,10 @@ async function saveEntradaInsumos(entradaId) {
   }
 }
 
-async function viewPatientPhotos(id, clientName) {
+async function viewPatientPhotos(id) {
   // Busca fotos sob demanda (não carregadas na listagem para economizar dados)
-  openModal(`Fotos — ${clientName || 'Paciente'}`,
+  const clientName = (state.data.entries.find(x => x.id === id) || {}).clientName || 'Paciente';
+  openModal(`Fotos — ${clientName}`,
     `<div style="display:flex;align-items:center;justify-content:center;height:180px">
       <div style="width:24px;height:24px;border:3px solid var(--primary);border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite"></div>
     </div>`, true);
@@ -1342,6 +1340,7 @@ async function saveSaida(event) {
     description: document.getElementById('xDesc').value.trim(),
     value:       parseMoney(document.getElementById('xValue').value)
   };
+  if (isNaN(exit.value)) { toast('Informe um valor válido (ex.: 150,00).', 'error'); if (btn) { btn.disabled = false; btn.textContent = 'Salvar'; } return; }
 
   const rowExit = dbExit(exit);
   const { error } = state.editingId
@@ -1668,6 +1667,7 @@ async function saveNota(event) {
     notes:       document.getElementById('nNotes').value.trim(),
     fileData:    state.pendingPhotos.nf || null
   };
+  if (isNaN(nota.value)) { toast('Informe um valor válido (ex.: 150,00).', 'error'); if (btn) { btn.disabled = false; btn.textContent = 'Salvar'; } return; }
 
   const rowNota = dbNota(nota);
   const { error } = state.editingId
@@ -1851,6 +1851,7 @@ async function saveConsultorio(event) {
     value:       parseMoney(document.getElementById('cValue').value),
     recurrence:  document.getElementById('cRecurrence').value
   };
+  if (isNaN(item.value)) { toast('Informe um valor válido (ex.: 150,00).', 'error'); if (btn) { btn.disabled = false; btn.textContent = 'Salvar'; } return; }
 
   const rowClinic = dbClinic(item);
   const { error } = state.editingId
@@ -2790,6 +2791,13 @@ document.addEventListener('DOMContentLoaded', () => {
       el.addEventListener('click', ev => { ev.preventDefault(); navigateTo(el.dataset.view); });
     });
     document.getElementById('sidebarOverlay').addEventListener('click', closeSidebar);
+  }
+
+  // Se o Supabase não inicializou (ex.: script do CDN falhou), evita erro fatal e avisa.
+  if (!sb) {
+    const loading = document.getElementById('authLoading');
+    if (loading) loading.innerHTML = '<p style="padding:24px;text-align:center;color:#7C6F63">Não foi possível conectar ao servidor. Verifique sua conexão e recarregue a página.</p>';
+    return;
   }
 
   // Escuta mudanças de autenticação (login, logout, refresh de sessão)
