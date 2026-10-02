@@ -461,6 +461,7 @@ const PRODUCT_CATEGORIES = {
 /* ===== UTILS ===== */
 const fCurrency = v => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v || 0);
 const fDate = s => { const d = new Date(s + 'T12:00:00'); return d.toLocaleDateString('pt-BR'); };
+const fMonthYear = s => { const d = new Date(s + 'T12:00:00'); return d.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }).replace('.', ''); };
 const fDateShort = s => { const d = new Date(s + 'T12:00:00'); return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }); };
 const esc = s => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const today = () => new Date().toISOString().split('T')[0];
@@ -500,15 +501,34 @@ function filterByPeriod(arr) {
   return arr.filter(x => { const d = new Date(x.date + 'T12:00:00'); return d >= s && d <= e; });
 }
 
-/* Filtro específico do Consultório: gastos FIXOS (mensais) valem para
-   todos os períodos/meses; gastos pontuais são filtrados pela data. */
+/* Gastos do Consultório no intervalo [s, e]:
+   - pontuais: filtrados pela data;
+   - FIXOS (mensais): geram uma ocorrência por mês, a partir do mês da data
+     cadastrada (início) até o mês atual — nunca projeta meses futuros.
+     Cada ocorrência mantém o id do gasto original (editar/excluir afeta o fixo). */
+function clinicOccurrences(arr, s, e) {
+  const out = [];
+  const now = new Date();
+  const lastKey = now.getFullYear() * 12 + now.getMonth();
+  const sKey = s.getFullYear() * 12 + s.getMonth();
+  const eKey = Math.min(e.getFullYear() * 12 + e.getMonth(), lastKey);
+  (arr || []).forEach(x => {
+    if (!x.date) return;
+    const d = new Date(x.date + 'T12:00:00');
+    if (x.recurrence !== 'mensal') { if (d >= s && d <= e) out.push(x); return; }
+    const startKey = d.getFullYear() * 12 + d.getMonth();
+    for (let k = Math.max(startKey, sKey); k <= eKey; k++) {
+      const y = Math.floor(k / 12), m = k % 12;
+      const day = Math.min(d.getDate(), daysInMonth(y, m));
+      out.push({ ...x, date: `${y}-${String(m + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`, startDate: x.date });
+    }
+  });
+  return out;
+}
+
 function filterClinicByPeriod(arr) {
   const { s, e } = getDateRange();
-  return arr.filter(x => {
-    if (x.recurrence === 'mensal') return true;
-    const d = new Date(x.date + 'T12:00:00');
-    return d >= s && d <= e;
-  });
+  return clinicOccurrences(arr, s, e);
 }
 
 /* ===== NOTIFICAÇÕES — pagamentos do consultório próximos do vencimento ===== */
@@ -916,7 +936,7 @@ function getMonthlyData(entries, exits, clinic, n, products) {
     const inMonth    = arr => arr.filter(e => { const ed = new Date(e.date+'T12:00:00'); return ed.getFullYear()===y && ed.getMonth()===m; });
     const revenue    = inMonth(entries).reduce((s,e) => s+e.value, 0);
     const expSaidas  = inMonth(exits).reduce((s,e) => s+e.value, 0);
-    const expClinic  = inMonth(clinic).reduce((s,e) => s+e.value, 0);
+    const expClinic  = clinicOccurrences(clinic, new Date(y, m, 1), new Date(y, m + 1, 0, 23, 59, 59)).reduce((s,e) => s+e.value, 0);
     const expenses   = expSaidas + expClinic + productsCostPerMonth;
     result.push({ label, revenue, expenses, expSaidas, expClinic, expProducts: productsCostPerMonth, profit: revenue - expenses });
   }
@@ -944,7 +964,7 @@ function renderEntradas() {
       <div class="table-search">${iconSearch()}
         <input type="text" placeholder="Buscar por cliente ou procedimento…" value="${esc(state.searchTerms.entradas)}" oninput="setSearch('entradas', this.value)" />
       </div>
-      <span style="font-size:13px;color:var(--text-2)">${sorted.length} registro${sorted.length!==1?'s':''}</span>
+      <span style="font-size:13px;color:var(--text-2)">${rows.length} registro${rows.length!==1?'s':''}</span>
     </div>
     ${sorted.length ? `
     <table><thead><tr>
@@ -1719,6 +1739,17 @@ function renderConsultorio() {
   const fixos     = sorted.filter(e => e.recurrence === 'mensal').reduce((s,e) => s+e.value, 0);
   const variaveis = sorted.filter(e => e.recurrence === 'pontual').reduce((s,e) => s+e.value, 0);
   const qtdCats   = new Set(sorted.map(e => e.category)).size;
+  const qtdFixos  = new Set(sorted.filter(e => e.recurrence === 'mensal').map(e => e.id)).size;
+
+  // Tabela: cada gasto fixo vira 1 linha (valor × meses no período); pontuais 1 linha cada
+  const rows = [];
+  const fixRow = {};
+  sorted.forEach(e => {
+    if (e.recurrence !== 'mensal') { rows.push(e); return; }
+    if (!fixRow[e.id]) { fixRow[e.id] = { ...e, monthly: e.value, months: 0, value: 0, lastDate: e.date }; rows.push(fixRow[e.id]); }
+    fixRow[e.id].months++;
+    fixRow[e.id].value += e.value;
+  });
 
   const catBadgeColors = {
     aluguel:'badge-gold', energia:'badge-red', agua:'badge-blue', internet:'badge-teal',
@@ -1738,7 +1769,7 @@ function renderConsultorio() {
   ${periodFilterHTML()}
   <div class="stats-grid" style="margin-bottom:24px">
     ${statCard('Total no Período',   fCurrency(total),     'red',  'Todos os gastos do consultório', iconDown(),   '')}
-    ${statCard('Custos Fixos',       fCurrency(fixos),     'gold', 'Mensalidades recorrentes',       iconClip(),   `<span class="stat-badge down">${sorted.filter(e=>e.recurrence==='mensal').length} itens</span>`)}
+    ${statCard('Custos Fixos',       fCurrency(fixos),     'gold', 'Mensalidades recorrentes',       iconClip(),   `<span class="stat-badge down">${qtdFixos} ${qtdFixos === 1 ? 'item' : 'itens'}</span>`)}
     ${statCard('Custos Variáveis',   fCurrency(variaveis), 'blue', 'Gastos pontuais',                iconTrend(),  `<span class="stat-badge up">${sorted.filter(e=>e.recurrence==='pontual').length} itens</span>`)}
     ${statCard('Categorias Ativas',  qtdCats,              'green','Tipos de gasto no período',      iconDollar(), '')}
   </div>
@@ -1774,11 +1805,11 @@ function renderConsultorio() {
     <table><thead><tr>
       <th>Data</th><th>Categoria</th><th>Descrição</th><th>Tipo</th><th style="text-align:right">Valor</th><th style="text-align:right">Ações</th>
     </tr></thead><tbody>
-    ${sorted.map(e => `<tr>
-      <td class="no-wrap fs-13 color-2">${fDate(e.date)}</td>
+    ${rows.map(e => `<tr>
+      <td class="no-wrap fs-13 color-2">${e.recurrence === 'mensal' ? `desde ${fMonthYear(e.startDate)}` : fDate(e.date)}</td>
       <td><span class="badge ${catBadgeColors[e.category]||'badge-gray'}">${CLINIC_CATEGORIES[e.category]||e.category}</span></td>
       <td class="fw-600">${esc(e.description)}</td>
-      <td>${e.recurrence === 'mensal' ? '<span class="badge badge-blue">Mensal</span>' : '<span class="badge badge-gray">Pontual</span>'}</td>
+      <td>${e.recurrence === 'mensal' ? `<span class="badge badge-blue">Mensal</span> <span class="fs-13 color-2 no-wrap">${fCurrency(e.monthly)} × ${e.months} ${e.months === 1 ? 'mês' : 'meses'}</span>` : '<span class="badge badge-gray">Pontual</span>'}</td>
       <td style="text-align:right" class="val-red fw-600">${fCurrency(e.value)}</td>
       <td><div class="td-actions">
         <button class="btn btn-ghost btn-icon" title="Editar"  onclick="openConsultorioModal('${e.id}')">${iconEdit()}</button>
@@ -1829,7 +1860,7 @@ function openConsultorioModal(id = null) {
           </select>
         </div>
         <div class="form-group form-full">
-          <p class="form-hint">Gastos <strong>mensais (fixos)</strong> aparecem em todos os meses e geram aviso de vencimento. O <strong>dia da data</strong> acima é usado como dia de vencimento (ex.: todo dia 05).</p>
+          <p class="form-hint">Gastos <strong>mensais (fixos)</strong> contam uma vez por mês, <strong>a partir do mês da data</strong> acima, até o mês atual — e geram aviso de vencimento. O <strong>dia da data</strong> é usado como dia de vencimento (ex.: todo dia 05).</p>
         </div>
       </div>
       <div class="form-actions">
@@ -1874,7 +1905,8 @@ async function saveConsultorio(event) {
 }
 
 async function deleteClinic(id) {
-  if (!confirm('Excluir este gasto?')) return;
+  const g = state.data.clinic.find(x => x.id === id);
+  if (!confirm(g?.recurrence === 'mensal' ? 'Excluir este gasto fixo? Ele sai de TODOS os meses.' : 'Excluir este gasto?')) return;
   const { error } = await db('consultorio').delete().eq('id', id);
   if (error) { toast('Erro ao excluir.', 'error'); return; }
   state.data.clinic = state.data.clinic.filter(x => x.id !== id);
