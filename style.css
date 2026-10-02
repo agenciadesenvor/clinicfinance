@@ -2446,3 +2446,7 @@ select.form-control { cursor: pointer; }
 /* CRM — histórico financeiro do paciente */
 .crm-fin { font-size: 13px; font-weight: 600; }
 .crm-fin-sub { display: block; font-size: 11px; color: var(--text-3); font-weight: 400; }
+
+/* Aviso de período sem entradas */
+.period-hint { margin: -8px 0 18px; padding: 10px 14px; background: var(--yellow-light); border: 1px solid rgba(201,160,106,0.35); border-radius: 10px; font-size: 13px; color: var(--text-1); }
+.period-hint .link-btn { background: none; border: none; padding: 0; margin-left: 4px; color: var(--accent); font-weight: 700; text-decoration: underline; cursor: pointer; font: inherit; font-weight: 700; }

@@ -335,7 +335,7 @@ const dbPrecSupply = s => ({
 /* ===== DATA CACHE ===== */
 const state = {
   currentView: 'dashboard',
-  filter: { period: 'month', start: null, end: null },
+  filter: (() => { try { const f = JSON.parse(localStorage.getItem('cf_filter') || 'null'); if (f && f.period) return { period: f.period, start: f.start || null, end: f.end || null }; } catch (e) {} return { period: 'month', start: null, end: null }; })(),
   searchTerms: { entradas: '', saidas: '', produtos: '', consultorio: '', notas: '', precificacao: '' },
   produtosSubTab: 'produtos',
   pendingPhotos: {},
@@ -718,8 +718,17 @@ function createChart(id, config) {
 }
 
 /* ===== PERIOD FILTER ===== */
-function setPeriod(p) { state.filter.period = p; renderView(state.currentView); }
-function setCustomDate(which, val) { state.filter[which] = val; renderView(state.currentView); }
+function saveFilter() { try { localStorage.setItem('cf_filter', JSON.stringify(state.filter)); } catch (e) {} }
+function setPeriod(p) { state.filter.period = p; saveFilter(); renderView(state.currentView); }
+function setCustomDate(which, val) { state.filter[which] = val; saveFilter(); renderView(state.currentView); }
+
+/* Aviso quando o período escolhido não tem entradas (ex.: mês que acabou de começar) */
+function periodEmptyHint() {
+  const all = state.data.entries || [];
+  if (!all.length || filterByPeriod(all).length || state.filter.period === 'year') return '';
+  const last = all.reduce((m, e) => (e.date > m ? e.date : m), '');
+  return `<div class="period-hint">Nenhuma entrada neste período ainda — a última é de <b>${fDate(last)}</b>. <button class="link-btn" onclick="setPeriod('year')">Ver o ano todo</button></div>`;
+}
 
 function periodFilterHTML(extraClass = '') {
   const { period } = state.filter;
@@ -734,7 +743,7 @@ function periodFilterHTML(extraClass = '') {
     <span class="filter-label">Período:</span>
     ${btns.map(([k,l]) => `<button class="filter-btn${period===k?' active':''}" onclick="setPeriod('${k}')">${l}</button>`).join('')}
     ${customHTML}
-  </div>`;
+  </div>${['dashboard', 'entradas', 'graficos', 'margem'].includes(state.currentView) ? periodEmptyHint() : ''}`;
 }
 
 /* Painel "Hoje" do Dashboard — consultas + follow-ups */
