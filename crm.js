@@ -19,7 +19,8 @@ const CRM_ORIGEM = {
 };
 const CRM_TIPO = {
   nota: 'Anotação', ligacao: 'Ligação', whatsapp: 'WhatsApp',
-  presencial: 'Presencial', agendamento: 'Agendamento', retorno: 'Retorno'
+  presencial: 'Presencial', agendamento: 'Agendamento', retorno: 'Retorno',
+  compra: 'Compra'
 };
 
 /* ===== Store local ===== */
@@ -48,7 +49,10 @@ function renderCrm() {
   return `
   <div class="section-header">
     <div><div class="section-title">CRM de Atendimento</div><div class="section-sub">Gerencie pacientes, leads e o funil de atendimento</div></div>
-    <button class="btn btn-primary" onclick="openCrmModal()">${iconPlus()} Novo Paciente</button>
+    <div class="section-actions">
+      <button class="btn btn-secondary" onclick="openImportModal()">${iconUpload()} Importar planilha</button>
+      <button class="btn btn-primary" onclick="openCrmModal()">${iconPlus()} Novo Paciente</button>
+    </div>
   </div>
 
   <div class="stats-grid" id="crmStats" style="margin-bottom:24px"></div>
@@ -151,6 +155,20 @@ function crmFiltered() {
   });
 }
 
+/* ===== Cruzamento com o financeiro (Entradas casadas pelo nome) ===== */
+function crmFinIndex() {
+  const idx = new Map();
+  ((typeof state !== 'undefined' && state.data.entries) || []).forEach(e => {
+    const k = crmNorm(e.clientName);
+    if (!k) return;
+    const f = idx.get(k) || { total: 0, n: 0, ultima: '' };
+    f.total += e.value || 0; f.n++;
+    if (e.date > f.ultima) f.ultima = e.date;
+    idx.set(k, f);
+  });
+  return idx;
+}
+
 /* ===== Stats ===== */
 function renderCrmStats() {
   const el = document.getElementById('crmStats');
@@ -191,10 +209,12 @@ function renderCrmTable() {
     el.innerHTML = `<div class="empty-state">${iconEmptyBox()}<h3>${_crm.pacientes.length ? 'Nenhum resultado' : 'Nenhum paciente cadastrado'}</h3><p>${_crm.pacientes.length ? 'Ajuste a busca ou o filtro.' : 'Clique em “Novo Paciente” para começar.'}</p></div>`;
     return;
   }
+  const finIdx = crmFinIndex();
   el.innerHTML = `<table><thead><tr>
-    <th>Nome</th><th>Contato</th><th>Status</th><th>Interesse</th><th>Próximo contato</th><th style="text-align:right">Ações</th>
+    <th>Nome</th><th>Contato</th><th>Status</th><th>Gasto total</th><th>Interesse</th><th>Próximo contato</th><th style="text-align:right">Ações</th>
   </tr></thead><tbody>
   ${items.map(p => {
+    const fin = finIdx.get(crmNorm(p.nome));
     const st = CRM_STATUS[p.status] || CRM_STATUS.novo;
     const wa = crmWhatsLink(p.telefone);
     return `<tr>
@@ -202,6 +222,7 @@ function renderCrmTable() {
         ${p.origem && p.origem !== 'outro' ? `<span class="crm-origem">${CRM_ORIGEM[p.origem] || p.origem}</span>` : ''}</td>
       <td class="fs-13 color-2 no-wrap">${p.telefone ? esc(p.telefone) : '—'}</td>
       <td><span class="badge ${st.badge}">${st.label}</span></td>
+      <td class="no-wrap">${fin ? `<span class="crm-fin">${fCurrency(fin.total)}<span class="crm-fin-sub">${fin.n} atend. · últ. ${fDate(fin.ultima)}</span></span>` : '<span class="color-2">—</span>'}</td>
       <td class="fs-13">${p.interesse ? esc(p.interesse) : '—'}</td>
       <td class="fs-13 color-2 no-wrap">${p.proximoContato ? fDate(p.proximoContato) : '—'}</td>
       <td><div class="td-actions">
@@ -336,6 +357,7 @@ async function openCrmDetail(id) {
         ${crmInfo('Nascimento', p.nascimento ? fDate(p.nascimento) : '')}
         ${crmInfo('Próximo contato', p.proximoContato ? fDate(p.proximoContato) : '')}
       </div>
+      ${crmFichaFinanceiro(p.nome)}
       ${p.observacoes ? `<div class="crm-detail-obs"><span class="crm-info-label">Observações</span><p>${esc(p.observacoes)}</p></div>` : ''}
 
       <div class="crm-ficha-section">
@@ -413,6 +435,22 @@ function renderFichaDocs(g) {
       <div class="crm-doc-last">${arr.length ? (last ? 'último: ' + fDate(last) : 'salvo') : '—'}</div>
     </div>`;
   }).join('')}</div>`;
+}
+
+/* Ficha 360°: resumo financeiro a partir das Entradas */
+function crmFichaFinanceiro(nome) {
+  const f = crmFinIndex().get(crmNorm(nome));
+  if (!f) return '';
+  const card = (n, label) => `<div class="crm-doc-cat" onclick="navigateTo('entradas');closeModal()" title="Ver Entradas"><div class="crm-doc-count" style="font-size:17px">${n}</div><div class="crm-doc-label">${label}</div></div>`;
+  return `<div class="crm-ficha-section">
+    <span class="doc-block-title" style="padding:0">Financeiro</span>
+    <div class="crm-doc-grid">
+      ${card(fCurrency(f.total), 'Total pago')}
+      ${card(String(f.n), 'Atendimentos')}
+      ${card(fCurrency(f.total / f.n), 'Ticket médio')}
+      ${card(fDate(f.ultima), 'Última visita')}
+    </div>
+  </div>`;
 }
 
 function crmInfo(label, value) {

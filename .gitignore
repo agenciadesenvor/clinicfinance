@@ -11,3 +11,4 @@ node_modules/
 
 # Preview temporário (não commitar)
 _preview_docs.html
+_preview_data/

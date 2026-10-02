@@ -439,7 +439,8 @@ const PROCEDURES = {
 };
 const PAYMENT_METHODS = {
   pix: 'PIX', dinheiro: 'Dinheiro',
-  debito: 'Cartão de Débito', credito: 'Cartão de Crédito'
+  debito: 'Cartão de Débito', credito: 'Cartão de Crédito',
+  nao_informado: 'Não informado'
 };
 const EXIT_CATEGORIES = {
   produtos_insumos: 'Produtos & Insumos', aluguel: 'Aluguel',
