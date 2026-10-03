@@ -78,6 +78,74 @@ function renderCrm() {
   </div>`;
 }
 
+/* ===== Tela "Pacientes" — cadastro simples (mesmos dados do CRM) ===== */
+const _pac = { search: '' };
+
+function renderPacientes() {
+  setTimeout(() => loadCrm(), 0);
+  return `
+  <div class="section-header">
+    <div><div class="section-title">Pacientes</div><div class="section-sub">Cadastro de pacientes: nome, celular, nascimento, CPF e histórico</div></div>
+    <button class="btn btn-primary" onclick="openCrmModal(null, 'pacientes')">${iconPlus()} Novo Paciente</button>
+  </div>
+  <div class="table-container">
+    <div class="table-toolbar">
+      <div class="table-search">${iconSearch()}
+        <input type="text" id="pacSearch" placeholder="Buscar por nome, celular, CPF ou e-mail…" value="${esc(_pac.search)}" oninput="_pac.search=this.value;renderPacTable()" autocomplete="off" spellcheck="false" />
+      </div>
+      <span style="font-size:13px;color:var(--text-2)" id="pacCount"></span>
+    </div>
+    <div id="pacTable"><div class="doc-list-empty">Carregando…</div></div>
+  </div>`;
+}
+
+function crmIdade(nasc) {
+  if (!nasc) return '';
+  const d = new Date(nasc + 'T12:00:00'), h = new Date();
+  let a = h.getFullYear() - d.getFullYear();
+  if (h.getMonth() < d.getMonth() || (h.getMonth() === d.getMonth() && h.getDate() < d.getDate())) a--;
+  return a >= 0 && a < 130 ? `${a} anos` : '';
+}
+
+function renderPacTable() {
+  const el = document.getElementById('pacTable');
+  if (!el) return;
+  const term = crmNorm(_pac.search);
+  const digits = _pac.search.replace(/\D/g, '');
+  const items = _crm.pacientes.filter(p => !term ||
+    crmNorm(p.nome + ' ' + p.email).includes(term) ||
+    (digits.length >= 3 && (p.telefone + p.cpf).replace(/\D/g, '').includes(digits))
+  ).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  const countEl = document.getElementById('pacCount');
+  if (countEl) countEl.textContent = `${items.length} paciente${items.length !== 1 ? 's' : ''}`;
+  if (!items.length) {
+    el.innerHTML = `<div class="empty-state">${iconEmptyBox()}<h3>${_crm.pacientes.length ? 'Nenhum resultado' : 'Nenhum paciente cadastrado'}</h3><p>${_crm.pacientes.length ? 'Ajuste a busca.' : 'Clique em “Novo Paciente” para começar.'}</p></div>`;
+    return;
+  }
+  const finIdx = crmFinIndex();
+  el.innerHTML = `<table><thead><tr>
+    <th>Nome</th><th>Celular</th><th>Nascimento</th><th>CPF</th><th>Gasto total</th><th style="text-align:right">Ações</th>
+  </tr></thead><tbody>
+  ${items.map(p => {
+    const wa = crmWhatsLink(p.telefone);
+    const fin = finIdx.get(crmNorm(p.nome));
+    return `<tr>
+      <td class="fw-600"><button class="crm-name-link" onclick="openCrmDetail('${p.id}')">${esc(p.nome)}</button>${p.email ? `<span class="crm-fin-sub">${esc(p.email)}</span>` : ''}</td>
+      <td class="fs-13 no-wrap">${p.telefone ? esc(p.telefone) : '<span class="color-2">—</span>'}</td>
+      <td class="fs-13 no-wrap">${p.nascimento ? `${fDate(p.nascimento)}<span class="crm-fin-sub">${crmIdade(p.nascimento)}</span>` : '<span class="color-2">—</span>'}</td>
+      <td class="fs-13 no-wrap color-2">${p.cpf ? esc(p.cpf) : '—'}</td>
+      <td class="no-wrap">${fin ? `<span class="crm-fin">${fCurrency(fin.total)}<span class="crm-fin-sub">${fin.n} atend. · últ. ${fDate(fin.ultima)}</span></span>` : '<span class="color-2">—</span>'}</td>
+      <td><div class="td-actions">
+        ${wa ? `<a class="btn btn-ghost btn-icon crm-wa" href="${wa}" target="_blank" rel="noopener" title="Abrir WhatsApp" aria-label="Abrir WhatsApp de ${esc(p.nome)}">${iconWhats()}</a>` : ''}
+        <button class="btn btn-ghost btn-icon" title="Ficha do paciente" aria-label="Ficha de ${esc(p.nome)}" onclick="openCrmDetail('${p.id}')">${iconEye()}</button>
+        <button class="btn btn-ghost btn-icon" title="Editar" aria-label="Editar ${esc(p.nome)}" onclick="openCrmModal('${p.id}')">${iconEdit()}</button>
+        <button class="btn btn-danger btn-icon" title="Excluir" aria-label="Excluir ${esc(p.nome)}" onclick="deleteCrmPaciente('${p.id}')">${iconTrash()}</button>
+      </div></td>
+    </tr>`;
+  }).join('')}
+  </tbody></table>`;
+}
+
 /* ===== Carga ===== */
 async function loadCrm() {
   if (typeof currentUser === 'undefined' || !currentUser) {
@@ -86,12 +154,13 @@ async function loadCrm() {
     return;
   }
   const { data, error } = await db('crm_pacientes').select('*').eq('user_id', currentUser.id).order('updated_at', { ascending: false });
-  const t = document.getElementById('crmTable');
+  const t = document.getElementById('crmTable') || document.getElementById('pacTable');
   if (error) {
     if (t) t.innerHTML = `<div class="doc-list-empty">Erro ao carregar. Verifique se as tabelas do CRM foram criadas (crm.sql).</div>`;
     return;
   }
   _crm.pacientes = (data || []).map(mapPaciente);
+  renderPacTable();
   renderCrmStats();
   renderCrmFilters();
   renderCrmTable();
@@ -237,8 +306,9 @@ function renderCrmTable() {
 }
 
 /* ===== Modal — Novo / Editar paciente ===== */
-function openCrmModal(id = null) {
+function openCrmModal(id = null, ctx = '') {
   const p = id ? _crm.pacientes.find(x => x.id === id) : null;
+  const statusPadrao = ctx === 'pacientes' ? 'cliente' : 'novo';
   const opt = (map, sel) => Object.entries(map).map(([k, v]) => `<option value="${k}" ${sel === k ? 'selected' : ''}>${typeof v === 'string' ? v : v.label}</option>`).join('');
 
   openModal(id ? 'Editar Paciente' : 'Novo Paciente', `
@@ -250,7 +320,7 @@ function openCrmModal(id = null) {
           <input type="text" class="form-control" id="crmNome" value="${esc(p?.nome || '')}" placeholder="Nome completo" required />
         </div>
         <div class="form-group">
-          <label class="form-label" for="crmTelefone">Telefone / WhatsApp</label>
+          <label class="form-label" for="crmTelefone">Celular / WhatsApp</label>
           <input type="text" class="form-control" id="crmTelefone" value="${esc(p?.telefone || '')}" placeholder="(81) 9 9999-9999" />
         </div>
         <div class="form-group">
@@ -259,7 +329,7 @@ function openCrmModal(id = null) {
         </div>
         <div class="form-group">
           <label class="form-label" for="crmStatus">Status no funil *</label>
-          <select class="form-control" id="crmStatus" required>${opt(CRM_STATUS, p?.status || 'novo')}</select>
+          <select class="form-control" id="crmStatus" required>${opt(CRM_STATUS, p?.status || statusPadrao)}</select>
         </div>
         <div class="form-group">
           <label class="form-label" for="crmOrigem">Origem do lead</label>
@@ -277,6 +347,10 @@ function openCrmModal(id = null) {
         <div class="form-group">
           <label class="form-label" for="crmNascimento">Data de nascimento</label>
           <input type="date" class="form-control" id="crmNascimento" value="${p?.nascimento || ''}" data-cf-init="1" max="9999-12-31" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="crmCpf">CPF</label>
+          <input type="text" class="form-control" id="crmCpf" value="${esc(p?.cpf || '')}" placeholder="000.000.000-00" inputmode="numeric" />
         </div>
         <div class="form-group">
           <label class="form-label" for="crmInstagram">Instagram</label>
@@ -332,6 +406,7 @@ async function saveCrmPaciente(ev) {
     proximo_contato: document.getElementById('crmProximo').value || null,
     nascimento:      document.getElementById('crmNascimento').value || null,
     instagram:       document.getElementById('crmInstagram').value.trim() || null,
+    cpf:             document.getElementById('crmCpf').value.trim() || null,
     observacoes:     document.getElementById('crmObs').value.trim() || null,
     updated_at:      new Date().toISOString()
   };
@@ -373,7 +448,8 @@ async function openCrmDetail(id) {
         </div>
       </div>
       <div class="crm-detail-grid">
-        ${crmInfo('Telefone', p.telefone)}
+        ${crmInfo('Celular', p.telefone)}
+        ${crmInfo('CPF', p.cpf)}
         ${crmInfo('E-mail', p.email)}
         ${crmInfo('Interesse', p.interesse)}
         ${crmInfo('Instagram', p.instagram)}

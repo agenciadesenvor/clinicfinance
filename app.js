@@ -676,7 +676,7 @@ function navigateTo(view) {
     dashboard:'Dashboard', entradas:'Entradas', saidas:'Saídas',
     consultorio:'Consultório', produtos:'Produtos & Insumos',
     margem:'Margem de Lucro', precificacao:'Precificação', graficos:'Gráficos & Relatórios', perfil:'Perfil',
-    crm:'CRM de Atendimento', agenda:'Agenda',
+    crm:'CRM de Atendimento', agenda:'Agenda', pacientes:'Pacientes',
     anamnese:'Ficha de Anamnese', receituario:'Receituário', exames:'Receituário de Exames',
     contratos:'Contratos & Termos'
   };
@@ -692,6 +692,7 @@ function renderView(view) {
     consultorio: renderConsultorio, produtos: renderProdutos,
     margem: renderMargem, precificacao: renderPrecificacao, graficos: renderGraficos, perfil: renderPerfil,
     crm: (typeof renderCrm === 'function' ? renderCrm : () => ''),
+    pacientes: (typeof renderPacientes === 'function' ? renderPacientes : () => ''),
     agenda: (typeof renderAgenda === 'function' ? renderAgenda : () => ''),
     anamnese: (typeof renderAnamnese === 'function' ? renderAnamnese : () => ''),
     receituario: (typeof renderReceituario === 'function' ? renderReceituario : () => ''),
