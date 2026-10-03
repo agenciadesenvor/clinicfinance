@@ -1041,18 +1041,17 @@ function openEntradaModal(id = null) {
         </div>
         <div class="form-group">
           <label class="form-label">Nome do Cliente</label>
-          <input type="text" class="form-control" id="eClient" value="${esc(e?.clientName || '')}" placeholder="Opcional" />
+          <input type="text" class="form-control" id="eClient" value="${esc(e?.clientName || '')}" placeholder="Digite para buscar no CRM (opcional)" list="eClientList" autocomplete="off" />
+          <datalist id="eClientList">${(state.data.crmPacientes || []).map(p => `<option value="${esc(p.nome)}"></option>`).join('')}</datalist>
         </div>
-        <div class="form-group">
-          <label class="form-label">Procedimento *</label>
-          <select class="form-control" id="eProcedure" required>
-            <option value="">Selecione…</option>
-            ${Object.entries(PROCEDURES).map(([k,v]) => `<option value="${k}" ${e?.procedure===k?'selected':''}>${v}</option>`).join('')}
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Valor Recebido (R$) *</label>
-          <input type="text" inputmode="decimal" class="form-control" id="eValue" value="${moneyIn(e?.value)}" placeholder="0,00" required />
+        <div class="form-group form-full">
+          <label class="form-label">Procedimentos e valores recebidos *</label>
+          <div id="eProcRows">${procRowHTML(e?.procedure, e?.value, true)}</div>
+          <div class="proc-rows-foot">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="addProcRow()">${iconPlus()} Adicionar procedimento</button>
+            <span class="proc-total" id="eProcTotal"></span>
+          </div>
+          ${id ? '<p class="form-hint">Procedimentos adicionados aqui viram novas entradas do mesmo atendimento (mesma data, paciente e pagamento).</p>' : ''}
         </div>
         <div class="form-group form-full">
           <label class="form-label">Forma de Pagamento *</label>
@@ -1110,37 +1109,70 @@ function resizeImage(file, maxPx, callback) {
   reader.readAsDataURL(file);
 }
 
+/* ===== Vários procedimentos na mesma entrada ===== */
+function procRowHTML(proc = '', value = '', first = false) {
+  return `<div class="proc-row">
+    <select class="form-control proc-sel" required>
+      <option value="">Procedimento…</option>
+      ${Object.entries(PROCEDURES).map(([k,v]) => `<option value="${k}" ${proc===k?'selected':''}>${v}</option>`).join('')}
+    </select>
+    <input type="text" inputmode="decimal" class="form-control proc-val" value="${moneyIn(value)}" placeholder="R$ 0,00" required oninput="updateProcTotal()" />
+    ${first ? '<span class="proc-row-spacer"></span>' : `<button type="button" class="btn btn-danger btn-icon btn-sm" title="Remover" onclick="this.closest('.proc-row').remove();updateProcTotal()">${iconTrash()}</button>`}
+  </div>`;
+}
+function addProcRow() {
+  const box = document.getElementById('eProcRows');
+  if (!box) return;
+  box.insertAdjacentHTML('beforeend', procRowHTML());
+  box.lastElementChild.querySelector('select').focus();
+  updateProcTotal();
+}
+function updateProcTotal() {
+  const el = document.getElementById('eProcTotal');
+  if (!el) return;
+  const vals = [...document.querySelectorAll('#eProcRows .proc-val')].map(i => parseMoney(i.value)).filter(v => !isNaN(v));
+  const n = document.querySelectorAll('#eProcRows .proc-row').length;
+  el.textContent = n > 1 ? `${n} procedimentos · Total ${fCurrency(vals.reduce((a, b) => a + b, 0))}` : '';
+}
+
 async function saveEntrada(event) {
   event.preventDefault();
   const btn = document.getElementById('saveEntradaBtn');
   if (btn) { btn.disabled = true; btn.textContent = 'Salvando…'; }
 
+  const procs = [...document.querySelectorAll('#eProcRows .proc-row')].map(r => ({
+    procedure: r.querySelector('.proc-sel').value,
+    value:     parseMoney(r.querySelector('.proc-val').value)
+  }));
+  if (!procs.length || procs.some(p => !p.procedure || isNaN(p.value))) { toast('Informe procedimento e valor válido (ex.: 150,00) em todas as linhas.', 'error'); if (btn) { btn.disabled = false; btn.textContent = 'Salvar'; } return; }
+
+  // 1ª linha = a entrada principal (fotos e insumos ficam nela); as demais viram entradas do mesmo atendimento
   const entryId = state.editingId || uid();
-  const entry = {
-    id: entryId,
+  const base = {
     date:       document.getElementById('eDate').value,
     clientName: document.getElementById('eClient').value.trim(),
-    procedure:  document.getElementById('eProcedure').value,
-    value:      parseMoney(document.getElementById('eValue').value),
-    payment:    document.getElementById('ePayment').value,
-    photoBefore: state.pendingPhotos.before || null,
-    photoAfter:  state.pendingPhotos.after  || null
+    payment:    document.getElementById('ePayment').value
   };
-  if (isNaN(entry.value)) { toast('Informe um valor válido (ex.: 150,00).', 'error'); if (btn) { btn.disabled = false; btn.textContent = 'Salvar'; } return; }
+  const entry = { id: entryId, ...base, ...procs[0], photoBefore: state.pendingPhotos.before || null, photoAfter: state.pendingPhotos.after || null };
+  const extras = procs.slice(1).map(p => ({ id: uid(), ...base, ...p, photoBefore: null, photoAfter: null }));
 
-  const row = dbEntry(entry);
-  const { error } = state.editingId
-    ? await db('entradas').update(row).eq('id', state.editingId)
-    : await db('entradas').insert(row);
+  let error;
+  if (state.editingId) {
+    ({ error } = await db('entradas').update(dbEntry(entry)).eq('id', state.editingId));
+    if (!error && extras.length) ({ error } = await db('entradas').insert(extras.map(dbEntry)));
+  } else {
+    ({ error } = await db('entradas').insert([entry, ...extras].map(dbEntry)));
+  }
   if (error) { console.error('Erro entrada:', error); toast('Erro: ' + error.message, 'error'); if (btn) { btn.disabled = false; btn.textContent = 'Salvar'; } return; }
 
   if (state.editingId) {
     const idx = state.data.entries.findIndex(x => x.id === state.editingId);
     if (idx !== -1) state.data.entries[idx] = entry;
-    toast('Entrada atualizada!', 'success');
+    state.data.entries.unshift(...extras);
+    toast(extras.length ? `Entrada atualizada + ${extras.length} procedimento(s) adicionado(s)!` : 'Entrada atualizada!', 'success');
   } else {
-    state.data.entries.unshift(entry);
-    toast('Entrada adicionada!', 'success');
+    state.data.entries.unshift(entry, ...extras);
+    toast(extras.length ? `${procs.length} procedimentos adicionados!` : 'Entrada adicionada!', 'success');
   }
 
   state.pendingPhotos = {};

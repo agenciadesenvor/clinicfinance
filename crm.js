@@ -265,9 +265,10 @@ function openCrmModal(id = null) {
           <label class="form-label" for="crmOrigem">Origem do lead</label>
           <select class="form-control" id="crmOrigem">${opt(CRM_ORIGEM, p?.origem || 'outro')}</select>
         </div>
-        <div class="form-group">
-          <label class="form-label" for="crmInteresse">Procedimento de interesse</label>
-          <input type="text" class="form-control" id="crmInteresse" value="${esc(p?.interesse || '')}" placeholder="Ex.: Botox, preenchimento…" />
+        <div class="form-group form-full">
+          <label class="form-label" for="crmInteresse">Procedimentos de interesse</label>
+          <input type="text" class="form-control" id="crmInteresse" value="${esc(p?.interesse || '')}" placeholder="Toque nos procedimentos abaixo ou digite…" oninput="crmSyncChips()" />
+          <div class="crm-proc-chips" id="crmProcChips">${crmProcChipsHTML(p?.interesse || '')}</div>
         </div>
         <div class="form-group">
           <label class="form-label" for="crmProximo">Próximo contato</label>
@@ -291,6 +292,28 @@ function openCrmModal(id = null) {
         <button type="submit" class="btn btn-primary">${iconCheck()} ${id ? 'Salvar' : 'Adicionar'}</button>
       </div>
     </form>`, true);
+}
+
+/* Procedimentos de interesse: chips que marcam/desmarcam no campo (lista separada por vírgula) */
+function crmInteresseList(v) { return (v || '').split(',').map(x => x.trim()).filter(Boolean); }
+function crmProcChipsHTML(v) {
+  const sel = crmInteresseList(v).map(crmNorm);
+  const nomes = (typeof PROCEDURES !== 'undefined' ? Object.values(PROCEDURES) : []).filter(n => n !== 'Outros');
+  return nomes.map(n => `<button type="button" class="crm-chip${sel.includes(crmNorm(n)) ? ' active' : ''}" onclick="crmToggleInteresse('${esc(n)}')">${esc(n)}</button>`).join('');
+}
+function crmToggleInteresse(nome) {
+  const inp = document.getElementById('crmInteresse');
+  if (!inp) return;
+  const list = crmInteresseList(inp.value);
+  const i = list.findIndex(x => crmNorm(x) === crmNorm(nome));
+  if (i >= 0) list.splice(i, 1); else list.push(nome);
+  inp.value = list.join(', ');
+  crmSyncChips();
+}
+function crmSyncChips() {
+  const box = document.getElementById('crmProcChips');
+  const inp = document.getElementById('crmInteresse');
+  if (box && inp) box.innerHTML = crmProcChipsHTML(inp.value);
 }
 
 async function saveCrmPaciente(ev) {

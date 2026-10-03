@@ -2450,3 +2450,12 @@ select.form-control { cursor: pointer; }
 /* Aviso de período sem entradas */
 .period-hint { margin: -8px 0 18px; padding: 10px 14px; background: var(--yellow-light); border: 1px solid rgba(201,160,106,0.35); border-radius: 10px; font-size: 13px; color: var(--text-1); }
 .period-hint .link-btn { background: none; border: none; padding: 0; margin-left: 4px; color: var(--accent); font-weight: 700; text-decoration: underline; cursor: pointer; font: inherit; font-weight: 700; }
+
+/* Entrada — vários procedimentos */
+.proc-row { display: grid; grid-template-columns: 1fr 140px 32px; gap: 8px; align-items: center; margin-bottom: 8px; }
+.proc-row-spacer { width: 32px; }
+.proc-rows-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.proc-total { font-size: 13px; font-weight: 700; color: var(--accent); }
+@media (max-width: 520px) { .proc-row { grid-template-columns: 1fr 110px 32px; } }
+.crm-proc-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.crm-proc-chips .crm-chip { font-size: 12px; padding: 5px 10px; }
