@@ -1070,9 +1070,11 @@ function openEntradaModal(id = null) {
         <div class="form-group form-full">
           <label class="form-label">Insumos Utilizados neste Atendimento</label>
           <div id="eiRowsContainer">${buildEntradaInsumosRows(id)}</div>
-          <button type="button" class="btn btn-secondary btn-sm" style="margin-top:6px" onclick="addEiRow()">
-            ${iconPlus()} Adicionar Insumo
-          </button>
+          <div id="eiQuickBox"></div>
+          <div class="ei-actions">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="addEiRow()">${iconPlus()} Adicionar Insumo</button>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="openEiQuickAdd()">${iconPlus()} Cadastrar produto novo</button>
+          </div>
         </div>
       </div>
       <div class="form-actions">
@@ -1196,10 +1198,12 @@ function buildEntradaInsumosRows(entradaId) {
     </div>`).join('');
 }
 
-function addEiRow() {
+function addEiRow(selectId = '') {
   const { products } = getData();
   const container = document.getElementById('eiRowsContainer');
   if (!container) return;
+  // Sem produtos cadastrados → abre o cadastro rápido em vez de uma lista vazia
+  if (!products.length) { openEiQuickAdd(true); return; }
   const idx = container.querySelectorAll('.pi-row').length;
   const div = document.createElement('div');
   div.className = 'pi-row';
@@ -1207,11 +1211,52 @@ function addEiRow() {
   div.innerHTML = `
     <select class="form-control" name="ei_produto_${idx}" style="flex:1">
       <option value="">Selecione produto…</option>
-      ${products.map(p => `<option value="${p.id}">${esc(p.name)} (custo: ${fCurrency(p.unitCost)}/un)</option>`).join('')}
+      ${products.map(p => `<option value="${p.id}" ${p.id === selectId ? 'selected' : ''}>${esc(p.name)} (custo: ${fCurrency(p.unitCost)}/un)</option>`).join('')}
     </select>
     <input type="number" class="form-control" name="ei_qty_${idx}" value="1" min="0.01" step="0.01" style="width:80px" placeholder="Qtd" />
     <button type="button" class="btn btn-danger btn-icon btn-sm" onclick="removePiRow(this)">${iconTrash()}</button>`;
   container.appendChild(div);
+}
+
+/* Cadastro rápido de produto dentro do atendimento (sem fechar a entrada) */
+function openEiQuickAdd(vazio = false) {
+  const box = document.getElementById('eiQuickBox');
+  if (!box) return;
+  box.innerHTML = `<div class="ei-quick">
+    ${vazio ? '<div class="ei-quick-msg">Nenhum produto cadastrado ainda. Cadastre aqui o insumo usado:</div>' : '<div class="ei-quick-msg">Novo produto/insumo:</div>'}
+    <div class="ei-quick-grid">
+      <input type="text" class="form-control" id="eiqName" placeholder="Nome (ex.: Toxina 100U, Seringa 3ml)" />
+      <select class="form-control" id="eiqCat">${Object.entries(PRODUCT_CATEGORIES).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select>
+      <input type="text" inputmode="decimal" class="form-control" id="eiqCost" placeholder="Custo por unidade (R$)" />
+    </div>
+    <div class="ei-quick-actions">
+      <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('eiQuickBox').innerHTML=''">Cancelar</button>
+      <button type="button" class="btn btn-primary btn-sm" id="eiqSave" onclick="saveEiQuickAdd()">${iconCheck()} Salvar e usar</button>
+    </div>
+  </div>`;
+  document.getElementById('eiqName').focus();
+}
+
+async function saveEiQuickAdd() {
+  const name = document.getElementById('eiqName').value.trim();
+  const unitCost = parseMoney(document.getElementById('eiqCost').value);
+  if (!name) { toast('Informe o nome do produto.', 'error'); return; }
+  if (isNaN(unitCost)) { toast('Informe o custo por unidade (ex.: 25,00).', 'error'); return; }
+  const btn = document.getElementById('eiqSave');
+  if (btn) { btn.disabled = true; btn.textContent = 'Salvando…'; }
+  // total_cost 0: é só o cadastro do insumo (a compra já entra em Saídas), não soma como despesa
+  const prod = { id: uid(), name, category: document.getElementById('eiqCat').value, supplier: null, qty: 1, unitCost, totalCost: 0, procedure: null, procedurePrice: 0, notes: null };
+  const { error } = await db('produtos').insert(dbProduct(prod));
+  if (error) { toast('Erro ao cadastrar: ' + error.message, 'error'); if (btn) { btn.disabled = false; btn.textContent = 'Salvar e usar'; } return; }
+  state.data.products.push(prod);
+  state.data.products.sort((a, b) => a.name.localeCompare(b.name));
+  // atualiza as listas já abertas e adiciona uma linha com o produto novo selecionado
+  document.querySelectorAll('#eiRowsContainer .pi-row select').forEach(sel => {
+    sel.insertAdjacentHTML('beforeend', `<option value="${prod.id}">${esc(prod.name)} (custo: ${fCurrency(prod.unitCost)}/un)</option>`);
+  });
+  document.getElementById('eiQuickBox').innerHTML = '';
+  addEiRow(prod.id);
+  toast('Produto cadastrado! Ajuste a quantidade usada.', 'success');
 }
 
 async function saveEntradaInsumos(entradaId) {

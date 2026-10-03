@@ -2459,3 +2459,11 @@ select.form-control { cursor: pointer; }
 @media (max-width: 520px) { .proc-row { grid-template-columns: 1fr 110px 32px; } }
 .crm-proc-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .crm-proc-chips .crm-chip { font-size: 12px; padding: 5px 10px; }
+
+/* Insumos — cadastro rápido de produto */
+.ei-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.ei-quick { background: var(--bg-2); border: 1px dashed var(--accent-2); border-radius: 10px; padding: 12px; margin: 6px 0 4px; }
+.ei-quick-msg { font-size: 12.5px; color: var(--text-2); margin-bottom: 8px; font-weight: 600; }
+.ei-quick-grid { display: grid; grid-template-columns: 2fr 1.2fr 1fr; gap: 8px; }
+.ei-quick-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+@media (max-width: 560px) { .ei-quick-grid { grid-template-columns: 1fr; } }
