@@ -698,7 +698,16 @@ function renderView(view) {
     exames: (typeof renderExames === 'function' ? renderExames : () => ''),
     contratos: (typeof renderContratos === 'function' ? renderContratos : () => '')
   };
-  content.innerHTML = (renders[view] || (() => ''))();
+  // Se uma ação assíncrona (salvar/excluir) terminar depois que o usuário trocou de aba,
+  // redesenha a aba ATUAL — nunca a antiga (evita título "Entradas" com conteúdo de Saídas).
+  if (view !== state.currentView) view = state.currentView;
+  try {
+    content.innerHTML = (renders[view] || (() => ''))();
+  } catch (err) {
+    console.error('Erro ao abrir a tela', view, err);
+    content.innerHTML = `<div class="empty-state"><h3>Não foi possível abrir esta tela</h3><p>Recarregue a página (⌘⇧R). Se continuar, avise o suporte.</p></div>`;
+    return;
+  }
   if (view === 'dashboard') setTimeout(initDashboardCharts, 50);
   if (view === 'graficos')  setTimeout(initGraficosCharts, 50);
   setTimeout(initDatePickers, 10);
@@ -973,7 +982,7 @@ function renderEntradas() {
       <div class="table-search">${iconSearch()}
         <input type="text" placeholder="Buscar por cliente ou procedimento…" value="${esc(state.searchTerms.entradas)}" oninput="setSearch('entradas', this.value)" />
       </div>
-      <span style="font-size:13px;color:var(--text-2)">${rows.length} registro${rows.length!==1?'s':''}</span>
+      <span style="font-size:13px;color:var(--text-2)">${sorted.length} registro${sorted.length!==1?'s':''}</span>
     </div>
     ${sorted.length ? `
     <table><thead><tr>
@@ -1808,7 +1817,7 @@ function renderConsultorio() {
       <div class="table-search">${iconSearch()}
         <input type="text" placeholder="Buscar gasto…" value="${esc(state.searchTerms.consultorio||'')}" oninput="setSearch('consultorio', this.value)" />
       </div>
-      <span style="font-size:13px;color:var(--text-2)">${sorted.length} registro${sorted.length!==1?'s':''}</span>
+      <span style="font-size:13px;color:var(--text-2)">${rows.length} registro${rows.length!==1?'s':''}</span>
     </div>
     ${sorted.length ? `
     <table><thead><tr>
