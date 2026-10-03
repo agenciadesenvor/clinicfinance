@@ -24,7 +24,7 @@ const CRM_TIPO = {
 };
 
 /* ===== Store local ===== */
-const _crm = { pacientes: [], search: '', statusFilter: 'todos' };
+const _crm = { pacientes: [], search: '', statusFilter: 'todos', hasExtra: false };
 
 /* ===== Mapper DB → JS ===== */
 const mapPaciente = r => ({
@@ -32,6 +32,7 @@ const mapPaciente = r => ({
   cpf: r.cpf || '', nascimento: r.nascimento || '', instagram: r.instagram || '',
   origem: r.origem || 'outro', status: r.status || 'novo', interesse: r.interesse || '',
   observacoes: r.observacoes || '', proximoContato: r.proximo_contato || '',
+  endereco: r.endereco || '', sexo: r.sexo || '',
   createdAt: r.created_at, updatedAt: r.updated_at
 });
 
@@ -160,6 +161,8 @@ async function loadCrm() {
     return;
   }
   _crm.pacientes = (data || []).map(mapPaciente);
+  // colunas endereco/sexo existem só depois de rodar o SQL de atualização
+  _crm.hasExtra = !!(data && data.length && 'endereco' in data[0]);
   renderPacTable();
   renderCrmStats();
   renderCrmFilters();
@@ -353,8 +356,18 @@ function openCrmModal(id = null, ctx = '') {
           <input type="text" class="form-control" id="crmCpf" value="${esc(p?.cpf || '')}" placeholder="000.000.000-00" inputmode="numeric" />
         </div>
         <div class="form-group">
+          <label class="form-label" for="crmSexo">Sexo</label>
+          <select class="form-control" id="crmSexo">
+            ${['', 'Feminino', 'Masculino', 'Outro'].map(v => `<option value="${v}" ${(p?.sexo || '') === v ? 'selected' : ''}>${v || '—'}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
           <label class="form-label" for="crmInstagram">Instagram</label>
           <input type="text" class="form-control" id="crmInstagram" value="${esc(p?.instagram || '')}" placeholder="@usuario" />
+        </div>
+        <div class="form-group form-full">
+          <label class="form-label" for="crmEndereco">Endereço</label>
+          <input type="text" class="form-control" id="crmEndereco" value="${esc(p?.endereco || '')}" placeholder="Rua, nº, bairro, cidade/UF, CEP" />
         </div>
         <div class="form-group form-full">
           <label class="form-label" for="crmObs">Observações</label>
@@ -407,6 +420,10 @@ async function saveCrmPaciente(ev) {
     nascimento:      document.getElementById('crmNascimento').value || null,
     instagram:       document.getElementById('crmInstagram').value.trim() || null,
     cpf:             document.getElementById('crmCpf').value.trim() || null,
+    ...(_crm.hasExtra ? {
+      endereco: document.getElementById('crmEndereco').value.trim() || null,
+      sexo:     document.getElementById('crmSexo').value || null
+    } : {}),
     observacoes:     document.getElementById('crmObs').value.trim() || null,
     updated_at:      new Date().toISOString()
   };
@@ -453,7 +470,9 @@ async function openCrmDetail(id) {
         ${crmInfo('E-mail', p.email)}
         ${crmInfo('Interesse', p.interesse)}
         ${crmInfo('Instagram', p.instagram)}
-        ${crmInfo('Nascimento', p.nascimento ? fDate(p.nascimento) : '')}
+        ${crmInfo('Nascimento', p.nascimento ? `${fDate(p.nascimento)} (${crmIdade(p.nascimento)})` : '')}
+        ${crmInfo('Sexo', p.sexo)}
+        ${crmInfo('Endereço', p.endereco)}
         ${crmInfo('Próximo contato', p.proximoContato ? fDate(p.proximoContato) : '')}
       </div>
       ${crmFichaFinanceiro(p.nome)}
