@@ -528,7 +528,13 @@ function clinicOccurrences(arr, s, e) {
 
 function filterClinicByPeriod(arr) {
   const { s, e } = getDateRange();
-  return clinicOccurrences(arr, s, e);
+  const occ = clinicOccurrences(arr, s, e);
+  // Hoje/Semana: gasto fixo só conta se o VENCIMENTO (dia da data cadastrada) cair no período.
+  // Mês/Ano/Período: conta o mês inteiro, como antes.
+  if (state.filter.period === 'today' || state.filter.period === 'week') {
+    return occ.filter(o => { const d = new Date(o.date + 'T12:00:00'); return d >= s && d <= e; });
+  }
+  return occ;
 }
 
 /* ===== NOTIFICAÇÕES — pagamentos do consultório próximos do vencimento ===== */
