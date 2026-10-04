@@ -791,8 +791,8 @@ function renderDashboard() {
   const revenue      = fe.reduce((s,e) => s + e.value, 0);
   const expSaidas    = fx.reduce((s,e) => s + e.value, 0);
   const expClinic    = fc.reduce((s,e) => s + e.value, 0);
-  const expProducts  = products.reduce((s,p) => s + p.totalCost, 0);
-  const expenses     = expSaidas + expClinic + expProducts;
+  // Produtos & Insumos = estoque/custo por atendimento; a compra entra como despesa em Saídas (com data)
+  const expenses     = expSaidas + expClinic;
   const profit       = revenue - expenses;
   const count        = fe.length;
   const margin       = revenue > 0 ? ((profit / revenue) * 100).toFixed(1) : 0;
@@ -806,7 +806,7 @@ function renderDashboard() {
     <div class="dash-main">
       <div class="stats-grid">
         ${statCard('Receita',         fCurrency(revenue),  'green', 'Entradas no período',  iconTrend(),  `<span class="stat-badge up">↑ ${count} procedimentos</span>`)}
-        ${statCard('Despesas',        fCurrency(expenses), 'red',   `Saídas: ${fCurrency(expSaidas)} · Consul.: ${fCurrency(expClinic)} · Prod.: ${fCurrency(expProducts)}`, iconDown(), '')}
+        ${statCard('Despesas',        fCurrency(expenses), 'red',   `Saídas: ${fCurrency(expSaidas)} · Consultório: ${fCurrency(expClinic)}`, iconDown(), '')}
         ${statCard('Lucro líquido',   fCurrency(profit),   profit >= 0 ? 'gold' : 'red', `Margem: ${margin}%`, iconDollar(), `<span class="stat-badge ${profit>=0?'up':'down'}">${profit>=0?'↑':'↓'} ${margin}%</span>`)}
         ${statCard('Procedimentos',   count, 'blue', 'Realizados no período', iconClip(), '')}
       </div>
@@ -1007,9 +1007,6 @@ function initDashboardCharts() {
 
 function getMonthlyData(entries, exits, clinic, n, products) {
   const result = [];
-  // Custo total de produtos (não tem data, distribui igualmente entre os meses)
-  const totalProductsCost = (products || []).reduce((s,p) => s + p.totalCost, 0);
-  const productsCostPerMonth = totalProductsCost / (n || 1);
   for (let i = n - 1; i >= 0; i--) {
     const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - i);
     const y = d.getFullYear(), m = d.getMonth();
@@ -1018,8 +1015,8 @@ function getMonthlyData(entries, exits, clinic, n, products) {
     const revenue    = inMonth(entries).reduce((s,e) => s+e.value, 0);
     const expSaidas  = inMonth(exits).reduce((s,e) => s+e.value, 0);
     const expClinic  = clinicOccurrences(clinic, new Date(y, m, 1), new Date(y, m + 1, 0, 23, 59, 59)).reduce((s,e) => s+e.value, 0);
-    const expenses   = expSaidas + expClinic + productsCostPerMonth;
-    result.push({ label, revenue, expenses, expSaidas, expClinic, expProducts: productsCostPerMonth, profit: revenue - expenses });
+    const expenses   = expSaidas + expClinic;
+    result.push({ label, revenue, expenses, expSaidas, expClinic, expProducts: 0, profit: revenue - expenses });
   }
   return result;
 }
@@ -1398,12 +1395,8 @@ function renderSaidas() {
   const fc = filterClinicByPeriod(clinic);
   const q  = state.searchTerms.saidas.toLowerCase();
 
-  // Produtos cadastrados como saída
-  const prodAsExits = products.map(p => ({
-    id: p.id, date: today(), category: 'produtos_insumos',
-    description: `${p.name} (${p.qty}x ${fCurrency(p.unitCost)})`,
-    value: p.totalCost, _origin: 'product'
-  }));
+  // Produtos & Insumos NÃO entram aqui: são estoque. A compra de material é lançada como Saída (com data).
+  const prodAsExits = [];
 
   // Consultório como saída
   const clinicAsExits = fc.map(c => ({
@@ -1432,7 +1425,7 @@ function renderSaidas() {
 
   return `
   <div class="section-header">
-    <div><div class="section-title">Saídas</div><div class="section-sub">Todas as despesas: manuais, consultório e produtos</div></div>
+    <div><div class="section-title">Saídas</div><div class="section-sub">Todas as despesas: lançamentos e gastos do consultório</div></div>
     <button class="btn btn-primary" onclick="openSaidaModal()">${iconPlus()} Nova Saída</button>
   </div>
   ${periodFilterHTML()}
@@ -2103,7 +2096,7 @@ function renderMargem() {
   const totalProdCost = cards.reduce((s,c) => s+c.costCatalog, 0);
   const totalSaidas   = fx.reduce((s,e) => s+e.value, 0);
   const totalClinic   = fc.reduce((s,e) => s+e.value, 0);
-  const totalExpenses = totalProdCost + totalSaidas + totalClinic;
+  const totalExpenses = totalSaidas + totalClinic;
   const totalProfit   = totalRevenue - totalExpenses;
   const netMargin     = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : 0;
 
@@ -2116,7 +2109,7 @@ function renderMargem() {
   ${periodFilterHTML()}
   <div class="stats-grid" style="margin-bottom:24px">
     ${statCard('Receita Total',   fCurrency(totalRevenue),  'green', 'Total de entradas',               iconTrend(), '')}
-    ${statCard('Despesas Totais', fCurrency(totalExpenses), 'red',   'Produtos + Saídas + Consultório', iconDown(),  `<span style="font-size:11px;color:var(--text-2)">Prod: ${fCurrency(totalProdCost)} · Saídas: ${fCurrency(totalSaidas)} · Consul.: ${fCurrency(totalClinic)}</span>`)}
+    ${statCard('Despesas Totais', fCurrency(totalExpenses), 'red',   'Saídas + Consultório', iconDown(),  `<span style="font-size:11px;color:var(--text-2)">Saídas: ${fCurrency(totalSaidas)} · Consultório: ${fCurrency(totalClinic)}</span>`)}
     ${statCard('Lucro Líquido',   fCurrency(totalProfit),   totalProfit>=0?'gold':'red', 'Receita menos todas as despesas', iconDollar(), '')}
     ${statCard('Margem Líquida',  `${netMargin}%`,          'blue',  'Margem real do negócio',          iconClip(),  '')}
   </div>
@@ -2401,13 +2394,11 @@ function initGraficosCharts() {
     options:{ indexAxis:'y', responsive:true, plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label: ctx => ` ${fCurrency(ctx.raw)}` } } }, scales:{ x:{ grid:{ color:'rgba(127,102,88,0.07)' }, border:{ display:false }, ticks:{ callback: v => fCompact(v), maxTicksLimit: 6 } }, y:{ grid:{ display:false } } } }
   });
 
-  // Despesas por categoria (saídas + consultório + produtos)
-  const expProductsG = products.reduce((s,p) => s + p.totalCost, 0);
-  const catLabels = [...Object.values(EXIT_CATEGORIES), 'Consultório', 'Produtos (catálogo)'];
+  // Despesas por categoria (saídas + consultório)
+  const catLabels = [...Object.values(EXIT_CATEGORIES), 'Consultório'];
   const catData   = [
     ...Object.keys(EXIT_CATEGORIES).map(k => fx.filter(e=>e.category===k).reduce((s,e)=>s+e.value,0)),
-    fc.reduce((s,e)=>s+e.value,0),
-    expProductsG
+    fc.reduce((s,e)=>s+e.value,0)
   ];
   createChart('gChartCat', {
     type:'doughnut',
@@ -2825,8 +2816,8 @@ function generatePDF(label) {
   const revenue      = fe.reduce((t,x) => t+x.value, 0);
   const expSaidasPdf = fx.reduce((t,x) => t+x.value, 0);
   const expClinicPdf = fc.reduce((t,x) => t+x.value, 0);
-  const expProdsPdf  = products.reduce((t,p) => t+p.totalCost, 0);
-  const expenses     = expSaidasPdf + expClinicPdf + expProdsPdf;
+  const expProdsPdf  = products.reduce((t,p) => t+p.totalCost, 0); // valor em estoque (não soma nas despesas)
+  const expenses     = expSaidasPdf + expClinicPdf;
   const profit       = revenue - expenses;
   const margin   = revenue > 0 ? ((profit / revenue) * 100).toFixed(1) : '0.0';
   const periodStr = `${s.toLocaleDateString('pt-BR')} a ${e.toLocaleDateString('pt-BR')}`;
@@ -2857,7 +2848,6 @@ function generatePDF(label) {
       ['Receita Total', fCurrency(revenue)],
       ['Despesas — Saídas', fCurrency(expSaidasPdf)],
       ['Despesas — Consultório', fCurrency(expClinicPdf)],
-      ['Despesas — Produtos & Insumos', fCurrency(expProdsPdf)],
       ['Despesas Totais', fCurrency(expenses)],
       ['Lucro Líquido', fCurrency(profit)],
       ['Margem de Lucro', margin + '%'],
@@ -2908,12 +2898,12 @@ function generatePDF(label) {
   if (products.length) {
     if (y > 210) { doc.addPage(); y = 15; }
     doc.setFontSize(12); doc.setFont('helvetica','bold'); doc.setTextColor(...C_DARK);
-    doc.text('Produtos & Insumos', 12, y); y += 4;
+    doc.text('Produtos & Insumos em estoque (não somados nas despesas)', 12, y); y += 4;
     doc.autoTable({
       startY: y,
       head: [['Produto','Categoria','Qtd','Custo Unit.','Custo Total']],
       body: products.map(p => [p.name, PRODUCT_CATEGORIES[p.category]||p.category, String(p.qty), fCurrency(p.unitCost), fCurrency(p.totalCost)]),
-      foot: [['','','','Total', fCurrency(expProdsPdf)]],
+      foot: [['','','','Valor em estoque', fCurrency(expProdsPdf)]],
       theme:'striped', styles:{ fontSize:9, cellPadding:3 },
       headStyles:{ fillColor:[139,92,246], textColor:[255,255,255] },
       footStyles:{ fillColor:C_LIGHT, textColor:C_DARK, fontStyle:'bold' },
