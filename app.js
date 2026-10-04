@@ -828,9 +828,16 @@ function renderDashboard() {
         })()}
       </div>
       <div class="charts-grid">
-        <div class="card">
-          <div class="card-header"><span class="card-title">Receita × Despesa × Lucro</span><span class="card-sub">Últimos 6 meses</span></div>
-          <div class="chart-wrap"><canvas id="chartRevExp" height="240"></canvas></div>
+        <div class="card rev-card">
+          <div class="card-header">
+            <span class="card-title">Receita × Despesa × Lucro</span>
+            <div class="seg-mini" role="group" aria-label="Quantidade de meses">
+              ${[6, 12].map(n => `<button type="button" class="${dashMonths() === n ? 'active' : ''}" onclick="setDashMonths(${n})">${n} meses</button>`).join('')}
+            </div>
+          </div>
+          <div class="rev-summary" id="revSummary"></div>
+          <div class="chart-wrap"><canvas id="chartRevExp"></canvas></div>
+          <div class="chart-hint">Clique numa barra para ver as entradas daquele mês</div>
         </div>
         <div class="card">
           <div class="card-header"><span class="card-title">Procedimentos que mais faturam</span></div>
@@ -1094,22 +1101,98 @@ function recentPanel(items) {
 }
 
 function initDashboardCharts() {
-  const { entries, exits, clinic, products } = getData();
   applyChartTheme();
-  const monthly = getMonthlyData(entries, exits, clinic, 6, products);
+  renderRevChart();
+  animateDashboard();
+}
+
+/* ===== Gráfico Receita × Despesa × Lucro (Dashboard) ===== */
+function dashMonths() {
+  if (!state.dashMonths) { try { state.dashMonths = Number(localStorage.getItem('cf_dash_months')) || 6; } catch (e) { state.dashMonths = 6; } }
+  return state.dashMonths === 12 ? 12 : 6;
+}
+function setDashMonths(n) {
+  state.dashMonths = n;
+  try { localStorage.setItem('cf_dash_months', String(n)); } catch (e) {}
+  document.querySelectorAll('.rev-card .seg-mini button').forEach(b => b.classList.toggle('active', b.textContent.startsWith(String(n))));
+  renderRevChart();
+}
+
+function renderRevChart() {
+  const { entries, exits, clinic, products } = getData();
+  const n = dashMonths();
+  const monthly = getMonthlyData(entries, exits, clinic, n, products);
+  const now = new Date();
+  const meses = monthly.map((m, idx) => { const d = new Date(now.getFullYear(), now.getMonth() - (n - 1 - idx), 1); return { y: d.getFullYear(), m: d.getMonth() }; });
+  const last = n - 1;
+  const parcial = now.getDate() < new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  const nomeLongo = ({ y, m }) => new Date(y, m, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  const labels = meses.map(({ y, m }, idx) => {
+    const curto = MES_CURTO[m] + (m === 0 || (n === 12 && idx === 0) ? ` ${String(y).slice(2)}` : '');
+    return idx === last && parcial ? [curto, 'parcial'] : curto;
+  });
+
+  // Resumo: só meses completos (o atual ainda está em andamento)
+  // ignora meses sem nenhuma receita (ex.: antes de começar a usar o sistema) para não puxar a média para baixo
+  const completos = (parcial ? monthly.slice(0, last) : monthly).filter(m => m.revenue > 0);
+  const box = document.getElementById('revSummary');
+  if (box) {
+    if (completos.length) {
+      const melhor = completos.reduce((b, m) => (m.revenue > b.revenue ? m : b), completos[0]);
+      const melhorMes = meses[monthly.indexOf(melhor)];
+      const media = completos.reduce((t, m) => t + m.revenue, 0) / completos.length;
+      const lucroTotal = monthly.reduce((t, m) => t + m.profit, 0);
+      const ult3 = completos.slice(-3).map(m => m.revenue);
+      const tend = ult3.length === 3 ? (ult3[2] > ult3[0] * 1.05 ? 'up' : ult3[2] < ult3[0] * 0.95 ? 'down' : 'flat') : null;
+      const tendTxt = { up: '↑ subindo', down: '↓ caindo', flat: '→ estável' };
+      box.innerHTML = `
+        <div class="rev-kpi"><span>Melhor mês</span><b>${MES_CURTO[melhorMes.m]} · ${fCompact(melhor.revenue)}</b></div>
+        <div class="rev-kpi"><span>Média por mês</span><b>${fCompact(media)}${tend ? ` <small class="trend-${tend}" title="Receita nos últimos 3 meses completos">${tendTxt[tend]}</small>` : ''}</b></div>
+        <div class="rev-kpi"><span>Lucro em ${n} meses</span><b class="${lucroTotal >= 0 ? 'pos' : 'neg'}">${fCompact(lucroTotal)}</b></div>`;
+    } else box.innerHTML = '';
+  }
+
+  const C = { rec: '#8FA88A', recSoft: 'rgba(143,168,138,0.38)', desp: '#D7A893', despSoft: 'rgba(215,168,147,0.38)', lucro: '#B8894F' };
+  const cor = (cheia, suave) => monthly.map((_, idx) => (idx === last && parcial ? suave : cheia));
   createChart('chartRevExp', {
     type: 'bar',
     data: {
-      labels: monthly.map(m => m.label),
+      labels,
       datasets: [
-        { label: 'Receita',  data: monthly.map(m => m.revenue),  backgroundColor: '#8FA88A', hoverBackgroundColor: '#7A9575', maxBarThickness: 26, categoryPercentage: 0.62 },
-        { label: 'Despesas', data: monthly.map(m => m.expenses), backgroundColor: '#D7A893', hoverBackgroundColor: '#C9927B', maxBarThickness: 26, categoryPercentage: 0.62 },
-        { label: 'Lucro',    data: monthly.map(m => m.profit),   type: 'line', borderColor: '#B8894F', backgroundColor: '#B8894F', fill: false, borderWidth: 2.5, pointBackgroundColor: '#FFFDF9', pointBorderColor: '#B8894F', pointBorderWidth: 2, pointRadius: 4 }
+        { label: 'Receita',  data: monthly.map(m => m.revenue),  backgroundColor: cor(C.rec, C.recSoft), borderColor: C.rec, borderWidth: monthly.map((_, idx) => (idx === last && parcial ? 1.5 : 0)), hoverBackgroundColor: '#7A9575', maxBarThickness: n === 12 ? 18 : 28, categoryPercentage: 0.66, barPercentage: 0.9, borderRadius: { topLeft: 7, topRight: 7 }, borderSkipped: 'start', order: 2 },
+        { label: 'Despesas', data: monthly.map(m => m.expenses), backgroundColor: cor(C.desp, C.despSoft), borderColor: C.desp, borderWidth: monthly.map((_, idx) => (idx === last && parcial ? 1.5 : 0)), hoverBackgroundColor: '#C9927B', maxBarThickness: n === 12 ? 18 : 28, categoryPercentage: 0.66, barPercentage: 0.9, borderRadius: { topLeft: 7, topRight: 7 }, borderSkipped: 'start', order: 3 },
+        { label: 'Lucro', data: monthly.map(m => m.profit), type: 'line', order: 1, borderColor: C.lucro, backgroundColor: C.lucro, fill: false, borderWidth: 2.5, tension: 0.32, cubicInterpolationMode: 'monotone',
+          pointBackgroundColor: '#FFFDF9', pointBorderColor: C.lucro, pointBorderWidth: 2, pointRadius: 4, pointHoverRadius: 6,
+          segment: { borderDash: ctx => (parcial && ctx.p1DataIndex === last ? [5, 5] : undefined) } }
       ]
     },
-    options: { responsive: true, interaction: { mode: 'index', intersect: false }, plugins: { legend: { position: 'bottom', align: 'start' }, tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fCurrency(ctx.raw)}` } } }, scales: { x: { grid: { display: false }, border: { display: false } }, y: { border: { display: false }, grid: { color: 'rgba(127,102,88,0.07)' }, ticks: { callback: v => fCompact(v), maxTicksLimit: 6 } } } }
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      animation: { duration: 900, easing: 'easeOutQuart', delay: ctx => (ctx.type === 'data' && ctx.mode === 'default' ? ctx.dataIndex * 70 : 0) },
+      onHover: (evt, els) => { if (evt.native?.target) evt.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
+      onClick: (evt, els) => {
+        if (!els.length) return;
+        const { y, m } = meses[els[0].index];
+        const ini = `${y}-${String(m + 1).padStart(2, '0')}-01`;
+        const fim = `${y}-${String(m + 1).padStart(2, '0')}-${String(new Date(y, m + 1, 0).getDate()).padStart(2, '0')}`;
+        state.filter = { period: 'custom', start: ini, end: fim };
+        saveFilter();
+        navigateTo('entradas');
+      },
+      plugins: {
+        legend: { position: 'bottom', align: 'start', labels: { sort: (a, b) => a.datasetIndex - b.datasetIndex } },
+        tooltip: { itemSort: (a, b) => a.datasetIndex - b.datasetIndex, callbacks: {
+          title: items => { const idx = items[0].dataIndex; return nomeLongo(meses[idx]) + (idx === last && parcial ? ` (até dia ${now.getDate()})` : ''); },
+          label: ctx => ` ${ctx.dataset.label}: ${fCurrency(ctx.raw)}`
+        } }
+      },
+      scales: {
+        x: { grid: { display: false }, border: { display: false }, ticks: { font: ctx => ({ size: 11, weight: ctx.index === last ? '700' : '400' }) } },
+        y: { border: { display: false }, grid: { color: 'rgba(127,102,88,0.07)' }, ticks: { callback: v => fCompact(v), maxTicksLimit: 5 } }
+      }
+    }
   });
-  animateDashboard();
 }
 
 function getMonthlyData(entries, exits, clinic, n, products) {
