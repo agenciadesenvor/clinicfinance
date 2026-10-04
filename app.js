@@ -830,14 +830,14 @@ function renderDashboard() {
       <div class="charts-grid">
         <div class="card rev-card">
           <div class="card-header">
-            <span class="card-title">Receita × Despesa × Lucro</span>
+            <span class="card-title">Receita × Despesas</span>
             <div class="seg-mini" role="group" aria-label="Quantidade de meses">
               ${[6, 12].map(n => `<button type="button" class="${dashMonths() === n ? 'active' : ''}" onclick="setDashMonths(${n})">${n} meses</button>`).join('')}
             </div>
           </div>
           <div class="rev-summary" id="revSummary"></div>
           <div class="chart-wrap"><canvas id="chartRevExp"></canvas></div>
-          <div class="chart-hint">Clique numa barra para ver as entradas daquele mês</div>
+          <div class="chart-hint">Passe o mouse para ver o lucro do mês · clique para abrir as entradas</div>
         </div>
         <div class="card">
           <div class="card-header"><span class="card-title">Procedimentos que mais faturam</span></div>
@@ -1152,18 +1152,23 @@ function renderRevChart() {
     } else box.innerHTML = '';
   }
 
-  const C = { rec: '#8FA88A', recSoft: 'rgba(143,168,138,0.38)', desp: '#D7A893', despSoft: 'rgba(215,168,147,0.38)', lucro: '#B8894F' };
+  const C = { rec: '#9BB396', recSoft: 'rgba(155,179,150,0.35)', desp: '#C98A72', despSoft: 'rgba(201,138,114,0.4)' };
   const cor = (cheia, suave) => monthly.map((_, idx) => (idx === last && parcial ? suave : cheia));
+  const borda = monthly.map((_, idx) => (idx === last && parcial ? 1.5 : 0));
+  // Coluna larga = receita; coluna estreita por dentro = despesa (se passar da receita, "estoura" = prejuízo)
   createChart('chartRevExp', {
     type: 'bar',
     data: {
       labels,
       datasets: [
-        { label: 'Receita',  data: monthly.map(m => m.revenue),  backgroundColor: cor(C.rec, C.recSoft), borderColor: C.rec, borderWidth: monthly.map((_, idx) => (idx === last && parcial ? 1.5 : 0)), hoverBackgroundColor: '#7A9575', maxBarThickness: n === 12 ? 18 : 28, categoryPercentage: 0.66, barPercentage: 0.9, borderRadius: { topLeft: 7, topRight: 7 }, borderSkipped: 'start', order: 2 },
-        { label: 'Despesas', data: monthly.map(m => m.expenses), backgroundColor: cor(C.desp, C.despSoft), borderColor: C.desp, borderWidth: monthly.map((_, idx) => (idx === last && parcial ? 1.5 : 0)), hoverBackgroundColor: '#C9927B', maxBarThickness: n === 12 ? 18 : 28, categoryPercentage: 0.66, barPercentage: 0.9, borderRadius: { topLeft: 7, topRight: 7 }, borderSkipped: 'start', order: 3 },
-        { label: 'Lucro', data: monthly.map(m => m.profit), type: 'line', order: 1, borderColor: C.lucro, backgroundColor: C.lucro, fill: false, borderWidth: 2.5, tension: 0.32, cubicInterpolationMode: 'monotone',
-          pointBackgroundColor: '#FFFDF9', pointBorderColor: C.lucro, pointBorderWidth: 2, pointRadius: 4, pointHoverRadius: 6,
-          segment: { borderDash: ctx => (parcial && ctx.p1DataIndex === last ? [5, 5] : undefined) } }
+        { label: 'Receita', data: monthly.map(m => m.revenue), grouped: false, order: 2,
+          backgroundColor: cor(C.rec, C.recSoft), hoverBackgroundColor: '#8AA585', borderColor: C.rec, borderWidth: borda,
+          barPercentage: 0.62, categoryPercentage: 0.9, maxBarThickness: n === 12 ? 30 : 46,
+          borderRadius: { topLeft: 10, topRight: 10 }, borderSkipped: 'start' },
+        { label: 'Despesas', data: monthly.map(m => m.expenses), grouped: false, order: 1,
+          backgroundColor: cor(C.desp, C.despSoft), hoverBackgroundColor: '#B87A62', borderColor: C.desp, borderWidth: borda,
+          barPercentage: 0.26, categoryPercentage: 0.9, maxBarThickness: n === 12 ? 12 : 18,
+          borderRadius: { topLeft: 3, topRight: 3 }, borderSkipped: 'start', minBarLength: 3 }
       ]
     },
     options: {
@@ -1184,12 +1189,13 @@ function renderRevChart() {
         legend: { position: 'bottom', align: 'start', labels: { sort: (a, b) => a.datasetIndex - b.datasetIndex } },
         tooltip: { itemSort: (a, b) => a.datasetIndex - b.datasetIndex, callbacks: {
           title: items => { const idx = items[0].dataIndex; return nomeLongo(meses[idx]) + (idx === last && parcial ? ` (até dia ${now.getDate()})` : ''); },
-          label: ctx => ` ${ctx.dataset.label}: ${fCurrency(ctx.raw)}`
-        } }
+          label: ctx => ` ${ctx.dataset.label}: ${fCurrency(ctx.raw)}`,
+          footer: items => { const p = monthly[items[0].dataIndex].profit; return `${p >= 0 ? 'Lucro' : 'Prejuízo'}: ${fCurrency(Math.abs(p))}`; }
+        }, footerColor: '#F3D9B8', footerFont: { weight: '700', size: 12 }, footerMarginTop: 8 }
       },
       scales: {
         x: { grid: { display: false }, border: { display: false }, ticks: { font: ctx => ({ size: 11, weight: ctx.index === last ? '700' : '400' }) } },
-        y: { border: { display: false }, grid: { color: 'rgba(127,102,88,0.07)' }, ticks: { callback: v => fCompact(v), maxTicksLimit: 5 } }
+        y: { beginAtZero: true, border: { display: false }, grid: { color: 'rgba(127,102,88,0.07)' }, ticks: { callback: v => fCompact(v), maxTicksLimit: 5 } }
       }
     }
   });
