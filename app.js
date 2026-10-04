@@ -800,23 +800,14 @@ function renderDashboard() {
   const recentSorted = fe.slice().sort((a,b) => b.date.localeCompare(a.date));
 
   return `
-  <div class="export-card">
-    <div class="export-card-text">
-      <div class="export-card-title">Exportar Relatório Financeiro em PDF</div>
-      <div class="export-card-sub">Entradas, saídas e lucro compilados em um relatório profissional</div>
-    </div>
-    <div class="export-btns">
-      <button class="btn-export btn-export-week" onclick="generatePDF('Semanal')">${iconDownload()} Relatório Semanal</button>
-      <button class="btn-export btn-export-month" onclick="generatePDF('Mensal')">${iconDownload()} Relatório Mensal</button>
-    </div>
-  </div>
+  ${dashHero()}
   ${periodFilterHTML()}
   <div class="dash-layout">
     <div class="dash-main">
       <div class="stats-grid">
-        ${statCard('Receita Total',   fCurrency(revenue),  'green', 'Entradas no período',  iconTrend(),  `<span class="stat-badge up">↑ ${count} procedimentos</span>`)}
-        ${statCard('Despesas Totais', fCurrency(expenses), 'red',   `Saídas: ${fCurrency(expSaidas)} · Consul.: ${fCurrency(expClinic)} · Prod.: ${fCurrency(expProducts)}`, iconDown(), '')}
-        ${statCard('Lucro Líquido',   fCurrency(profit),   profit >= 0 ? 'gold' : 'red', `Margem: ${margin}%`, iconDollar(), `<span class="stat-badge ${profit>=0?'up':'down'}">${profit>=0?'↑':'↓'} ${margin}%</span>`)}
+        ${statCard('Receita',         fCurrency(revenue),  'green', 'Entradas no período',  iconTrend(),  `<span class="stat-badge up">↑ ${count} procedimentos</span>`)}
+        ${statCard('Despesas',        fCurrency(expenses), 'red',   `Saídas: ${fCurrency(expSaidas)} · Consul.: ${fCurrency(expClinic)} · Prod.: ${fCurrency(expProducts)}`, iconDown(), '')}
+        ${statCard('Lucro líquido',   fCurrency(profit),   profit >= 0 ? 'gold' : 'red', `Margem: ${margin}%`, iconDollar(), `<span class="stat-badge ${profit>=0?'up':'down'}">${profit>=0?'↑':'↓'} ${margin}%</span>`)}
         ${statCard('Procedimentos',   count, 'blue', 'Realizados no período', iconClip(), '')}
       </div>
       <div class="charts-grid">
@@ -841,6 +832,78 @@ function renderDashboard() {
       ${recentPanel(recentSorted.slice(0,10))}
     </div>
   </div>`;
+}
+
+/* Hero do Dashboard: saudação + resumo do dia/mês + atalhos */
+function dashHero() {
+  const now = new Date();
+  const h = now.getHours();
+  const saud = h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
+  const nome = (typeof currentProfile !== 'undefined' && currentProfile?.first_name) ? currentProfile.first_name.split(' ')[0] : '';
+  const dataTxt = now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const mesKey = today().slice(0, 7);
+  const doMes = (state.data.entries || []).filter(e => (e.date || '').startsWith(mesKey));
+  const receitaMes = doMes.reduce((t, e) => t + e.value, 0);
+  const consultas = (typeof getTodayAppointments === 'function' ? getTodayAppointments() : []).length;
+  const follow = (typeof getFollowupsDue === 'function' ? getFollowupsDue() : []).length;
+  const plural = (n, a, b) => `${n} ${n === 1 ? a : b}`;
+  return `<section class="dash-hero">
+    <div class="dash-hero-text">
+      <div class="dash-hero-eyebrow">${dataTxt}</div>
+      <div class="dash-hero-title">${saud}${nome ? `, <em>${esc(nome)}</em>` : ''}</div>
+      <div class="dash-hero-sub">
+        <span>Hoje: <b>${plural(consultas, 'consulta', 'consultas')}</b> · <b>${plural(follow, 'follow-up', 'follow-ups')}</b></span>
+        <span>Este mês: <b>${fCurrency(receitaMes)}</b> em ${plural(doMes.length, 'atendimento', 'atendimentos')}</span>
+      </div>
+    </div>
+    <div class="dash-hero-actions">
+      <div class="dash-hero-btns">
+        <button class="hero-btn primary" onclick="openEntradaModal()">${iconPlus()} Nova entrada</button>
+        <button class="hero-btn" onclick="navigateTo('pacientes');setTimeout(()=>openCrmModal(null,'pacientes'),60)">${iconPlus()} Novo paciente</button>
+        <button class="hero-btn" onclick="navigateTo('agenda')">${typeof iconCalendar === 'function' ? iconCalendar() : ''} Agenda</button>
+      </div>
+      <div class="dash-hero-reports">Relatório em PDF:
+        <button onclick="generatePDF('Semanal')">${iconDownload()} Semanal</button>
+        <button onclick="generatePDF('Mensal')">${iconDownload()} Mensal</button>
+      </div>
+    </div>
+  </section>`;
+}
+
+/* Tema dos gráficos (Chart.js) — tipografia, cores e tooltip da marca */
+const fCompact = v => {
+  const a = Math.abs(v);
+  if (a >= 1000) return 'R$ ' + (v / 1000).toLocaleString('pt-BR', { maximumFractionDigits: a >= 10000 ? 0 : 1 }) + 'k';
+  return 'R$ ' + Math.round(v);
+};
+function applyChartTheme() {
+  if (typeof Chart === 'undefined') return;
+  const d = Chart.defaults;
+  d.font.family = "'DM Sans', sans-serif";
+  d.maintainAspectRatio = false; // altura vem do CSS (.chart-wrap)
+  d.font.size = 12;
+  d.color = '#8A7D70';
+  d.borderColor = 'rgba(127,102,88,0.08)';
+  d.plugins.legend.labels.usePointStyle = true;
+  d.plugins.legend.labels.pointStyle = 'circle';
+  d.plugins.legend.labels.boxWidth = 8;
+  d.plugins.legend.labels.boxHeight = 8;
+  d.plugins.legend.labels.padding = 16;
+  d.plugins.tooltip.backgroundColor = '#3E322A';
+  d.plugins.tooltip.titleColor = '#F7EFE3';
+  d.plugins.tooltip.bodyColor = '#F1E8DA';
+  d.plugins.tooltip.padding = 12;
+  d.plugins.tooltip.cornerRadius = 12;
+  d.plugins.tooltip.titleFont = { weight: '700', size: 12 };
+  d.plugins.tooltip.boxPadding = 6;
+  d.plugins.tooltip.displayColors = true;
+  d.elements.bar.borderRadius = 8;
+  d.elements.bar.borderSkipped = false;
+  d.elements.arc.borderWidth = 3;
+  d.elements.arc.borderColor = '#FFFDF9';
+  d.elements.line.tension = 0.38;
+  d.elements.point.radius = 3;
+  d.elements.point.hoverRadius = 6;
 }
 
 function statCard(label, value, color, sub, icon, badge) {
@@ -917,20 +980,19 @@ function recentPanel(items) {
 
 function initDashboardCharts() {
   const { entries, exits, clinic, products } = getData();
-  Chart.defaults.font.family = 'DM Sans, sans-serif';
-  Chart.defaults.color = '#64748B';
+  applyChartTheme();
   const monthly = getMonthlyData(entries, exits, clinic, 6, products);
   createChart('chartRevExp', {
     type: 'bar',
     data: {
       labels: monthly.map(m => m.label),
       datasets: [
-        { label: 'Receita',  data: monthly.map(m => m.revenue),  backgroundColor: 'rgba(94,140,97,0.8)', borderRadius: 6 },
-        { label: 'Despesas', data: monthly.map(m => m.expenses), backgroundColor: 'rgba(184,92,68,0.7)',  borderRadius: 6 },
-        { label: 'Lucro',    data: monthly.map(m => m.profit),   backgroundColor: 'rgba(201,160,106,0.8)', borderRadius: 6, type: 'line', borderColor: '#C9A06A', fill: false, tension: 0.3, borderWidth: 2.5, pointRadius: 4 }
+        { label: 'Receita',  data: monthly.map(m => m.revenue),  backgroundColor: '#8FA88A', hoverBackgroundColor: '#7A9575', maxBarThickness: 26, categoryPercentage: 0.62 },
+        { label: 'Despesas', data: monthly.map(m => m.expenses), backgroundColor: '#D7A893', hoverBackgroundColor: '#C9927B', maxBarThickness: 26, categoryPercentage: 0.62 },
+        { label: 'Lucro',    data: monthly.map(m => m.profit),   type: 'line', borderColor: '#B8894F', backgroundColor: '#B8894F', fill: false, borderWidth: 2.5, pointBackgroundColor: '#FFFDF9', pointBorderColor: '#B8894F', pointBorderWidth: 2, pointRadius: 4 }
       ]
     },
-    options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 14 } }, tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fCurrency(ctx.raw)}` } } }, scales: { x: { grid: { display: false } }, y: { grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { callback: v => fCurrency(v) } } } }
+    options: { responsive: true, interaction: { mode: 'index', intersect: false }, plugins: { legend: { position: 'bottom', align: 'start' }, tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fCurrency(ctx.raw)}` } } }, scales: { x: { grid: { display: false }, border: { display: false } }, y: { border: { display: false }, grid: { color: 'rgba(127,102,88,0.07)' }, ticks: { callback: v => fCompact(v), maxTicksLimit: 6 } } } }
   });
   const { s, e } = getDateRange();
   const fe = filterByPeriod(entries);
@@ -938,8 +1000,8 @@ function initDashboardCharts() {
   const payData   = Object.keys(PAYMENT_METHODS).map(k => fe.filter(x => x.payment === k).reduce((s,x) => s+x.value, 0));
   createChart('chartPayment', {
     type: 'doughnut',
-    data: { labels: payLabels, datasets: [{ data: payData, backgroundColor: ['#5E8C61','#6E8595','#C9A06A','#94808C'], borderWidth: 2, borderColor: 'var(--card)', hoverOffset: 6 }] },
-    options: { responsive: true, cutout: '62%', plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, padding: 14, font: { size: 12 } } }, tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${fCurrency(ctx.raw)}` } } } }
+    data: { labels: payLabels, datasets: [{ data: payData, backgroundColor: ['#8FA88A','#8DA0AC','#D2AE7C','#B39AA7','#D9CFC2'], hoverOffset: 8 }] },
+    options: { responsive: true, cutout: '74%', plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${fCurrency(ctx.raw)}` } } } }
   });
 }
 
@@ -2316,8 +2378,7 @@ function initGraficosCharts() {
   const fe = filterByPeriod(entries);
   const fx = filterByPeriod(exits);
   const fc = filterClinicByPeriod(clinic);
-  Chart.defaults.font.family = 'DM Sans, sans-serif';
-  Chart.defaults.color = '#64748B';
+  applyChartTheme();
 
   const monthly = getMonthlyData(entries, exits, clinic, 6, products);
   createChart('gChartLine', {
@@ -2325,19 +2386,19 @@ function initGraficosCharts() {
     data: {
       labels: monthly.map(m => m.label),
       datasets: [
-        { label:'Receita',  data: monthly.map(m=>m.revenue),  borderColor:'#5E8C61', backgroundColor:'rgba(94,140,97,0.08)',  fill:true, tension:0.3, borderWidth:2.5, pointRadius:4, pointBackgroundColor:'#5E8C61' },
-        { label:'Despesas', data: monthly.map(m=>m.expenses), borderColor:'#B85C44', backgroundColor:'rgba(184,92,68,0.05)',   fill:true, tension:0.3, borderWidth:2.5, pointRadius:4, pointBackgroundColor:'#B85C44' },
+        { label:'Receita',  data: monthly.map(m=>m.revenue),  borderColor:'#7F9C7A', backgroundColor:'rgba(94,140,97,0.08)',  fill:true, tension:0.3, borderWidth:2.5, pointRadius:4, pointBackgroundColor:'#7F9C7A' },
+        { label:'Despesas', data: monthly.map(m=>m.expenses), borderColor:'#C98A72', backgroundColor:'rgba(184,92,68,0.05)',   fill:true, tension:0.3, borderWidth:2.5, pointRadius:4, pointBackgroundColor:'#C98A72' },
         { label:'Lucro',    data: monthly.map(m=>m.profit),   borderColor:'#C9A06A', backgroundColor:'rgba(201,160,106,0.06)',  fill:true, tension:0.3, borderWidth:2.5, pointRadius:4, pointBackgroundColor:'#C9A06A' }
       ]
     },
-    options: { responsive:true, plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, padding:16 } }, tooltip:{ callbacks:{ label: ctx => ` ${ctx.dataset.label}: ${fCurrency(ctx.raw)}` } } }, scales:{ x:{ grid:{ display:false } }, y:{ grid:{ color:'rgba(0,0,0,0.04)' }, ticks:{ callback: v => fCurrency(v) } } } }
+    options: { responsive:true, plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, padding:16 } }, tooltip:{ callbacks:{ label: ctx => ` ${ctx.dataset.label}: ${fCurrency(ctx.raw)}` } } }, scales:{ x:{ grid:{ display:false } }, y:{ grid:{ color:'rgba(127,102,88,0.07)' }, border:{ display:false }, ticks:{ callback: v => fCompact(v), maxTicksLimit: 6 } } } }
   });
 
   const procData = Object.entries(PROCEDURES).map(([k,v]) => ({ label:v, val: fe.filter(e=>e.procedure===k).reduce((s,e)=>s+e.value,0) })).filter(x=>x.val>0).sort((a,b)=>b.val-a.val);
   createChart('gChartProc', {
     type:'bar',
-    data:{ labels: procData.map(p=>p.label), datasets:[{ label:'Receita', data: procData.map(p=>p.val), backgroundColor:['#5E8C61','#6E8595','#94808C','#C9A06A','#B85C44','#8A7B4E','#B07D3F'], borderRadius:8 }] },
-    options:{ indexAxis:'y', responsive:true, plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label: ctx => ` ${fCurrency(ctx.raw)}` } } }, scales:{ x:{ grid:{ color:'rgba(0,0,0,0.04)' }, ticks:{ callback: v => fCurrency(v) } }, y:{ grid:{ display:false } } } }
+    data:{ labels: procData.map(p=>p.label), datasets:[{ label:'Receita', data: procData.map(p=>p.val), backgroundColor:['#7F9C7A','#8DA0AC','#B39AA7','#C9A06A','#C98A72','#B5AA84','#D2AE7C'], borderRadius:8 }] },
+    options:{ indexAxis:'y', responsive:true, plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label: ctx => ` ${fCurrency(ctx.raw)}` } } }, scales:{ x:{ grid:{ color:'rgba(127,102,88,0.07)' }, border:{ display:false }, ticks:{ callback: v => fCompact(v), maxTicksLimit: 6 } }, y:{ grid:{ display:false } } } }
   });
 
   // Despesas por categoria (saídas + consultório + produtos)
@@ -2350,16 +2411,16 @@ function initGraficosCharts() {
   ];
   createChart('gChartCat', {
     type:'doughnut',
-    data:{ labels: catLabels, datasets:[{ data: catData, backgroundColor:['#B85C44','#C9A06A','#6E8595','#94808C','#8A7B4E','#7F6658','#B3907A'], borderWidth:2, borderColor:'#fff', hoverOffset:6 }] },
-    options:{ responsive:true, cutout:'58%', plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, padding:14 } }, tooltip:{ callbacks:{ label: ctx => ` ${ctx.label}: ${fCurrency(ctx.raw)}` } } } }
+    data:{ labels: catLabels, datasets:[{ data: catData, backgroundColor:['#C98A72','#C9A06A','#8DA0AC','#B39AA7','#B5AA84','#B39581','#D9C2A5'], hoverOffset:6 }] },
+    options:{ responsive:true, cutout:'72%', plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, padding:14 } }, tooltip:{ callbacks:{ label: ctx => ` ${ctx.label}: ${fCurrency(ctx.raw)}` } } } }
   });
 
   const payLabels = Object.values(PAYMENT_METHODS);
   const payData   = Object.keys(PAYMENT_METHODS).map(k => fe.filter(e=>e.payment===k).reduce((s,e)=>s+e.value,0));
   createChart('gChartPay', {
     type:'doughnut',
-    data:{ labels: payLabels, datasets:[{ data: payData, backgroundColor:['#5E8C61','#6E8595','#C9A06A','#94808C'], borderWidth:2, borderColor:'#fff', hoverOffset:6 }] },
-    options:{ responsive:true, cutout:'58%', plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, padding:14 } }, tooltip:{ callbacks:{ label: ctx => ` ${ctx.label}: ${fCurrency(ctx.raw)}` } } } }
+    data:{ labels: payLabels, datasets:[{ data: payData, backgroundColor:['#7F9C7A','#8DA0AC','#C9A06A','#B39AA7','#D9CFC2'], hoverOffset:6 }] },
+    options:{ responsive:true, cutout:'72%', plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, padding:14 } }, tooltip:{ callbacks:{ label: ctx => ` ${ctx.label}: ${fCurrency(ctx.raw)}` } } } }
   });
 
   const totalRev     = fe.reduce((s,e)=>s+e.value,0);
@@ -2374,8 +2435,8 @@ function initGraficosCharts() {
   }).filter(x => x.margin !== 0);
   createChart('gChartMargin', {
     type:'bar',
-    data:{ labels: margins.map(m=>m.label), datasets:[{ label:'Margem %', data: margins.map(m=>parseFloat(m.margin.toFixed(1))), backgroundColor: margins.map(m=>m.margin>=60?'#5E8C61':m.margin>=40?'#C9A06A':m.margin>=20?'#6E8595':'#B85C44'), borderRadius:8 }] },
-    options:{ responsive:true, plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label: ctx => ` ${ctx.raw}%` } } }, scales:{ x:{ grid:{ display:false } }, y:{ grid:{ color:'rgba(0,0,0,0.04)' }, ticks:{ callback: v => v+'%' }, max:100, min:0 } } }
+    data:{ labels: margins.map(m=>m.label), datasets:[{ label:'Margem %', data: margins.map(m=>parseFloat(m.margin.toFixed(1))), backgroundColor: margins.map(m=>m.margin>=60?'#7F9C7A':m.margin>=40?'#C9A06A':m.margin>=20?'#8DA0AC':'#C98A72'), borderRadius:8 }] },
+    options:{ responsive:true, plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label: ctx => ` ${ctx.raw}%` } } }, scales:{ x:{ grid:{ display:false } }, y:{ grid:{ color:'rgba(127,102,88,0.07)' }, border:{ display:false }, ticks:{ callback: v => v+'%' }, max:100, min:0 } } }
   });
 }
 

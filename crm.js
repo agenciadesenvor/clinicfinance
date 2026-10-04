@@ -178,7 +178,8 @@ function renderCrmCharts() {
   if (!ps.length || typeof Chart === 'undefined' || typeof createChart !== 'function') { card.style.display = 'none'; return; }
   card.style.display = '';
 
-  const BROWN = '#7F6658', GOLD = '#C9A06A', TXT = '#7C6F63', GRID = 'rgba(127,102,88,0.08)';
+  if (typeof applyChartTheme === 'function') applyChartTheme();
+  const BROWN = '#B39581', GOLD = '#C9A06A', TXT = '#8A7D70', GRID = 'rgba(127,102,88,0.07)';
   const base_ = { responsive: true, maintainAspectRatio: false };
 
   // Funil por etapa
@@ -187,7 +188,7 @@ function renderCrmCharts() {
   // Leads por origem
   const origemKeys = Object.keys(CRM_ORIGEM).filter(k => ps.some(p => p.origem === k));
   const origemData = origemKeys.map(k => ps.filter(p => p.origem === k).length);
-  const palette = ['#7F6658', '#C9A06A', '#B3907A', '#9C7C66', '#D8BF9E', '#6A5446', '#A99C8C'];
+  const palette = ['#B39581', '#D2AE7C', '#8FA88A', '#8DA0AC', '#B39AA7', '#D9C2A5', '#C98A72'];
   // Novos cadastros nos últimos 6 meses
   const meses = [], labels = [];
   const base = new Date();
@@ -202,17 +203,17 @@ function renderCrmCharts() {
   requestAnimationFrame(() => {
     createChart('crmChartFunil', {
       type: 'bar',
-      data: { labels: funilKeys.map(k => CRM_STATUS[k].label), datasets: [{ data: funilData, backgroundColor: BROWN, borderRadius: 6, maxBarThickness: 38 }] },
+      data: { labels: funilKeys.map(k => CRM_STATUS[k].label), datasets: [{ data: funilData, backgroundColor: BROWN, hoverBackgroundColor: '#9C7C66', borderRadius: 8, maxBarThickness: 30 }] },
       options: { ...base_, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0, color: TXT }, grid: { color: GRID } }, x: { ticks: { color: TXT, font: { size: 10 } }, grid: { display: false } } } }
     });
     createChart('crmChartOrigem', {
       type: 'doughnut',
       data: { labels: origemKeys.map(k => CRM_ORIGEM[k]), datasets: [{ data: origemData, backgroundColor: palette, borderWidth: 0 }] },
-      options: { ...base_, cutout: '62%', plugins: { legend: { position: 'bottom', labels: { color: TXT, font: { size: 11 }, boxWidth: 12, padding: 10 } } } }
+      options: { ...base_, cutout: '72%', plugins: { legend: { position: 'bottom', labels: { color: TXT, font: { size: 11 }, boxWidth: 12, padding: 10 } } } }
     });
     createChart('crmChartMes', {
       type: 'line',
-      data: { labels, datasets: [{ data: porMes, borderColor: BROWN, backgroundColor: 'rgba(127,102,88,0.12)', fill: true, tension: 0.35, pointBackgroundColor: GOLD, pointRadius: 4 }] },
+      data: { labels, datasets: [{ data: porMes, borderColor: GOLD, backgroundColor: 'rgba(201,160,106,0.14)', fill: true, tension: 0.38, pointBackgroundColor: '#FFFDF9', pointBorderColor: GOLD, pointBorderWidth: 2, pointRadius: 4 }] },
       options: { ...base_, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0, color: TXT }, grid: { color: GRID } }, x: { ticks: { color: TXT }, grid: { display: false } } } }
     });
   });
