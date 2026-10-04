@@ -2755,3 +2755,53 @@ tbody tr:hover { background: var(--tr-hover); }
   .filter-btn { flex: 1 0 auto; }
   .stat-card { padding: 18px; }
 }
+
+/* ===== Indicadores com mini-barras (Dashboard) ===== */
+.spark-card { cursor: pointer; display: flex; flex-direction: column; }
+.spark-card:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 3px; }
+.spark-card .stat-label { display: inline-flex; align-items: center; gap: 4px; }
+.spark-chev { width: 13px; height: 13px; opacity: .45; transition: transform .2s ease, opacity .2s ease; flex-shrink: 0; }
+.spark-card:hover .spark-chev { transform: translateX(3px); opacity: .9; }
+.spark-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+.spark-card .stat-sub { min-height: 18px; }
+.delta { font-weight: 700; }
+.delta.good { color: var(--green); }
+.delta.bad  { color: var(--red); }
+
+.spark-bars { display: flex; align-items: flex-end; gap: 6px; height: 58px; margin-top: auto; padding-top: 14px; }
+.spark-col { flex: 1; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; min-width: 0; }
+.spark-col span { font-size: 9.5px; color: var(--text-3); line-height: 1; text-transform: lowercase; }
+.spark-bar {
+  width: 100%; max-width: 22px; height: 0; border-radius: 6px 6px 3px 3px;
+  background: var(--spark, rgba(127,102,88,.16));
+  transition: height .8s cubic-bezier(.2,.9,.25,1.15) calc(var(--i, 0) * 70ms), background-color .2s ease;
+}
+.dash-anim.is-in .spark-bar { height: var(--h); }
+.spark-col.current .spark-bar { background: var(--spark-hi, var(--accent)); }
+.spark-col.current span { color: var(--text-1); font-weight: 700; }
+.spark-col.neg .spark-bar { background: rgba(184,92,68,.28); }
+.spark-col:hover .spark-bar { filter: brightness(.94); }
+.spark-card.green { --spark: rgba(127,156,122,.22); --spark-hi: #7F9C7A; }
+.spark-card.red   { --spark: rgba(201,138,114,.22); --spark-hi: #C98A72; }
+.spark-card.gold  { --spark: rgba(201,160,106,.22); --spark-hi: #C9A06A; }
+.spark-card.blue  { --spark: rgba(141,160,172,.24); --spark-hi: #8DA0AC; }
+
+/* ===== Procedimentos que mais faturam ===== */
+.top-procs { display: flex; flex-direction: column; gap: 14px; padding-top: 6px; }
+.top-proc-head { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; margin-bottom: 6px; }
+.top-proc-name { font-weight: 600; color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.top-proc-val { font-weight: 700; color: var(--text-1); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.top-proc-track { height: 8px; border-radius: 99px; background: var(--bg-2); overflow: hidden; }
+.top-proc-fill {
+  height: 100%; width: 0; border-radius: 99px;
+  background: linear-gradient(90deg, #B39581, #C9A06A);
+  transition: width .9s cubic-bezier(.2,.9,.25,1) calc(var(--i, 0) * 80ms);
+}
+.top-proc:first-child .top-proc-fill { background: linear-gradient(90deg, #8A7062, #C9A06A); }
+.dash-anim.is-in .top-proc-fill { width: var(--w); }
+.top-proc-meta { font-size: 11.5px; color: var(--text-3); margin-top: 5px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .spark-bar, .top-proc-fill { transition: none; }
+}
+.spark-card .stat-sub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

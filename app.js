@@ -810,11 +810,22 @@ function renderDashboard() {
   ${periodFilterHTML()}
   <div class="dash-layout">
     <div class="dash-main">
-      <div class="stats-grid">
-        ${statCard('Receita',         fCurrency(revenue),  'green', 'Entradas no período',  iconTrend(),  `<span class="stat-badge up">↑ ${count} procedimentos</span>`)}
-        ${statCard('Despesas',        fCurrency(expenses), 'red',   `Saídas: ${fCurrency(expSaidas)} · Consultório: ${fCurrency(expClinic)}`, iconDown(), '')}
-        ${statCard('Lucro líquido',   fCurrency(profit),   profit >= 0 ? 'gold' : 'red', `Margem: ${margin}%`, iconDollar(), `<span class="stat-badge ${profit>=0?'up':'down'}">${profit>=0?'↑':'↓'} ${margin}%</span>`)}
-        ${statCard('Procedimentos',   count, 'blue', 'Realizados no período', iconClip(), '')}
+      <div class="stats-grid dash-anim">
+        ${(() => {
+          const m6 = getMonthlyData(entries, exits, clinic, 6, products);
+          const cnt6 = monthCounts(entries, 6);
+          const cmp = mtdCompare();
+          return [
+            sparkCard({ label: 'Receita', value: revenue, money: true, color: 'green', icon: iconTrend(), go: 'entradas',
+              sub: deltaHTML(cmp.rev, false) || 'Entradas no período', series: m6.map((m, i) => [cnt6[i][0], m.revenue]) }),
+            sparkCard({ label: 'Despesas', value: expenses, money: true, color: 'red', icon: iconDown(), go: 'saidas',
+              sub: deltaHTML(cmp.exp, true) || `Saídas ${fCurrency(expSaidas)} · Consultório ${fCurrency(expClinic)}`, series: m6.map((m, i) => [cnt6[i][0], m.expenses]) }),
+            sparkCard({ label: 'Lucro líquido', value: profit, money: true, color: profit >= 0 ? 'gold' : 'red', icon: iconDollar(), go: 'graficos',
+              sub: (cmp.lucro ? deltaHTML(cmp.lucro, false) + ' · ' : '') + `margem ${String(margin).replace('.', ',')}%`, series: m6.map((m, i) => [cnt6[i][0], m.profit]) }),
+            sparkCard({ label: 'Procedimentos', value: count, money: false, color: 'blue', icon: iconClip(), go: 'entradas',
+              sub: deltaHTML(cmp.n, false) || 'Realizados no período', series: cnt6 })
+          ].join('');
+        })()}
       </div>
       <div class="charts-grid">
         <div class="card">
@@ -822,8 +833,8 @@ function renderDashboard() {
           <div class="chart-wrap"><canvas id="chartRevExp" height="240"></canvas></div>
         </div>
         <div class="card">
-          <div class="card-header"><span class="card-title">Formas de Pagamento</span><span class="card-sub">No período selecionado</span></div>
-          <div class="chart-wrap"><canvas id="chartPayment" height="240"></canvas></div>
+          <div class="card-header"><span class="card-title">Procedimentos que mais faturam</span></div>
+          <div class="card-body dash-anim">${topProceduresHTML(fe)}</div>
         </div>
       </div>
       <div class="card">
@@ -910,6 +921,104 @@ function applyChartTheme() {
   d.elements.line.tension = 0.38;
   d.elements.point.radius = 3;
   d.elements.point.hoverRadius = 6;
+}
+
+/* ===== Indicadores com mini-barras (inspirado no StatsCard) ===== */
+const MES_CURTO = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+
+// Quantidade de entradas por mês (últimos n meses) → [[rótulo, valor]]
+function monthCounts(entries, n) {
+  const out = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - i);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    out.push([MES_CURTO[d.getMonth()], entries.filter(e => (e.date || '').startsWith(key)).length]);
+  }
+  return out;
+}
+
+// Compara o mês atual até hoje com o MESMO intervalo de dias do mês anterior (comparação justa)
+function mtdCompare() {
+  const { entries, exits, clinic } = getData();
+  const now = new Date();
+  const range = off => {
+    const y = now.getFullYear(), m = now.getMonth() - off;
+    const s = new Date(y, m, 1);
+    const last = new Date(s.getFullYear(), s.getMonth() + 1, 0).getDate();
+    const e = new Date(s.getFullYear(), s.getMonth(), Math.min(now.getDate(), last), 23, 59, 59);
+    return { s, e, name: e.getDate() === 1 ? `1º de ${MES_CURTO[s.getMonth()]}` : `1–${e.getDate()} de ${MES_CURTO[s.getMonth()]}` };
+  };
+  const calc = ({ s, e }) => {
+    const inR = x => { const d = new Date(x.date + 'T12:00:00'); return d >= s && d <= e; };
+    const en = entries.filter(inR);
+    const rev = en.reduce((t, x) => t + x.value, 0);
+    const exp = exits.filter(inR).reduce((t, x) => t + x.value, 0)
+              + clinicOccurrences(clinic, s, e).filter(inR).reduce((t, x) => t + x.value, 0);
+    return { rev, exp, lucro: rev - exp, n: en.length };
+  };
+  const a = range(0), b = range(1), cur = calc(a), prev = calc(b);
+  const pct = (c, p) => (p ? { pct: ((c - p) / Math.abs(p)) * 100, prevName: b.name } : null);
+  // lucro: só compara quando os dois períodos são positivos (mudança de sinal não vira % legível)
+  return { rev: pct(cur.rev, prev.rev), exp: pct(cur.exp, prev.exp), lucro: cur.lucro > 0 && prev.lucro > 0 ? pct(cur.lucro, prev.lucro) : null, n: pct(cur.n, prev.n) };
+}
+
+function deltaHTML(d, upIsBad) {
+  if (!d || !isFinite(d.pct)) return '';
+  const up = d.pct >= 0;
+  const good = upIsBad ? !up : up;
+  const v = Math.abs(d.pct) >= 100 ? Math.round(Math.abs(d.pct)) : Math.abs(d.pct).toFixed(1).replace('.', ',');
+  return `<span class="delta ${good ? 'good' : 'bad'}">${up ? '↑' : '↓'} ${v}%</span> vs ${d.prevName}`;
+}
+
+function sparkCard({ label, value, money, color, icon, sub, series, go }) {
+  const max = Math.max(...series.map(([, v]) => Math.abs(v)), 1);
+  const bars = series.map(([name, v], i) => {
+    const h = v === 0 ? 0 : Math.max(6, Math.round(Math.abs(v) / max * 100));
+    const tip = `${name}: ${money ? fCurrency(v) : v}`;
+    return `<div class="spark-col${i === series.length - 1 ? ' current' : ''}${v < 0 ? ' neg' : ''}" title="${tip}">
+      <div class="spark-bar" style="--h:${h}%;--i:${i}"></div><span>${name}</span></div>`;
+  }).join('');
+  return `<div class="stat-card spark-card ${color}" role="link" tabindex="0" aria-label="${label}: ver detalhes"
+      onclick="navigateTo('${go}')" onkeydown="if(event.key==='Enter'){navigateTo('${go}')}">
+    <div class="stat-header"><span class="stat-label">${label}<svg class="spark-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 6 15 12 9 18"/></svg></span><span class="stat-icon ${color}">${icon}</span></div>
+    <div class="stat-value" data-count="${value}" data-money="${money ? 1 : 0}">${money ? fCurrency(value) : value}</div>
+    <div class="stat-sub">${sub}</div>
+    <div class="spark-bars" aria-hidden="true">${bars}</div>
+  </div>`;
+}
+
+// Ranking de procedimentos por receita (barras horizontais em HTML)
+function topProceduresHTML(fe) {
+  const rows = Object.entries(PROCEDURES).map(([k, name]) => {
+    const it = fe.filter(e => e.procedure === k);
+    return { name, total: it.reduce((t, e) => t + e.value, 0), n: it.length };
+  }).filter(r => r.total > 0).sort((a, b) => b.total - a.total).slice(0, 6);
+  if (!rows.length) return `<div class="doc-list-empty">Nenhum procedimento no período.</div>`;
+  const max = rows[0].total;
+  const total = fe.reduce((t, e) => t + e.value, 0) || 1;
+  return `<div class="top-procs">${rows.map((r, i) => `
+    <div class="top-proc">
+      <div class="top-proc-head"><span class="top-proc-name">${esc(r.name)}</span><span class="top-proc-val">${fCurrency(r.total)}</span></div>
+      <div class="top-proc-track"><div class="top-proc-fill" style="--w:${Math.max(3, r.total / max * 100)}%;--i:${i}"></div></div>
+      <div class="top-proc-meta">${r.n} ${r.n === 1 ? 'atendimento' : 'atendimentos'} · ${(r.total / total * 100).toFixed(0)}% da receita</div>
+    </div>`).join('')}</div>`;
+}
+
+// Animações de entrada do Dashboard: números contam e barras crescem (respeita "reduzir movimento")
+function animateDashboard() {
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  setTimeout(() => document.querySelectorAll('#content .dash-anim').forEach(el => el.classList.add('is-in')), 40);
+  if (reduce) return;
+  document.querySelectorAll('#content [data-count]').forEach(el => {
+    const target = Number(el.dataset.count) || 0, money = el.dataset.money === '1';
+    const t0 = performance.now(), dur = 900;
+    const step = now => {
+      const p = Math.min(1, (now - t0) / dur), v = target * (1 - Math.pow(1 - p, 3));
+      el.textContent = money ? fCurrency(v) : Math.round(v);
+      if (p < 1) requestAnimationFrame(step); else el.textContent = money ? fCurrency(target) : target;
+    };
+    requestAnimationFrame(step);
+  });
 }
 
 function statCard(label, value, color, sub, icon, badge) {
@@ -1000,15 +1109,7 @@ function initDashboardCharts() {
     },
     options: { responsive: true, interaction: { mode: 'index', intersect: false }, plugins: { legend: { position: 'bottom', align: 'start' }, tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${fCurrency(ctx.raw)}` } } }, scales: { x: { grid: { display: false }, border: { display: false } }, y: { border: { display: false }, grid: { color: 'rgba(127,102,88,0.07)' }, ticks: { callback: v => fCompact(v), maxTicksLimit: 6 } } } }
   });
-  const { s, e } = getDateRange();
-  const fe = filterByPeriod(entries);
-  const payLabels = Object.values(PAYMENT_METHODS);
-  const payData   = Object.keys(PAYMENT_METHODS).map(k => fe.filter(x => x.payment === k).reduce((s,x) => s+x.value, 0));
-  createChart('chartPayment', {
-    type: 'doughnut',
-    data: { labels: payLabels, datasets: [{ data: payData, backgroundColor: ['#8FA88A','#8DA0AC','#D2AE7C','#B39AA7','#D9CFC2'], hoverOffset: 8 }] },
-    options: { responsive: true, cutout: '74%', plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${fCurrency(ctx.raw)}` } } } }
-  });
+  animateDashboard();
 }
 
 function getMonthlyData(entries, exits, clinic, n, products) {
