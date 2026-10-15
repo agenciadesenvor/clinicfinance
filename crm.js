@@ -33,6 +33,7 @@ const mapPaciente = r => ({
   origem: r.origem || 'outro', status: r.status || 'novo', interesse: r.interesse || '',
   observacoes: r.observacoes || '', proximoContato: r.proximo_contato || '',
   endereco: r.endereco || '', sexo: r.sexo || '',
+  etiquetas: Array.isArray(r.etiquetas) ? r.etiquetas : [],
   createdAt: r.created_at, updatedAt: r.updated_at
 });
 
@@ -51,6 +52,11 @@ function renderCrm() {
   <div class="section-header">
     <div><div class="section-title">CRM de Atendimento</div><div class="section-sub">Gerencie pacientes, leads e o funil de atendimento</div></div>
     <div class="section-actions">
+      <div class="seg-mini crm-view-toggle" role="group" aria-label="Modo de visualização">
+        <button type="button" data-v="lista" class="${_crm.view === 'lista' ? 'active' : ''}" onclick="crmSetView('lista')">Lista</button>
+        <button type="button" data-v="kanban" class="${_crm.view === 'kanban' ? 'active' : ''}" onclick="crmSetView('kanban')">Kanban</button>
+      </div>
+      <button class="btn btn-secondary" onclick="openTagsModal()">${iconTag()} Etiquetas</button>
       <button class="btn btn-secondary" onclick="openImportModal()">${iconUpload()} Importar planilha</button>
       <button class="btn btn-primary" onclick="openCrmModal()">${iconPlus()} Novo Paciente</button>
     </div>
@@ -67,15 +73,24 @@ function renderCrm() {
     </div>
   </div>
 
-  <div class="table-container">
+  <div class="crm-toolbar">
+    <div class="table-search">${iconSearch()}
+      <input type="text" id="crmSearch" placeholder="Buscar por nome, telefone ou interesse…" value="${esc(_crm.search)}" oninput="crmSetSearch(this.value)" autocomplete="off" spellcheck="false" />
+    </div>
+    <div class="tag-filter" id="crmTagFilter"></div>
+  </div>
+
+  <div class="table-container" id="crmListWrap" style="${_crm.view === 'kanban' ? 'display:none' : ''}">
     <div class="crm-filter-bar" id="crmFilterBar"></div>
-    <div class="table-toolbar">
-      <div class="table-search">${iconSearch()}
-        <input type="text" id="crmSearch" placeholder="Buscar por nome, telefone ou interesse…" oninput="crmSetSearch(this.value)" autocomplete="off" spellcheck="false" />
-      </div>
+    <div class="table-toolbar" style="justify-content:flex-end">
       <span style="font-size:13px;color:var(--text-2)" id="crmCount"></span>
     </div>
     <div id="crmTable"><div class="doc-list-empty">Carregando…</div></div>
+  </div>
+
+  <div id="crmBoardWrap" style="${_crm.view === 'kanban' ? '' : 'display:none'}">
+    <div class="kb-hint"><span id="crmBoardCount"></span> · Arraste os cards entre as etapas${'ontouchstart' in window ? ' (no celular, use o seletor no card)' : ''}</div>
+    <div class="kb-board" id="crmBoard"><div class="doc-list-empty">Carregando…</div></div>
   </div>`;
 }
 
@@ -131,7 +146,7 @@ function renderPacTable() {
     const wa = crmWhatsLink(p.telefone);
     const fin = finIdx.get(crmNorm(p.nome));
     return `<tr>
-      <td class="fw-600"><button class="crm-name-link" onclick="openCrmDetail('${p.id}')">${esc(p.nome)}</button>${p.email ? `<span class="crm-fin-sub">${esc(p.email)}</span>` : ''}</td>
+      <td class="fw-600"><button class="crm-name-link" onclick="openCrmDetail('${p.id}')">${esc(p.nome)}</button>${p.email ? `<span class="crm-fin-sub">${esc(p.email)}</span>` : ''}${typeof crmTagChips === 'function' ? crmTagChips(p, 3) : ''}</td>
       <td class="fs-13 no-wrap">${p.telefone ? esc(p.telefone) : '<span class="color-2">—</span>'}</td>
       <td class="fs-13 no-wrap">${p.nascimento ? `${fDate(p.nascimento)}<span class="crm-fin-sub">${crmIdade(p.nascimento)}</span>` : '<span class="color-2">—</span>'}</td>
       <td class="fs-13 no-wrap color-2">${p.cpf ? esc(p.cpf) : '—'}</td>
@@ -163,10 +178,12 @@ async function loadCrm() {
   _crm.pacientes = (data || []).map(mapPaciente);
   // colunas endereco/sexo existem só depois de rodar o SQL de atualização
   _crm.hasExtra = !!(data && data.length && 'endereco' in data[0]);
+  if (typeof crmLoadTags === 'function') await crmLoadTags();
   renderPacTable();
   renderCrmStats();
   renderCrmFilters();
-  renderCrmTable();
+  if (typeof renderTagFilter === 'function') renderTagFilter();
+  if (_crm.view === 'kanban' && typeof renderKanban === 'function') renderKanban(); else renderCrmTable();
   renderCrmCharts();
 }
 
@@ -175,7 +192,7 @@ function renderCrmCharts() {
   const card = document.getElementById('crmMetrics');
   if (!card) return;
   const ps = _crm.pacientes;
-  if (!ps.length || typeof Chart === 'undefined' || typeof createChart !== 'function') { card.style.display = 'none'; return; }
+  if (!ps.length || _crm.view === 'kanban' || typeof Chart === 'undefined' || typeof createChart !== 'function') { card.style.display = 'none'; return; }
   card.style.display = '';
 
   if (typeof applyChartTheme === 'function') applyChartTheme();
@@ -219,10 +236,12 @@ function renderCrmCharts() {
   });
 }
 
-function crmFiltered() {
+function crmFiltered(ignoreStatus = false) {
   const term = _crm.search.trim().toLowerCase();
+  const tf = _crm.tagFilter || [];
   return _crm.pacientes.filter(p => {
-    if (_crm.statusFilter !== 'todos' && p.status !== _crm.statusFilter) return false;
+    if (!ignoreStatus && _crm.statusFilter !== 'todos' && p.status !== _crm.statusFilter) return false;
+    if (tf.length && !tf.some(id => (p.etiquetas || []).includes(id))) return false;
     if (!term) return true;
     return (p.nome + ' ' + p.telefone + ' ' + p.interesse).toLowerCase().includes(term);
   });
@@ -268,7 +287,7 @@ function renderCrmFilters() {
 }
 
 function crmSetFilter(k) { _crm.statusFilter = k; renderCrmFilters(); renderCrmTable(); }
-function crmSetSearch(v) { _crm.search = v || ''; renderCrmTable(); }
+function crmSetSearch(v) { _crm.search = v || ''; if (_crm.view === 'kanban' && typeof renderKanban === 'function') renderKanban(); else renderCrmTable(); }
 
 /* ===== Tabela ===== */
 function renderCrmTable() {
@@ -292,7 +311,8 @@ function renderCrmTable() {
     const wa = crmWhatsLink(p.telefone);
     return `<tr>
       <td class="fw-600"><button class="crm-name-link" onclick="openCrmDetail('${p.id}')">${esc(p.nome)}</button>
-        ${p.origem && p.origem !== 'outro' ? `<span class="crm-origem">${CRM_ORIGEM[p.origem] || p.origem}</span>` : ''}</td>
+        ${p.origem && p.origem !== 'outro' ? `<span class="crm-origem">${CRM_ORIGEM[p.origem] || p.origem}</span>` : ''}
+        ${typeof crmTagChips === 'function' ? crmTagChips(p, 3) : ''}</td>
       <td class="fs-13 color-2 no-wrap">${p.telefone ? esc(p.telefone) : '—'}</td>
       <td><span class="badge ${st.badge}">${st.label}</span></td>
       <td class="no-wrap">${fin ? `<span class="crm-fin">${fCurrency(fin.total)}<span class="crm-fin-sub">${fin.n} atend. · últ. ${fDate(fin.ultima)}</span></span>` : '<span class="color-2">—</span>'}</td>
@@ -366,6 +386,7 @@ function openCrmModal(id = null, ctx = '') {
           <label class="form-label" for="crmInstagram">Instagram</label>
           <input type="text" class="form-control" id="crmInstagram" value="${esc(p?.instagram || '')}" placeholder="@usuario" />
         </div>
+        ${typeof crmTagPickerHTML === 'function' ? crmTagPickerHTML(p) : ''}
         <div class="form-group form-full">
           <label class="form-label" for="crmEndereco">Endereço</label>
           <input type="text" class="form-control" id="crmEndereco" value="${esc(p?.endereco || '')}" placeholder="Rua, nº, bairro, cidade/UF, CEP" />
@@ -426,6 +447,7 @@ async function saveCrmPaciente(ev) {
       sexo:     document.getElementById('crmSexo').value || null
     } : {}),
     observacoes:     document.getElementById('crmObs').value.trim() || null,
+    ...(_crm.tagsReady ? { etiquetas: [..._crm.editTags].filter(id => _crm.tags.some(t => t.id === id)) } : {}),
     updated_at:      new Date().toISOString()
   };
   let error;
@@ -460,6 +482,7 @@ async function openCrmDetail(id) {
       <div class="crm-detail-head">
         <span class="badge ${st.badge}">${st.label}</span>
         ${p.origem && p.origem !== 'outro' ? `<span class="crm-origem">${CRM_ORIGEM[p.origem] || p.origem}</span>` : ''}
+        ${typeof crmTagChips === 'function' ? crmTagChips(p, 8) : ''}
         <div class="crm-detail-actions">
           ${wa ? `<a class="btn btn-secondary btn-sm" href="${wa}" target="_blank" rel="noopener">${iconWhats()} WhatsApp</a>` : ''}
           <button class="btn btn-secondary btn-sm" onclick="openCrmModal('${p.id}')">${iconEdit()} Editar</button>
@@ -620,6 +643,7 @@ async function deleteInteracao(id, pacienteId) {
 }
 
 /* ===== Ícones extras usados no CRM ===== */
+const iconTag      = () => svg('<path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>');
 const iconUsers    = () => svg('<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>');
 const iconSpark    = () => svg('<path d="M12 3l1.9 5.8L20 10.7l-5.1 3.7L16 21l-4-3.3L8 21l1.1-6.6L4 10.7l6.1-1.9z"/>');
 const iconCalendar = () => svg('<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>');
