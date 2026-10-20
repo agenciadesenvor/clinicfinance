@@ -686,7 +686,8 @@ function navigateTo(view) {
     anamnese:'Ficha de Anamnese', receituario:'Receituário', exames:'Receituário de Exames',
     contratos:'Contratos & Termos'
   };
-  document.getElementById('pageTitle').textContent = titles[view] || view;
+  if (typeof updateTopbarTitle === 'function') updateTopbarTitle(view, titles[view] || view);
+  else document.getElementById('pageTitle').textContent = titles[view] || view;
   renderView(view);
   if (window.innerWidth < 768) closeSidebar();
 }
@@ -715,7 +716,7 @@ function renderView(view) {
     content.innerHTML = `<div class="empty-state"><h3>Não foi possível abrir esta tela</h3><p>Recarregue a página (⌘⇧R). Se continuar, avise o suporte.</p></div>`;
     return;
   }
-  if (view === 'dashboard') setTimeout(initDashboardCharts, 50);
+  if (view === 'dashboard') { setTimeout(initDashboardCharts, 50); if (typeof updateTopbarTitle === 'function') updateTopbarTitle('dashboard'); }
   if (view === 'graficos')  setTimeout(initGraficosCharts, 50);
   setTimeout(initDatePickers, 10);
 }
@@ -762,137 +763,8 @@ function periodFilterHTML(extraClass = '') {
   </div>${['dashboard', 'entradas', 'graficos', 'margem'].includes(state.currentView) ? periodEmptyHint() : ''}`;
 }
 
-/* Painel "Hoje" do Dashboard — consultas + follow-ups */
-function dashTodayPanel() {
-  const appts = getTodayAppointments();
-  const follow = getFollowupsDue();
-  const t = today();
-  const hoje = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
-  return `<div class="card dash-today">
-    <div class="card-header"><span class="card-title">Hoje</span><span class="card-sub">${hoje}</span></div>
-    <div class="card-body" style="padding-top:10px">
-      <div class="dash-today-label">Consultas (${appts.length})</div>
-      ${appts.length ? appts.map(a => `<div class="dash-today-item" onclick="navigateTo('agenda')">
-        <span class="dash-today-time">${a.horaInicio ? a.horaInicio.slice(0, 5) : '—'}</span>
-        <span class="dash-today-name">${esc(a.pacienteNome)}</span>
-      </div>`).join('') : '<div class="dash-today-empty">Sem consultas hoje.</div>'}
-      <div class="dash-today-label" style="margin-top:14px">Follow-ups (${follow.length})</div>
-      ${follow.length ? follow.slice(0, 5).map(p => {
-        const overdue = p.proximoContato < t;
-        return `<div class="dash-today-item" onclick="navigateTo('crm')">
-        <span class="dash-today-tag ${overdue ? 'over' : ''}">${overdue ? 'Atrasado' : 'Hoje'}</span>
-        <span class="dash-today-name">${esc(p.nome)}</span>
-      </div>`;
-      }).join('') : '<div class="dash-today-empty">Nenhum follow-up.</div>'}
-    </div>
-  </div>`;
-}
 
-/* ===== DASHBOARD ===== */
-function renderDashboard() {
-  const { entries, exits, clinic, products } = getData();
-  const fe = filterByPeriod(entries);
-  const fx = filterByPeriod(exits);
-  const fc = filterClinicByPeriod(clinic);
-  const revenue      = fe.reduce((s,e) => s + e.value, 0);
-  const expSaidas    = fx.reduce((s,e) => s + e.value, 0);
-  const expClinic    = fc.reduce((s,e) => s + e.value, 0);
-  // Produtos & Insumos = estoque/custo por atendimento; a compra entra como despesa em Saídas (com data)
-  const expenses     = expSaidas + expClinic;
-  const profit       = revenue - expenses;
-  const count        = fe.length;
-  const margin       = revenue > 0 ? ((profit / revenue) * 100).toFixed(1) : 0;
 
-  const recentSorted = fe.slice().sort((a,b) => b.date.localeCompare(a.date));
-
-  return `
-  ${dashHero()}
-  ${periodFilterHTML()}
-  <div class="dash-layout">
-    <div class="dash-main">
-      <div class="stats-grid dash-anim">
-        ${(() => {
-          const m6 = getMonthlyData(entries, exits, clinic, 6, products);
-          const cnt6 = monthCounts(entries, 6);
-          const cmp = mtdCompare();
-          return [
-            sparkCard({ label: 'Receita', value: revenue, money: true, color: 'green', icon: iconTrend(), go: 'entradas',
-              sub: deltaHTML(cmp.rev, false) || 'Entradas no período', series: m6.map((m, i) => [cnt6[i][0], m.revenue]) }),
-            sparkCard({ label: 'Despesas', value: expenses, money: true, color: 'red', icon: iconDown(), go: 'saidas',
-              sub: deltaHTML(cmp.exp, true) || `Saídas ${fCurrency(expSaidas)} · Consultório ${fCurrency(expClinic)}`, series: m6.map((m, i) => [cnt6[i][0], m.expenses]) }),
-            sparkCard({ label: 'Lucro líquido', value: profit, money: true, color: profit >= 0 ? 'gold' : 'red', icon: iconDollar(), go: 'graficos',
-              sub: (cmp.lucro ? deltaHTML(cmp.lucro, false) + ' · ' : '') + `margem ${String(margin).replace('.', ',')}%`, series: m6.map((m, i) => [cnt6[i][0], m.profit]) }),
-            sparkCard({ label: 'Procedimentos', value: count, money: false, color: 'blue', icon: iconClip(), go: 'entradas',
-              sub: deltaHTML(cmp.n, false) || 'Realizados no período', series: cnt6 })
-          ].join('');
-        })()}
-      </div>
-      <div class="charts-grid">
-        <div class="card rev-card">
-          <div class="card-header">
-            <span class="card-title">Receita × Despesas</span>
-            <div class="seg-mini" role="group" aria-label="Quantidade de meses">
-              ${[6, 12].map(n => `<button type="button" class="${dashMonths() === n ? 'active' : ''}" onclick="setDashMonths(${n})">${n} meses</button>`).join('')}
-            </div>
-          </div>
-          <div class="rev-summary" id="revSummary"></div>
-          <div class="chart-wrap"><canvas id="chartRevExp"></canvas></div>
-          <div class="chart-hint">Passe o mouse para ver o lucro do mês · clique para abrir as entradas</div>
-        </div>
-        <div class="card">
-          <div class="card-header"><span class="card-title">Procedimentos que mais faturam</span></div>
-          <div class="card-body dash-anim">${topProceduresHTML(fe)}</div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-header"><span class="card-title">Procedimentos Recentes</span><span class="card-sub">Últimas entradas</span></div>
-        <div class="card-body" style="padding-top:8px">
-          ${recentEntriesTable(recentSorted.slice(0,8))}
-        </div>
-      </div>
-    </div>
-    <div class="dash-right">
-      ${dashTodayPanel()}
-      ${recentPanel(recentSorted.slice(0,10))}
-    </div>
-  </div>`;
-}
-
-/* Hero do Dashboard: saudação + resumo do dia/mês + atalhos */
-function dashHero() {
-  const now = new Date();
-  const h = now.getHours();
-  const saud = h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
-  const nome = (typeof currentProfile !== 'undefined' && currentProfile?.first_name) ? currentProfile.first_name.split(' ')[0] : '';
-  const dataTxt = now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
-  const mesKey = today().slice(0, 7);
-  const doMes = (state.data.entries || []).filter(e => (e.date || '').startsWith(mesKey));
-  const receitaMes = doMes.reduce((t, e) => t + e.value, 0);
-  const consultas = (typeof getTodayAppointments === 'function' ? getTodayAppointments() : []).length;
-  const follow = (typeof getFollowupsDue === 'function' ? getFollowupsDue() : []).length;
-  const plural = (n, a, b) => `${n} ${n === 1 ? a : b}`;
-  return `<section class="dash-hero">
-    <div class="dash-hero-text">
-      <div class="dash-hero-eyebrow">${dataTxt}</div>
-      <div class="dash-hero-title">${saud}${nome ? `, <em>${esc(nome)}</em>` : ''}</div>
-      <div class="dash-hero-sub">
-        <span>Hoje: <b>${plural(consultas, 'consulta', 'consultas')}</b> · <b>${plural(follow, 'follow-up', 'follow-ups')}</b></span>
-        <span>Este mês: <b>${fCurrency(receitaMes)}</b> em ${plural(doMes.length, 'atendimento', 'atendimentos')}</span>
-      </div>
-    </div>
-    <div class="dash-hero-actions">
-      <div class="dash-hero-btns">
-        <button class="hero-btn primary" onclick="openEntradaModal()">${iconPlus()} Nova entrada</button>
-        <button class="hero-btn" onclick="navigateTo('pacientes');setTimeout(()=>openCrmModal(null,'pacientes'),60)">${iconPlus()} Novo paciente</button>
-        <button class="hero-btn" onclick="navigateTo('agenda')">${typeof iconCalendar === 'function' ? iconCalendar() : ''} Agenda</button>
-      </div>
-      <div class="dash-hero-reports">Relatório em PDF:
-        <button onclick="generatePDF('Semanal')">${iconDownload()} Semanal</button>
-        <button onclick="generatePDF('Mensal')">${iconDownload()} Mensal</button>
-      </div>
-    </div>
-  </section>`;
-}
 
 /* Tema dos gráficos (Chart.js) — tipografia, cores e tooltip da marca */
 const fCompact = v => {
@@ -934,99 +806,13 @@ function applyChartTheme() {
 const MES_CURTO = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
 
 // Quantidade de entradas por mês (últimos n meses) → [[rótulo, valor]]
-function monthCounts(entries, n) {
-  const out = [];
-  for (let i = n - 1; i >= 0; i--) {
-    const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - i);
-    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-    out.push([MES_CURTO[d.getMonth()], entries.filter(e => (e.date || '').startsWith(key)).length]);
-  }
-  return out;
-}
 
-// Compara o mês atual até hoje com o MESMO intervalo de dias do mês anterior (comparação justa)
-function mtdCompare() {
-  const { entries, exits, clinic } = getData();
-  const now = new Date();
-  const range = off => {
-    const y = now.getFullYear(), m = now.getMonth() - off;
-    const s = new Date(y, m, 1);
-    const last = new Date(s.getFullYear(), s.getMonth() + 1, 0).getDate();
-    const e = new Date(s.getFullYear(), s.getMonth(), Math.min(now.getDate(), last), 23, 59, 59);
-    return { s, e, name: e.getDate() === 1 ? `1º de ${MES_CURTO[s.getMonth()]}` : `1–${e.getDate()} de ${MES_CURTO[s.getMonth()]}` };
-  };
-  const calc = ({ s, e }) => {
-    const inR = x => { const d = new Date(x.date + 'T12:00:00'); return d >= s && d <= e; };
-    const en = entries.filter(inR);
-    const rev = en.reduce((t, x) => t + x.value, 0);
-    const exp = exits.filter(inR).reduce((t, x) => t + x.value, 0)
-              + clinicOccurrences(clinic, s, e).filter(inR).reduce((t, x) => t + x.value, 0);
-    return { rev, exp, lucro: rev - exp, n: en.length };
-  };
-  const a = range(0), b = range(1), cur = calc(a), prev = calc(b);
-  const pct = (c, p) => (p ? { pct: ((c - p) / Math.abs(p)) * 100, prevName: b.name } : null);
-  // lucro: só compara quando os dois períodos são positivos (mudança de sinal não vira % legível)
-  return { rev: pct(cur.rev, prev.rev), exp: pct(cur.exp, prev.exp), lucro: cur.lucro > 0 && prev.lucro > 0 ? pct(cur.lucro, prev.lucro) : null, n: pct(cur.n, prev.n) };
-}
 
-function deltaHTML(d, upIsBad) {
-  if (!d || !isFinite(d.pct)) return '';
-  const up = d.pct >= 0;
-  const good = upIsBad ? !up : up;
-  const v = Math.abs(d.pct) >= 100 ? Math.round(Math.abs(d.pct)) : Math.abs(d.pct).toFixed(1).replace('.', ',');
-  return `<span class="delta ${good ? 'good' : 'bad'}">${up ? '↑' : '↓'} ${v}%</span> vs ${d.prevName}`;
-}
 
-function sparkCard({ label, value, money, color, icon, sub, series, go }) {
-  const max = Math.max(...series.map(([, v]) => Math.abs(v)), 1);
-  const bars = series.map(([name, v], i) => {
-    const h = v === 0 ? 0 : Math.max(6, Math.round(Math.abs(v) / max * 100));
-    const tip = `${name}: ${money ? fCurrency(v) : v}`;
-    return `<div class="spark-col${i === series.length - 1 ? ' current' : ''}${v < 0 ? ' neg' : ''}" title="${tip}">
-      <div class="spark-bar" style="--h:${h}%;--i:${i}"></div><span>${name}</span></div>`;
-  }).join('');
-  return `<div class="stat-card spark-card ${color}" role="link" tabindex="0" aria-label="${label}: ver detalhes"
-      onclick="navigateTo('${go}')" onkeydown="if(event.key==='Enter'){navigateTo('${go}')}">
-    <div class="stat-header"><span class="stat-label">${label}<svg class="spark-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 6 15 12 9 18"/></svg></span><span class="stat-icon ${color}">${icon}</span></div>
-    <div class="stat-value" data-count="${value}" data-money="${money ? 1 : 0}">${money ? fCurrency(value) : value}</div>
-    <div class="stat-sub">${sub}</div>
-    <div class="spark-bars" aria-hidden="true">${bars}</div>
-  </div>`;
-}
 
 // Ranking de procedimentos por receita (barras horizontais em HTML)
-function topProceduresHTML(fe) {
-  const rows = Object.entries(PROCEDURES).map(([k, name]) => {
-    const it = fe.filter(e => e.procedure === k);
-    return { name, total: it.reduce((t, e) => t + e.value, 0), n: it.length };
-  }).filter(r => r.total > 0).sort((a, b) => b.total - a.total).slice(0, 6);
-  if (!rows.length) return `<div class="doc-list-empty">Nenhum procedimento no período.</div>`;
-  const max = rows[0].total;
-  const total = fe.reduce((t, e) => t + e.value, 0) || 1;
-  return `<div class="top-procs">${rows.map((r, i) => `
-    <div class="top-proc">
-      <div class="top-proc-head"><span class="top-proc-name">${esc(r.name)}</span><span class="top-proc-val">${fCurrency(r.total)}</span></div>
-      <div class="top-proc-track"><div class="top-proc-fill" style="--w:${Math.max(3, r.total / max * 100)}%;--i:${i}"></div></div>
-      <div class="top-proc-meta">${r.n} ${r.n === 1 ? 'atendimento' : 'atendimentos'} · ${(r.total / total * 100).toFixed(0)}% da receita</div>
-    </div>`).join('')}</div>`;
-}
 
 // Animações de entrada do Dashboard: números contam e barras crescem (respeita "reduzir movimento")
-function animateDashboard() {
-  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  setTimeout(() => document.querySelectorAll('#content .dash-anim').forEach(el => el.classList.add('is-in')), 40);
-  if (reduce) return;
-  document.querySelectorAll('#content [data-count]').forEach(el => {
-    const target = Number(el.dataset.count) || 0, money = el.dataset.money === '1';
-    const t0 = performance.now(), dur = 900;
-    const step = now => {
-      const p = Math.min(1, (now - t0) / dur), v = target * (1 - Math.pow(1 - p, 3));
-      el.textContent = money ? fCurrency(v) : Math.round(v);
-      if (p < 1) requestAnimationFrame(step); else el.textContent = money ? fCurrency(target) : target;
-    };
-    requestAnimationFrame(step);
-  });
-}
 
 function statCard(label, value, color, sub, icon, badge) {
   return `<div class="stat-card ${color}">
@@ -1037,18 +823,6 @@ function statCard(label, value, color, sub, icon, badge) {
   </div>`;
 }
 
-function recentEntriesTable(items) {
-  if (!items.length) return `<div class="empty-state">${iconEmptyBox()}<h3>Nenhuma entrada no período</h3><p>Adicione procedimentos para visualizar.</p></div>`;
-  return `<table><thead><tr><th>Data</th><th>Cliente</th><th>Procedimento</th><th>Pagamento</th><th style="text-align:right">Valor</th></tr></thead><tbody>
-  ${items.map(e => `<tr>
-    <td class="no-wrap fs-13 color-2">${fDate(e.date)}</td>
-    <td class="fw-600">${esc(e.clientName || '—')}</td>
-    <td>${badgeProcedure(e.procedure)}</td>
-    <td>${badgePayment(e.payment)}</td>
-    <td style="text-align:right" class="val-green fw-600">${fCurrency(e.value)}</td>
-  </tr>`).join('')}
-  </tbody></table>`;
-}
 
 /* Gera cor de avatar a partir do nome (hash determinístico) */
 function avatarColor(name) {
@@ -1069,137 +843,9 @@ function relativeTime(dateStr) {
   return fDate(dateStr);
 }
 
-/* Painel direito de atendimentos recentes */
-function recentPanel(items) {
-  const list = items.length
-    ? items.map(e => {
-        const name   = esc(e.clientName || 'Paciente');
-        const initials = name.split(' ').map(w => w[0]).slice(0,2).join('').toUpperCase() || '?';
-        const color  = avatarColor(e.clientName || '');
-        const proc   = PROCEDURES[e.procedure] || e.procedure || '—';
-        return `<div class="recent-item">
-          <div class="recent-avatar" style="background:${color}">${initials}</div>
-          <div class="recent-info">
-            <div class="recent-name">${name}</div>
-            <div class="recent-time">${relativeTime(e.date)}</div>
-          </div>
-          <div class="recent-right">
-            <span class="recent-value">${fCurrency(e.value)}</span>
-            <span class="recent-badge">${esc(proc.length > 16 ? proc.slice(0,16)+'…' : proc)}</span>
-          </div>
-        </div>`;
-      }).join('')
-    : `<div style="padding:32px 16px;text-align:center;color:var(--text-3);font-size:13px">Nenhum atendimento no período</div>`;
 
-  return `<div class="recent-panel">
-    <div class="recent-panel-header">
-      <span class="recent-panel-title">Atendimentos Recentes</span>
-      <button class="recent-panel-link" onclick="navigateTo('entradas')">Ver todos</button>
-    </div>
-    <div class="recent-list">${list}</div>
-  </div>`;
-}
 
-function initDashboardCharts() {
-  applyChartTheme();
-  renderRevChart();
-  animateDashboard();
-}
 
-/* ===== Gráfico Receita × Despesa × Lucro (Dashboard) ===== */
-function dashMonths() {
-  if (!state.dashMonths) { try { state.dashMonths = Number(localStorage.getItem('cf_dash_months')) || 6; } catch (e) { state.dashMonths = 6; } }
-  return state.dashMonths === 12 ? 12 : 6;
-}
-function setDashMonths(n) {
-  state.dashMonths = n;
-  try { localStorage.setItem('cf_dash_months', String(n)); } catch (e) {}
-  document.querySelectorAll('.rev-card .seg-mini button').forEach(b => b.classList.toggle('active', b.textContent.startsWith(String(n))));
-  renderRevChart();
-}
-
-function renderRevChart() {
-  const { entries, exits, clinic, products } = getData();
-  const n = dashMonths();
-  const monthly = getMonthlyData(entries, exits, clinic, n, products);
-  const now = new Date();
-  const meses = monthly.map((m, idx) => { const d = new Date(now.getFullYear(), now.getMonth() - (n - 1 - idx), 1); return { y: d.getFullYear(), m: d.getMonth() }; });
-  const last = n - 1;
-  const parcial = now.getDate() < new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-  const nomeLongo = ({ y, m }) => new Date(y, m, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-  const labels = meses.map(({ y, m }, idx) => {
-    const curto = MES_CURTO[m] + (m === 0 || (n === 12 && idx === 0) ? ` ${String(y).slice(2)}` : '');
-    return idx === last && parcial ? [curto, 'parcial'] : curto;
-  });
-
-  // Resumo: só meses completos (o atual ainda está em andamento)
-  // ignora meses sem nenhuma receita (ex.: antes de começar a usar o sistema) para não puxar a média para baixo
-  const completos = (parcial ? monthly.slice(0, last) : monthly).filter(m => m.revenue > 0);
-  const box = document.getElementById('revSummary');
-  if (box) {
-    if (completos.length) {
-      const melhor = completos.reduce((b, m) => (m.revenue > b.revenue ? m : b), completos[0]);
-      const melhorMes = meses[monthly.indexOf(melhor)];
-      const media = completos.reduce((t, m) => t + m.revenue, 0) / completos.length;
-      const lucroTotal = monthly.reduce((t, m) => t + m.profit, 0);
-      const ult3 = completos.slice(-3).map(m => m.revenue);
-      const tend = ult3.length === 3 ? (ult3[2] > ult3[0] * 1.05 ? 'up' : ult3[2] < ult3[0] * 0.95 ? 'down' : 'flat') : null;
-      const tendTxt = { up: '↑ subindo', down: '↓ caindo', flat: '→ estável' };
-      box.innerHTML = `
-        <div class="rev-kpi"><span>Melhor mês</span><b>${MES_CURTO[melhorMes.m]} · ${fCompact(melhor.revenue)}</b></div>
-        <div class="rev-kpi"><span>Média por mês</span><b>${fCompact(media)}${tend ? ` <small class="trend-${tend}" title="Receita nos últimos 3 meses completos">${tendTxt[tend]}</small>` : ''}</b></div>
-        <div class="rev-kpi"><span>Lucro em ${n} meses</span><b class="${lucroTotal >= 0 ? 'pos' : 'neg'}">${fCompact(lucroTotal)}</b></div>`;
-    } else box.innerHTML = '';
-  }
-
-  const C = { rec: '#9BB396', recSoft: 'rgba(155,179,150,0.35)', desp: '#C98A72', despSoft: 'rgba(201,138,114,0.4)' };
-  const cor = (cheia, suave) => monthly.map((_, idx) => (idx === last && parcial ? suave : cheia));
-  const borda = monthly.map((_, idx) => (idx === last && parcial ? 1.5 : 0));
-  // Coluna larga = receita; coluna estreita por dentro = despesa (se passar da receita, "estoura" = prejuízo)
-  createChart('chartRevExp', {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [
-        { label: 'Receita', data: monthly.map(m => m.revenue), grouped: false, order: 2,
-          backgroundColor: cor(C.rec, C.recSoft), hoverBackgroundColor: '#8AA585', borderColor: C.rec, borderWidth: borda,
-          barPercentage: 0.62, categoryPercentage: 0.9, maxBarThickness: n === 12 ? 30 : 46,
-          borderRadius: { topLeft: 10, topRight: 10 }, borderSkipped: 'start' },
-        { label: 'Despesas', data: monthly.map(m => m.expenses), grouped: false, order: 1,
-          backgroundColor: cor(C.desp, C.despSoft), hoverBackgroundColor: '#B87A62', borderColor: C.desp, borderWidth: borda,
-          barPercentage: 0.26, categoryPercentage: 0.9, maxBarThickness: n === 12 ? 12 : 18,
-          borderRadius: { topLeft: 3, topRight: 3 }, borderSkipped: 'start', minBarLength: 3 }
-      ]
-    },
-    options: {
-      responsive: true,
-      interaction: { mode: 'index', intersect: false },
-      animation: { duration: 900, easing: 'easeOutQuart', delay: ctx => (ctx.type === 'data' && ctx.mode === 'default' ? ctx.dataIndex * 70 : 0) },
-      onHover: (evt, els) => { if (evt.native?.target) evt.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
-      onClick: (evt, els) => {
-        if (!els.length) return;
-        const { y, m } = meses[els[0].index];
-        const ini = `${y}-${String(m + 1).padStart(2, '0')}-01`;
-        const fim = `${y}-${String(m + 1).padStart(2, '0')}-${String(new Date(y, m + 1, 0).getDate()).padStart(2, '0')}`;
-        state.filter = { period: 'custom', start: ini, end: fim };
-        saveFilter();
-        navigateTo('entradas');
-      },
-      plugins: {
-        legend: { position: 'bottom', align: 'start', labels: { sort: (a, b) => a.datasetIndex - b.datasetIndex } },
-        tooltip: { itemSort: (a, b) => a.datasetIndex - b.datasetIndex, callbacks: {
-          title: items => { const idx = items[0].dataIndex; return nomeLongo(meses[idx]) + (idx === last && parcial ? ` (até dia ${now.getDate()})` : ''); },
-          label: ctx => ` ${ctx.dataset.label}: ${fCurrency(ctx.raw)}`,
-          footer: items => { const p = monthly[items[0].dataIndex].profit; return `${p >= 0 ? 'Lucro' : 'Prejuízo'}: ${fCurrency(Math.abs(p))}`; }
-        }, footerColor: '#F3D9B8', footerFont: { weight: '700', size: 12 }, footerMarginTop: 8 }
-      },
-      scales: {
-        x: { grid: { display: false }, border: { display: false }, ticks: { font: ctx => ({ size: 11, weight: ctx.index === last ? '700' : '400' }) } },
-        y: { beginAtZero: true, border: { display: false }, grid: { color: 'rgba(127,102,88,0.07)' }, ticks: { callback: v => fCompact(v), maxTicksLimit: 5 } }
-      }
-    }
-  });
-}
 
 function getMonthlyData(entries, exits, clinic, n, products) {
   const result = [];
@@ -2942,10 +2588,13 @@ function toggleSidebarCollapse() {
   const sidebar = document.getElementById('sidebar');
   const isCollapsed = sidebar.classList.toggle('collapsed');
   document.body.classList.toggle('sidebar-collapsed', isCollapsed);
-  localStorage.setItem('cf-sidebar-collapsed', isCollapsed ? '1' : '');
+  try { localStorage.setItem('cf-sidebar-collapsed', isCollapsed ? '1' : '0'); } catch (e) {}
 }
+// Padrão: menu compacto em pílula (só ícones). Expandido só se a pessoa escolheu.
 function initSidebarState() {
-  if (localStorage.getItem('cf-sidebar-collapsed') === '1') {
+  let pref = null;
+  try { pref = localStorage.getItem('cf-sidebar-collapsed'); } catch (e) {}
+  if (pref !== '0') {
     document.getElementById('sidebar').classList.add('collapsed');
     document.body.classList.add('sidebar-collapsed');
   }
