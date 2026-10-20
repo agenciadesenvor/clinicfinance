@@ -3135,3 +3135,219 @@ body { background: var(--bg); }
   .sidebar { background: var(--bg); box-shadow: 8px 0 40px rgba(43,33,27,.18); }
   .sidebar-nav { margin: 0 12px; }
 }
+
+/* ============================================================
+   MENU "CÁPSULA" — uma peça só: tampa espresso com a marca
+   (logo clara ganha contraste), costura dourada, corpo porcelana
+   com os ícones e base com recolher/sair. Substitui a pílula.
+   ============================================================ */
+:root { --cap-w: 76px; --cap-w-open: 248px; --cap-gap: 16px; --cap-ink: #3E322A; --cap-idle: #8F7E70; --cap-hover: #F4EDE2; }
+
+.brand-mono { display: none; }
+.sidebar-actions { display: none; }
+.sidebar.collapsed .nav-item::after { display: none !important; }
+
+/* tampa (vale também para a gaveta do celular) */
+.sidebar .sidebar-brand,
+.sidebar.collapsed .sidebar-brand {
+  position: relative; flex-shrink: 0;
+  background: radial-gradient(120% 140% at 0% 0%, #57473C 0%, var(--cap-ink) 62%);
+  padding: 20px 22px; min-height: 84px;
+  display: flex; align-items: center; justify-content: flex-start; gap: 12px;
+}
+.sidebar .sidebar-brand::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px;
+  background: linear-gradient(90deg, transparent 0%, #C9A06A 22%, #EBD3A8 50%, #C9A06A 78%, transparent 100%);
+}
+.sidebar .sidebar-logo { max-width: 100%; max-height: 46px; object-fit: contain; object-position: left center; }
+.sidebar .brand-name { color: #F6EEE2; }
+.sidebar .brand-sub  { color: rgba(246,238,226,.58); }
+.sidebar .brand-icon { background: rgba(246,238,226,.08); border: 1px solid rgba(246,238,226,.12); box-shadow: none; }
+.brand-mono {
+  font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 400;
+  font-size: 34px; line-height: 1; letter-spacing: -.02em;
+  color: #E8CD9C; transform: translateY(-1px);
+}
+
+/* dica do menu compacto (fora da cápsula para não ser cortada) */
+.nav-tip {
+  position: fixed; z-index: 400; pointer-events: none;
+  transform: translate(-4px, -50%); opacity: 0;
+  background: var(--cap-ink); color: #F6EEE2;
+  font: 600 12.5px/1 'DM Sans', sans-serif; letter-spacing: .01em;
+  padding: 9px 12px; border-radius: 10px; white-space: nowrap;
+  box-shadow: 0 10px 24px -8px rgba(43,33,27,.45);
+  transition: opacity .14s ease, transform .14s ease;
+}
+.nav-tip::before {
+  content: ''; position: absolute; left: -4px; top: 50%; width: 8px; height: 8px;
+  background: inherit; border-radius: 2px; transform: translateY(-50%) rotate(45deg);
+}
+.nav-tip.show { opacity: 1; transform: translate(0, -50%); }
+
+@media (min-width: 769px) {
+  body .sidebar,
+  body .sidebar.collapsed {
+    top: var(--cap-gap); bottom: var(--cap-gap); left: var(--cap-gap);
+    min-height: 0; padding: 0;
+    width: var(--cap-w-open);
+    background: var(--card);
+    border: 1px solid var(--border-light); border-radius: 30px;
+    box-shadow: 0 1px 3px rgba(74,59,49,.05), 0 26px 50px -18px rgba(74,59,49,.22);
+    overflow: hidden;
+  }
+  body .sidebar:not(.collapsed) { width: var(--cap-w-open); }
+  body .sidebar.collapsed { width: var(--cap-w); border-radius: calc(var(--cap-w) / 2); }
+  body .main { margin-left: calc(var(--cap-w-open) + var(--cap-gap) * 2); }
+  body.sidebar-collapsed .main { margin-left: calc(var(--cap-w) + var(--cap-gap) * 2 - 8px); }
+
+  /* tampa compacta: só o monograma */
+  .sidebar.collapsed .sidebar-brand { justify-content: center; padding: 0; min-height: 74px; }
+  .sidebar.collapsed .brand-mono { display: block; }
+  .sidebar.collapsed #sidebarLogo,
+  .sidebar.collapsed #brandDefault { display: none !important; }
+
+  /* corpo */
+  .sidebar .sidebar-nav,
+  .sidebar.collapsed .sidebar-nav {
+    flex: 1; min-height: 0; margin: 0;
+    background: transparent; border: none; border-radius: 0; box-shadow: none;
+    padding: 14px 12px; gap: 2px; align-items: stretch;
+    overflow-y: auto; scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(180deg, transparent 0, #000 12px, #000 calc(100% - 16px), transparent 100%);
+            mask-image: linear-gradient(180deg, transparent 0, #000 12px, #000 calc(100% - 16px), transparent 100%);
+  }
+  .sidebar .sidebar-nav::-webkit-scrollbar { display: none; }
+  .sidebar.collapsed .sidebar-nav { padding: 12px 0; align-items: center; gap: 2px; }
+
+  .sidebar .nav-item {
+    flex-shrink: 0; color: var(--cap-idle);
+    padding: 10px 14px; border-radius: 14px; gap: 12px;
+    font-size: 13.5px; font-weight: 500;
+    box-shadow: none;
+  }
+  .sidebar .nav-item .nav-icon { width: 19px; height: 19px; opacity: 1; color: currentColor; }
+  .sidebar .nav-item:hover { background: var(--cap-hover); color: var(--text-1); }
+  .sidebar .nav-item.active,
+  .sidebar .nav-item.active:hover {
+    background: var(--cap-ink); color: #F6EEE2; font-weight: 600;
+    box-shadow: 0 8px 16px -8px rgba(62,50,42,.6);
+  }
+  .sidebar .nav-item.active .nav-icon { color: #E8CD9C; }
+  .sidebar .nav-item:focus-visible,
+  .sb-act:focus-visible { outline: 2px solid #C9A06A; outline-offset: 2px; }
+
+  .sidebar.collapsed .nav-item {
+    width: 42px; height: 42px; padding: 0; border-radius: 50%;
+    justify-content: center;
+  }
+  .sidebar.collapsed .nav-item .nav-icon { width: 20px; height: 20px; }
+
+  .sidebar .nav-section-label {
+    font-size: 10.5px; font-weight: 700; letter-spacing: .12em;
+    color: #B5A698; padding: 16px 14px 6px; margin: 0;
+  }
+  .sidebar .nav-section-label:first-child { padding-top: 2px; }
+  .sidebar.collapsed .nav-section-label {
+    flex-shrink: 0; width: 20px; height: 1px; padding: 0; margin: 6px auto;
+    background: var(--border-light); font-size: 0; opacity: 1; overflow: hidden;
+  }
+  .sidebar.collapsed .nav-section-label:first-child { display: none; }
+
+  /* base: recolher + sair */
+  .sidebar-actions {
+    display: flex; flex-direction: column; gap: 2px; flex-shrink: 0;
+    padding: 10px 12px 14px; border-top: 1px solid var(--border-light);
+  }
+  .sidebar.collapsed .sidebar-actions { align-items: center; padding: 8px 0 12px; }
+
+  /* "Meu Perfil" já abre pelo avatar do topo */
+  .sidebar .nav-item[data-view="perfil"],
+  .sidebar .nav-section-label.nav-label-conta { display: none !important; }
+  .sb-act {
+    display: flex; align-items: center; gap: 12px;
+    height: 42px; padding: 0 14px; border: none; border-radius: 14px;
+    background: none; color: var(--cap-idle); cursor: pointer;
+    font: 500 13.5px 'DM Sans', sans-serif; text-align: left;
+    transition: var(--transition);
+  }
+  .sb-act svg { width: 19px; height: 19px; flex-shrink: 0; transition: transform .3s ease; }
+  .sb-act:hover { background: var(--cap-hover); color: var(--text-1); }
+  .sb-act--out:hover { background: var(--red-light); color: var(--red); }
+  .sidebar:not(.collapsed) .sb-act--toggle svg { transform: scaleX(-1); }
+  .sidebar.collapsed .sb-act { width: 42px; padding: 0; justify-content: center; border-radius: 50%; }
+  .sidebar.collapsed .sb-act span { display: none; }
+
+  /* o avatar já está no topo: sem cartão repetido aqui */
+  .sidebar .sidebar-footer { display: none; }
+}
+
+/* grupo Documentos — sanfona (menu aberto / celular) */
+.nav-group { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; }
+.nav-chev { width: 15px; height: 15px; margin-left: auto; flex-shrink: 0; opacity: .7; transition: transform .25s ease; }
+.nav-group.open .nav-chev { transform: rotate(180deg); }
+.nav-sub { display: none; flex-direction: column; gap: 2px; margin-left: 23px; padding-left: 10px; border-left: 1px solid var(--border-light); }
+.nav-group.open .nav-sub { display: flex; }
+.sidebar .nav-sub .nav-item { font-size: 13px; padding: 8px 12px; }
+.sidebar .nav-sub .nav-item .nav-icon { width: 17px; height: 17px; }
+/* com a sanfona aberta, quem fica escuro é o documento — não o grupo */
+.sidebar .nav-group-btn.active,
+.sidebar .nav-group-btn.active:hover { background: transparent; color: var(--text-1); font-weight: 600; box-shadow: none; }
+.sidebar .nav-group-btn.active .nav-icon { color: var(--text-1); }
+
+/* no menu aberto o próprio botão já diz "Documentos" */
+.sidebar:not(.collapsed) .nav-label-docs { display: none; }
+.sidebar:not(.collapsed) .nav-group { margin-top: 10px; }
+@media (max-width: 768px) {
+  .sidebar .nav-label-docs { display: none; }
+  .sidebar .nav-group { margin-top: 10px; }
+}
+
+/* janelinha do grupo no menu compacto */
+.nav-flyout {
+  position: fixed; z-index: 400; min-width: 236px;
+  background: var(--card); border: 1px solid var(--border-light); border-radius: 20px;
+  padding: 8px; box-shadow: 0 2px 6px rgba(74,59,49,.06), 0 28px 50px -16px rgba(74,59,49,.32);
+  opacity: 0; visibility: hidden; transform: translateX(-6px);
+  transition: opacity .16s ease, transform .16s ease, visibility 0s linear .16s;
+}
+.nav-flyout.show { opacity: 1; visibility: visible; transform: none; transition: opacity .16s ease, transform .16s ease; }
+.nav-flyout-title { font-size: 10.5px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: #B5A698; padding: 8px 12px 6px; }
+.nav-flyout-item {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 10px 12px; border: none; border-radius: 12px; background: none;
+  font: 500 13.5px 'DM Sans', sans-serif; color: var(--text-2); text-align: left; cursor: pointer;
+  transition: var(--transition);
+}
+.nav-flyout-item svg { width: 18px; height: 18px; flex-shrink: 0; color: var(--cap-idle); }
+.nav-flyout-item:hover { background: var(--cap-hover); color: var(--text-1); }
+.nav-flyout-item:focus-visible { outline: 2px solid #C9A06A; outline-offset: 1px; }
+.nav-flyout-item.active { background: var(--cap-ink); color: #F6EEE2; font-weight: 600; }
+.nav-flyout-item.active svg { color: #E8CD9C; }
+
+@media (min-width: 769px) {
+  .sidebar.collapsed .nav-sub,
+  .sidebar.collapsed .nav-chev { display: none !important; }
+  .sidebar.collapsed .nav-group { align-items: center; }
+  .sidebar.collapsed .nav-group-btn.active,
+  .sidebar.collapsed .nav-group-btn.active:hover { background: var(--cap-ink); color: #F6EEE2; box-shadow: 0 8px 16px -8px rgba(62,50,42,.6); }
+  .sidebar.collapsed .nav-group-btn.active .nav-icon { color: #E8CD9C; }
+  .sidebar.collapsed .nav-group-btn.is-flyout:not(.active) { background: var(--cap-hover); color: var(--text-1); }
+}
+@media (max-height: 820px) and (min-width: 769px) {
+  .sidebar.collapsed .sidebar-brand { min-height: 66px; }
+  .sidebar.collapsed .nav-item { width: 40px; height: 40px; }
+  .sidebar.collapsed .sb-act { width: 40px; height: 40px; }
+  .brand-mono { font-size: 30px; }
+}
+
+/* gaveta do celular: tampa com cantos e logo legível */
+@media (max-width: 768px) {
+  .sidebar .sidebar-brand,
+  .sidebar.collapsed .sidebar-brand { margin: 12px 12px 10px; border-radius: 22px; padding: 18px 20px; min-height: 76px; }
+  .sidebar .sidebar-brand::after { left: 22px; right: 22px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-tip, .sb-act svg { transition: none; }
+}

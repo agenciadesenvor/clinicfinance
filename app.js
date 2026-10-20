@@ -172,6 +172,8 @@ function updateSidebarProfile() {
       avatarEl.textContent = initials;
     }
   }
+  const mono = document.getElementById('brandMono');
+  if (mono) mono.textContent = (firstName[0] || fullName[0] || 'C').toUpperCase();
   updateTopbarAvatar();
   applyBrandLogo();
 }
@@ -675,9 +677,10 @@ function closeNotifPanel() {
 function navigateTo(view) {
   destroyAllCharts();
   state.currentView = view;
-  document.querySelectorAll('.nav-item').forEach(el => {
+  document.querySelectorAll('.nav-item[data-view]').forEach(el => {
     el.classList.toggle('active', el.dataset.view === view);
   });
+  syncNavGroups();
   const titles = {
     dashboard:'Dashboard', entradas:'Entradas', saidas:'Saídas',
     consultorio:'Consultório', produtos:'Produtos & Insumos',
@@ -2589,8 +2592,21 @@ function toggleSidebarCollapse() {
   const isCollapsed = sidebar.classList.toggle('collapsed');
   document.body.classList.toggle('sidebar-collapsed', isCollapsed);
   try { localStorage.setItem('cf-sidebar-collapsed', isCollapsed ? '1' : '0'); } catch (e) {}
+  syncSidebarToggle();
+  hideNavTip();
+  closeNavFlyout();
 }
-// Padrão: menu compacto em pílula (só ícones). Expandido só se a pessoa escolheu.
+function syncSidebarToggle() {
+  const btn = document.getElementById('sidebarToggle');
+  if (!btn) return;
+  const collapsed = document.getElementById('sidebar').classList.contains('collapsed');
+  const label = collapsed ? 'Expandir menu' : 'Recolher menu';
+  btn.setAttribute('aria-expanded', String(!collapsed));
+  btn.setAttribute('aria-label', label);
+  btn.dataset.tooltip = label;
+  btn.querySelector('span').textContent = label;
+}
+// Padrão: menu compacto em cápsula (só ícones). Expandido só se a pessoa escolheu.
 function initSidebarState() {
   let pref = null;
   try { pref = localStorage.getItem('cf-sidebar-collapsed'); } catch (e) {}
@@ -2598,6 +2614,90 @@ function initSidebarState() {
     document.getElementById('sidebar').classList.add('collapsed');
     document.body.classList.add('sidebar-collapsed');
   }
+  syncSidebarToggle();
+  initNavTip();
+}
+
+/* Dica com o nome do item no menu compacto. Fica fora da cápsula
+   (position: fixed) para não ser cortada pela rolagem do menu. */
+function initNavTip() {
+  if (document.getElementById('navTip')) return;
+  const sidebar = document.getElementById('sidebar');
+  const tip = document.createElement('div');
+  tip.className = 'nav-tip'; tip.id = 'navTip'; tip.setAttribute('role', 'tooltip');
+  document.body.appendChild(tip);
+  const show = ev => {
+    const el = ev.target.closest('[data-tooltip]');
+    if (!el || !sidebar.classList.contains('collapsed') || window.innerWidth <= 768) { hideNavTip(); return; }
+    const r = el.getBoundingClientRect();
+    tip.textContent = el.dataset.tooltip;
+    tip.style.top = (r.top + r.height / 2) + 'px';
+    tip.style.left = (sidebar.getBoundingClientRect().right + 12) + 'px';
+    tip.classList.add('show');
+  };
+  sidebar.addEventListener('mouseover', show);
+  sidebar.addEventListener('focusin', show);
+  sidebar.addEventListener('mouseleave', hideNavTip);
+  sidebar.addEventListener('focusout', hideNavTip);
+  sidebar.querySelector('.sidebar-nav')?.addEventListener('scroll', hideNavTip, { passive: true });
+}
+function hideNavTip() { document.getElementById('navTip')?.classList.remove('show'); }
+
+/* Grupo do menu (Documentos): sanfona no menu aberto e no celular,
+   janelinha ao lado da cápsula no menu compacto. */
+function navIsCompact() {
+  return document.getElementById('sidebar').classList.contains('collapsed') && window.innerWidth > 768;
+}
+function syncNavGroups() {
+  document.querySelectorAll('.nav-group').forEach(g => {
+    const on = !!g.querySelector('.nav-sub .nav-item.active');
+    g.querySelector('.nav-group-btn').classList.toggle('active', on);
+    if (on) setNavGroupOpen(g, true);
+  });
+}
+function setNavGroupOpen(group, open) {
+  group.classList.toggle('open', open);
+  group.querySelector('.nav-group-btn').setAttribute('aria-expanded', String(open && !navIsCompact()));
+}
+function toggleNavGroup(ev) {
+  ev.preventDefault();
+  ev.stopPropagation();
+  const btn = ev.currentTarget, group = btn.closest('.nav-group');
+  if (navIsCompact()) return openNavFlyout(btn, group);
+  setNavGroupOpen(group, !group.classList.contains('open'));
+}
+function openNavFlyout(btn, group) {
+  let fly = document.getElementById('navFlyout');
+  if (fly && fly.classList.contains('show')) return closeNavFlyout();
+  if (!fly) {
+    fly = document.createElement('div');
+    fly.id = 'navFlyout'; fly.className = 'nav-flyout'; fly.setAttribute('role', 'menu');
+    document.body.appendChild(fly);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeNavFlyout(true); });
+  }
+  const links = [...group.querySelectorAll('.nav-sub .nav-item')];
+  fly.innerHTML = `<div class="nav-flyout-title">${esc(btn.dataset.tooltip)}</div>` + links.map(a =>
+    `<button type="button" role="menuitem" class="nav-flyout-item${a.classList.contains('active') ? ' active' : ''}" onclick="closeNavFlyout();navigateTo('${a.dataset.view}')">${a.querySelector('svg').outerHTML}<span>${esc(a.textContent.trim())}</span></button>`
+  ).join('');
+  const r = btn.getBoundingClientRect();
+  fly.style.left = (document.getElementById('sidebar').getBoundingClientRect().right + 12) + 'px';
+  fly.classList.add('show');
+  fly.style.top = Math.max(16, Math.min(r.top - 8, window.innerHeight - fly.offsetHeight - 16)) + 'px';
+  btn.setAttribute('aria-expanded', 'true');
+  btn.classList.add('is-flyout');
+  fly._btn = btn;
+  hideNavTip();
+  if (navKeyboardFocus(btn)) fly.querySelector('button')?.focus();
+  setTimeout(() => document.addEventListener('click', closeNavFlyout, { once: true }));
+}
+function navKeyboardFocus(btn) { return btn.matches(':focus-visible'); }
+function closeNavFlyout(refocus) {
+  const fly = document.getElementById('navFlyout');
+  if (!fly || !fly.classList.contains('show')) return;
+  fly.classList.remove('show');
+  fly._btn?.classList.remove('is-flyout');
+  fly._btn?.setAttribute('aria-expanded', String(!!fly._btn?.closest('.nav-group.open') && !navIsCompact()));
+  if (refocus === true) fly._btn?.focus();
 }
 
 /* ===== SEARCH ===== */
@@ -2812,7 +2912,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function attachNavListeners() {
     if (navListenersAttached) return;
     navListenersAttached = true;
-    document.querySelectorAll('.nav-item').forEach(el => {
+    document.querySelectorAll('.nav-item[data-view]').forEach(el => {
       el.addEventListener('click', ev => { ev.preventDefault(); navigateTo(el.dataset.view); });
     });
     document.getElementById('sidebarOverlay').addEventListener('click', closeSidebar);
