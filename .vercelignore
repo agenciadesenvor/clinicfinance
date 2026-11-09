@@ -1,0 +1,4 @@
+# Arquivos do repositório que não vão para o site
+docs/
+*.md
+*.sql
