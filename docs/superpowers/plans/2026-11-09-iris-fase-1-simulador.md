@@ -241,7 +241,7 @@ Deno.test("rótulo", () => assertEquals(rotuloSlot({ data: "2026-11-12", hora: "
 **Interfaces:**
 - Consumes: tipos da Task 2; `agoraRecife`, `rotuloSlot`.
 - Produces:
-  - `KIT: string` — texto fixo em português com, nesta ordem: identidade e transparência (spec §3), regras de escrita do tom B com os dois exemplos da spec copiados literalmente, a lista "Nunca" da §3, quando passar para a Dra. e casos urgentes (§4), regras de agendamento e pagamento (§5), regras invioláveis (§6), como usar cada ferramenta, e a convenção de saída: **"cada parágrafo (separado por linha em branco) vira uma mensagem de WhatsApp; no máximo 3 por resposta"**. Fonte dos roteiros: `Kit de Atendimento - Rosi.pdf` (o Elison indica o caminho; fica fora do repositório), reescritos no tom B. Sem nomes de pacientes.
+  - `KIT: string` — texto fixo em português com, nesta ordem: identidade e transparência (spec §3), regras de escrita do tom B com os dois exemplos da spec copiados literalmente, a lista "Nunca" da §3, quando passar para a Dra. e casos urgentes (§4), regras de agendamento e pagamento (§5), regras invioláveis (§6), como usar cada ferramenta, a regra desta fase para remarcação ("pedido de remarcar vai para a equipe com `chamar_equipe`"), e a convenção de saída: **"cada parágrafo (separado por linha em branco) vira uma mensagem de WhatsApp; no máximo 3 por resposta"**. Fonte dos roteiros: `Kit de Atendimento - Rosi.pdf` (o Elison indica o caminho; fica fora do repositório), reescritos no tom B. Sem nomes de pacientes.
   - `montarSystem(p: { config: IrisConfig; manual: ItemManual[]; promocoes: Promocao[]; hoje: string }): string` — bloco **estável**: `KIT` + informações práticas + Manual + promoções com `valido_ate >= hoje`. De cada item do Manual entram sempre nome, regra de preço, duração, `agenda_direto` e sinal; os textos `o_que_e`/`indicacao`/`preparo`/`cuidados` entram **só se `aprovado`**; item não aprovado recebe a linha "Conteúdo ainda não aprovado pela Dra.: qualquer pergunta sobre este procedimento vai para a Dra.". Itens ordenados por `chave` (saída determinística).
   - `montarContexto(p: { agora: Date; conversa: Conversa; pendencias: Pendencia[]; reserva: Reserva | null; canal: string }): string` — bloco **volátil**: data/hora e dia da semana em Recife, nome do contato, qualificação já registrada, pendências abertas ("a Dra. ainda vai responder sobre: …"), reserva ativa com horário e minutos restantes.
   - `montarHistorico(msgs: Mensagem[]): { role: "user" | "assistant"; content: string }[]` — só `status = 'enviada'` e autor ≠ `sistema`; paciente → `user`; íris → `assistant`; equipe → `assistant` com prefixo `"(a equipe escreveu) "`; mensagens seguidas do mesmo papel unidas por `\n\n`; se a primeira for `assistant`, antepor `{ role: "user", content: "(início da conversa)" }`; no máximo as últimas 60 mensagens.
@@ -357,6 +357,11 @@ Deno.test("horário já ocupado: recusa com 2 alternativas e não cria reserva",
   assertEquals([r.ok, r.motivo, r.alternativas.length, fake.reservas.length], [false, "horario_indisponivel", 2, 0]);
 });
 Deno.test("horário fora das regras (domingo) é recusado mesmo sem ocupação", async () => { /* data 2026-11-15 → ok false */ });
+Deno.test("corrida: horário livre na consulta mas a reserva atômica recusa", async () => {
+  fake.recusarProximaReserva();   // simula iris_segurar_horario devolvendo null
+  const r = JSON.parse(await executarFerramenta("segurar_horario", { procedimento: "avaliacao", data: "2026-11-13", hora: "09:00" }, ctx));
+  assertEquals([r.ok, r.motivo, r.alternativas.length], [false, "horario_indisponivel", 2]);
+});
 Deno.test("passar_para_dra urgente: pendência + 2 etiquetas + aviso, tudo como nota no simulador", async () => {
   await executarFerramenta("passar_para_dra", { motivo: "duvida_clinica", resumo: "inchaço forte após preenchimento", urgente: true }, ctx);
   assertEquals(fake.pendencias[0].urgente, true);
@@ -372,8 +377,8 @@ Deno.test("todas as ferramentas são strict e fecham o schema", () =>
 ```
 
 - [ ] **Step 2: Rodar e ver falhar** — `npx -y deno test _shared/ferramentas_test.ts`
-- [ ] **Step 3: Implementar** `repo_fake.ts` (memória, com `ocupar()` e arrays públicos), `ferramentas.ts` e `repoSupabase` (`npm:@supabase/supabase-js@2`). Fixar em `deno.json` a versão atual do SDK (`npm view @anthropic-ai/sdk version`).
-- [ ] **Step 4: Rodar e ver passar** — 7 passed.
+- [ ] **Step 3: Implementar** `repo_fake.ts` (memória, com `ocupar()`, `recusarProximaReserva()` e arrays públicos), `ferramentas.ts` e `repoSupabase` (`npm:@supabase/supabase-js@2`). Fixar em `deno.json` a versão atual do SDK (`npm view @anthropic-ai/sdk version`).
+- [ ] **Step 4: Rodar e ver passar** — 8 passed.
 - [ ] **Step 5: Commit** — `feat(iris): ferramentas e efeitos simulados`
 
 ---
@@ -485,7 +490,7 @@ Escrever os oito por extenso seguindo os comentários (cada um monta o `repoFake
 - [ ] **Step 3: Implementar** `atendimento.ts`, `http.ts` e `iris-chat/index.ts` (responde `OPTIONS`; cria o cliente Supabase com `SUPABASE_SERVICE_ROLE_KEY`).
 - [ ] **Step 4: Rodar e ver passar** — `npx -y deno test _shared/` → todos os arquivos verdes.
 - [ ] **Step 5: Publicar a função** (exige os pré-requisitos) — `npx -y supabase functions deploy iris-chat`.
-- [ ] **Step 6: Teste de fumaça real** com a conta de teste: script `supabase/functions/_evals/fumaca.ts` (faz login com `.env.test`, cria uma conversa `simulador`, garante `iris_config` em modo `automatico`, envia "oi, quanto custa a avaliação?" e imprime as mensagens e `meta.uso`). Rodar duas vezes. Esperado: a resposta cita "R$ 100", apresenta a Íris, não contém "assistente virtual"; na 2ª execução `cache_lido > 0`.
+- [ ] **Step 6: Teste de fumaça real** com a conta de teste: script `supabase/functions/_evals/fumaca.ts` (faz login com `.env.test`, cria uma conversa `simulador`, garante `iris_config` em modo `automatico` e os itens `avaliacao`, `limpeza_de_pele` e `botox` em `iris_manual` com as regras das Global Constraints, envia "oi, quanto custa a avaliação?" e imprime as mensagens e `meta.uso`). Rodar duas vezes. Esperado: a resposta cita "R$ 100", apresenta a Íris, não contém "assistente virtual"; na 2ª execução `cache_lido > 0`.
 - [ ] **Step 7: Commit** — `feat(iris): função iris-chat com modo supervisionado e trava de rajada`
 
 ---
@@ -499,9 +504,9 @@ Escrever os oito por extenso seguindo os comentários (cada um monta o `repoFake
 **Interfaces:**
 - Consumes: `Repo`, `Efeitos`, `rotuloSlot`, `slotsLivres`.
 - Produces:
-  - `confirmarReserva(p: { repo: Repo; efeitos: Efeitos; reservaId: string; agora: Date; endereco: string; nome: string }): Promise<"confirmada" | "ja_confirmada" | "horario_perdido" | "inexistente">`
+  - `confirmarReserva(p: { repo: Repo; efeitos: Efeitos; reservaId: string; agora: Date; config: IrisConfig; nome: string }): Promise<"confirmada" | "ja_confirmada" | "horario_perdido" | "inexistente">`
   - `POST /functions/v1/iris-pagamento` — corpo `{ reserva_id: string, simulado: true }` → `200 { resultado }`; `403` se a conversa da reserva não for `simulador`; `401`/`404` como na Task 6.
-  - Texto de confirmação (mensagem `iris`/`enviada`, sem passar por aprovação — spec §6), em três parágrafos: `"Pagamento confirmado, {nome}. Sua {avaliação|limpeza de pele} está marcada para {rótulo}."` / `"{endereco}"` (omitido se vazio) / `"Um dia antes eu te envio uma confirmação."`
+  - Texto de confirmação (mensagem `iris`/`enviada`, sem passar por aprovação — spec §6), em três parágrafos: `"Pagamento confirmado, {nome}. Sua {avaliação|limpeza de pele} está marcada para {rótulo}."` / `"{config.endereco}"` (omitido se vazio) / `"Um dia antes eu te envio uma confirmação."`
   - Texto quando o horário foi perdido: `"Recebi seu pagamento, {nome}, mas esse horário acabou de ser ocupado. Seu valor fica como crédito. Posso te oferecer {rótulo 1} ou {rótulo 2}?"` + `repo.abrirPendencia({ motivo: "pagamento_apos_prazo", … })`.
 
 Regras: reserva `paga` → `"ja_confirmada"` sem efeitos (idempotência). Reserva `ativa` dentro do prazo → marca `paga`, `efeitos.criarAgendamento`, `efeitos.moverCard("agendado")`, `efeitos.etiquetar("Sinal pago")`, mensagem de confirmação. Reserva vencida: se o horário continua livre → confirma igual; senão → `"horario_perdido"`.
