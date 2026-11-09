@@ -16,3 +16,4 @@ import-zandu*.sql
 limpeza-*.sql
 _preview_seed.js
 .superpowers/
+.env.test
