@@ -198,9 +198,13 @@ create policy "iris_reservas_update" on public.iris_reservas for update using (a
 create policy "iris_reservas_delete" on public.iris_reservas for delete using (auth.uid() = user_id);
 
 -- 10. Segurar um horário de forma atômica
--- Cancela a reserva ativa anterior da conversa e tenta reservar [p_inicio, p_fim).
--- Devolve o id da reserva, ou null se a conversa não existe ou o horário está ocupado
--- (agendamento não cancelado, ou reserva paga / ativa não expirada).
+-- Tenta reservar [p_inicio, p_fim) para a conversa. Devolve o id da reserva, ou null se
+-- os limites são inválidos, a conversa não existe ou o horário está ocupado
+-- (agendamento não cancelado, ou reserva paga / ativa não expirada de outra conversa).
+-- Ordem: primeiro confere os conflitos; se houver, devolve null SEM mexer na reserva
+-- anterior da conversa. Se estiver livre, cancela a reserva ativa anterior da própria
+-- conversa e insere a nova. A reserva ativa da própria conversa nunca bloqueia a nova
+-- tentativa dela (troca de horário); uma reserva paga dela continua bloqueando.
 -- Reservas de teste (simulador) só bloqueiam outras reservas de teste.
 create or replace function public.iris_segurar_horario(
   p_conversa     uuid,
@@ -219,6 +223,10 @@ declare
   v_teste boolean;
   v_id    uuid;
 begin
+  if p_inicio is null or p_fim is null or p_data is null or p_fim <= p_inicio then
+    return null;
+  end if;
+
   select c.user_id, c.canal into v_user, v_canal
     from public.iris_conversas c
    where c.id = p_conversa;
@@ -230,19 +238,13 @@ begin
   -- uma trava por dono: duas conversas não reservam o mesmo horário ao mesmo tempo
   perform pg_advisory_xact_lock(hashtext(v_user::text));
 
-  -- (a) a reserva ativa anterior desta conversa é cancelada
-  update public.iris_reservas
-     set status = 'cancelada'
-   where conversa_id = p_conversa
-     and status = 'ativa';
-
-  -- (b) conflito com agendamento existente
+  -- (b) conflito com agendamento existente (status nulo também bloqueia)
   if exists (
     select 1
       from public.agendamentos a
      where a.user_id = v_user
        and a.data = p_data
-       and a.status <> 'cancelado'
+       and a.status is distinct from 'cancelado'
        and a.hora_inicio < p_fim
        and coalesce(
              a.hora_fim,
@@ -254,13 +256,14 @@ begin
     return null;
   end if;
 
-  -- (b) conflito com outra reserva (paga, ou ativa ainda não expirada)
+  -- (b) conflito com reserva (paga, ou ativa ainda não expirada); a ativa da própria conversa não conta
   if exists (
     select 1
       from public.iris_reservas r
      where r.user_id = v_user
        and r.data = p_data
        and (r.status = 'paga' or (r.status = 'ativa' and r.expira_em > now()))
+       and (r.conversa_id <> p_conversa or r.status = 'paga')
        and (not coalesce(r.teste, false) or v_teste)
        and r.hora_inicio < p_fim
        and r.hora_fim > p_inicio
@@ -268,7 +271,13 @@ begin
     return null;
   end if;
 
-  -- (c) livre: reserva por 30 minutos
+  -- (a) livre: a reserva ativa anterior desta conversa é cancelada
+  update public.iris_reservas
+     set status = 'cancelada'
+   where conversa_id = p_conversa
+     and status = 'ativa';
+
+  -- (c) reserva por 30 minutos
   insert into public.iris_reservas
     (user_id, conversa_id, procedimento, data, hora_inicio, hora_fim, valor_centavos, status, teste, expira_em)
   values

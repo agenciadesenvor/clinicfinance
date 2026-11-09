@@ -15,6 +15,9 @@ declare
   v_r2    uuid;
   v_r3    uuid;
   v_r4    uuid;
+  v_r5    uuid;
+  v_r6    uuid;
+  v_r7    uuid;
   v_status text;
 begin
   select id into v_user from auth.users limit 1;
@@ -54,6 +57,32 @@ begin
     select status into v_status from public.iris_reservas where id = v_r1;
     if v_status is distinct from 'cancelada' then
       raise exception 'iris-teste: a reserva anterior de A deveria estar cancelada, mas está: %', coalesce(v_status, 'inexistente');
+    end if;
+
+    -- 5. A tenta 10:30-11:00 (B segura) -> null, e o 14:00-14:30 de A continua ativo
+    v_r5 := public.iris_segurar_horario(v_a, 'Teste', v_data, '10:30', '11:00', 1000);
+    if v_r5 is not null then
+      raise exception 'iris-teste: a conversa A não deveria segurar 10:30-11:00 (B já segura)';
+    end if;
+    select status into v_status from public.iris_reservas where id = v_r4;
+    if v_status is distinct from 'ativa' then
+      raise exception 'iris-teste: a tentativa falha de A não podia derrubar o horário anterior (14:00-14:30), que está: %', coalesce(v_status, 'inexistente');
+    end if;
+
+    -- 6. A troca para 14:00-15:00 (cruza só com a própria reserva) -> uuid, e a anterior vira cancelada
+    v_r6 := public.iris_segurar_horario(v_a, 'Teste', v_data, '14:00', '15:00', 1000);
+    if v_r6 is null then
+      raise exception 'iris-teste: a conversa A deveria poder trocar para 14:00-15:00 (cruza só com a própria reserva), mas recebeu null';
+    end if;
+    select status into v_status from public.iris_reservas where id = v_r4;
+    if v_status is distinct from 'cancelada' then
+      raise exception 'iris-teste: a reserva 14:00-14:30 de A deveria estar cancelada após a troca, mas está: %', coalesce(v_status, 'inexistente');
+    end if;
+
+    -- 7. limites invertidos (11:00 -> 10:00) -> null
+    v_r7 := public.iris_segurar_horario(v_a, 'Teste', v_data, '11:00', '10:00', 1000);
+    if v_r7 is not null then
+      raise exception 'iris-teste: limites invertidos (11:00 -> 10:00) deveriam devolver null';
     end if;
   exception when others then
     -- limpa antes de repassar o erro
