@@ -1,8 +1,8 @@
 import { assert, assertEquals, assertRejects } from "@std/assert";
 import { criarRepoFake, type RepoFake } from "./repo_fake.ts";
 import type { ClienteClaude } from "./cerebro.ts";
-import { atender, type Desfecho } from "./atendimento.ts";
-import type { IrisConfig, ItemManual } from "./tipos.ts";
+import { atender, type Desfecho, pendentes } from "./atendimento.ts";
+import type { IrisConfig, ItemManual, Mensagem } from "./tipos.ts";
 
 // deno-lint-ignore no-explicit-any
 type Resp = any;
@@ -43,6 +43,9 @@ const rodar = (fake: RepoFake, c: ClienteClaude, agora: Date, texto?: string): P
   atender({ repo: fake, cliente: c, conversaId: fake.conversa.id, agora, texto });
 const daIris = (fake: RepoFake) => fake.mensagens.filter((m) => m.autor === "iris");
 const notas = (fake: RepoFake) => fake.mensagens.filter((m) => m.autor === "sistema").map((m) => m.texto);
+// deno-lint-ignore no-explicit-any
+const cobre = (m: { meta?: unknown }) => (m.meta as any)?.cobre_ate;
+const pendentesDe = (fake: RepoFake) => pendentes(fake.mensagens).map((m) => m.texto);
 // deno-lint-ignore no-explicit-any
 const ultimaUser = (c: Falso, i: number) => (c.chamadas[i].messages as any[]).at(-1).content as string;
 
@@ -128,16 +131,21 @@ Deno.test("rajada: segunda mensagem durante o processamento fica enfileirada e a
   assertEquals(fake.mensagens.map((m) => m.autor), ["paciente", "paciente", "iris"]);
 });
 
-Deno.test("rajada: no máximo 3 chamadas; a terceira é gravada mesmo com mensagem nova", async () => {
+Deno.test("rajada de 4 mensagens: a 3ª chamada grava com marcador e a 4ª mensagem é respondida depois", async () => {
   const fake = montar(QUI_22H30);
   const c = cliente([fim("r1"), fim("r2"), fim("r3"), fim("r4")], async (n) => {
-    await fake.salvarMensagem(fake.conversa.id, { autor: "paciente", texto: `extra ${n}`, status: "enviada" });
+    if (n <= 3) await fake.salvarMensagem(fake.conversa.id, { autor: "paciente", texto: `extra ${n}`, status: "enviada" });
   });
-  // A 3ª chamada grava o que voltou; a mensagem que chegou durante ela fica antes da resposta (não pendente).
   assertEquals(await rodar(fake, c, QUI_22H30, "oi"), "respondida");
-  assertEquals(c.chamadas.length, 3);
+  // 1ª e 2ª descartadas pela rajada; a 3ª é gravada cobrindo até "extra 2"; "extra 3" leva à 4ª.
+  assertEquals(c.chamadas.length, 4);
   assertEquals(ultimaUser(c, 2), "oi\n\nextra 1\n\nextra 2");
-  assertEquals(daIris(fake).map((m) => m.texto), ["r3"]);
+  // deno-lint-ignore no-explicit-any
+  assertEquals((c.chamadas[3].messages as any[]).map((m) => m.role), ["user", "assistant", "user"]);
+  assertEquals(ultimaUser(c, 3), "extra 3"); // o histórico termina na paciente, nunca na Íris
+  const id = (t: string) => fake.mensagens.find((m) => m.texto === t)!.id;
+  assertEquals(daIris(fake).map((m) => [m.texto, cobre(m)]), [["r3", id("extra 2")], ["r4", id("extra 3")]]);
+  assertEquals(pendentesDe(fake), []);
 });
 
 Deno.test("nova mensagem descarta o rascunho anterior", async () => {
@@ -160,11 +168,14 @@ Deno.test("falha da IA: nenhuma mensagem da Íris, nota de sistema, trava libera
   assertEquals(notas(fake), [
     "A Íris não conseguiu responder (falha técnica). Responda você ou peça para ela tentar de novo.",
   ]);
-  // A próxima chamada trava de novo e responde.
+  assertEquals(fake.mensagens.map(cobre).filter(Boolean), []); // bloqueio não grava marcador
+  assertEquals(pendentesDe(fake), ["oi"]);
+  // A próxima chamada, mesmo sem texto, trava de novo e chama o modelo.
   const c = cliente([fim("Oi, Camila!")]);
   assertEquals(await rodar(fake, c, QUI_22H30), "respondida");
   assertEquals(c.chamadas.length, 1);
   assertEquals(daIris(fake).map((m) => m.texto), ["Oi, Camila!"]);
+  assertEquals(pendentesDe(fake), []);
 });
 
 Deno.test("recusa: só a nota de sistema", async () => {
@@ -189,10 +200,13 @@ Deno.test("nada pendente: respondida sem chamar o modelo", async () => {
   const c = cliente([fim("não deveria sair")]);
   assertEquals(await rodar(fake, c, QUI_22H30), "respondida");
   await fake.salvarMensagem(fake.conversa.id, { autor: "paciente", texto: "oi", status: "enviada" });
-  await fake.salvarMensagem(fake.conversa.id, { autor: "iris", texto: "Oi!", status: "enviada" });
+  await fake.salvarMensagem(fake.conversa.id, { autor: "iris", texto: "Oi!", status: "enviada", meta: { cobre_ate: "msg-1" } });
+  assertEquals(await rodar(fake, c, QUI_22H30), "respondida");
+  await fake.salvarMensagem(fake.conversa.id, { autor: "paciente", texto: "obrigada", status: "enviada" });
+  await fake.salvarMensagem(fake.conversa.id, { autor: "equipe", texto: "Por nada!", status: "enviada" });
   assertEquals(await rodar(fake, c, QUI_22H30), "respondida");
   assertEquals(c.chamadas.length, 0);
-  assertEquals(fake.mensagens.length, 2);
+  assertEquals(fake.mensagens.length, 4);
 });
 
 Deno.test("sem a trava: enfileirada, mensagem gravada, nenhuma chamada", async () => {
@@ -206,12 +220,12 @@ Deno.test("sem a trava: enfileirada, mensagem gravada, nenhuma chamada", async (
 
 Deno.test("trava liberada quando o repo falha no meio do turno", async () => {
   const fake = montar(QUI_22H30);
-  const original = fake.salvarMensagem;
-  fake.salvarMensagem = (id, m) => (m.autor === "iris" ? Promise.reject(new Error("banco fora")) : original(id, m));
-  const c = cliente([fim("Oi!")]);
+  fake.salvarMensagens = () => Promise.reject(new Error("banco fora"));
+  const c = cliente([fim("Oi!\n\nTudo bem?")]);
   await assertRejects(() => rodar(fake, c, QUI_22H30, "oi"), Error, "banco fora");
   assertEquals(c.chamadas.length, 1);
   assertEquals(daIris(fake).length, 0);
+  assertEquals(pendentesDe(fake), ["oi"]);
   assert(await fake.travar(fake.conversa.id, 120), "a trava deveria estar livre");
 });
 
@@ -220,7 +234,7 @@ Deno.test("meta.uso vai na primeira mensagem do turno", async () => {
   const c = cliente([fim("Oi, Camila!\n\nComo posso ajudar?")]);
   await rodar(fake, c, QUI_22H30, "oi");
   const [a, b] = daIris(fake);
-  assertEquals(a.meta, { uso: { entrada: 10, saida: 5, cache_lido: 7, cache_escrito: 0 } });
+  assertEquals(a.meta, { uso: { entrada: 10, saida: 5, cache_lido: 7, cache_escrito: 0 }, cobre_ate: "msg-1" });
   assertEquals(b.meta, {});
   assertEquals(fake.mensagens[0].meta, {});
 
@@ -231,13 +245,13 @@ Deno.test("meta.uso vai na primeira mensagem do turno", async () => {
 
 Deno.test("reconferência após destravar responde mensagem que chegou durante a gravação", async () => {
   const fake = montar(QUI_22H30);
-  const original = fake.salvarMensagem;
+  const original = fake.salvarMensagens;
   let inserida = false;
-  fake.salvarMensagem = async (id, m) => {
-    const r = await original(id, m);
-    if (m.autor === "iris" && !inserida) {
+  fake.salvarMensagens = async (id, ms) => {
+    const r = await original(id, ms);
+    if (!inserida) {
       inserida = true;
-      await original(id, { autor: "paciente", texto: "e tem horário amanhã?", status: "enviada" });
+      await fake.salvarMensagem(id, { autor: "paciente", texto: "e tem horário amanhã?", status: "enviada" });
     }
     return r;
   };
@@ -246,7 +260,98 @@ Deno.test("reconferência após destravar responde mensagem que chegou durante a
   assertEquals(c.chamadas.length, 2);
   assert(ultimaUser(c, 1).includes("e tem horário amanhã?"));
   assertEquals(fake.mensagens.map((m) => m.autor), ["paciente", "iris", "paciente", "iris"]);
+  assertEquals(daIris(fake).map(cobre), ["msg-1", "msg-3"]);
+  assertEquals(pendentesDe(fake), []);
   assert(await fake.travar(fake.conversa.id, 120));
+});
+
+Deno.test("mensagem gravada entre a conferência de rajada e a gravação é respondida", async () => {
+  const fake = montar(QUI_22H30);
+  const original = fake.salvarMensagens;
+  let inserida = false;
+  fake.salvarMensagens = async (id, ms) => {
+    if (!inserida) {
+      inserida = true;
+      await fake.salvarMensagem(id, { autor: "paciente", texto: "chegou agora", status: "enviada" });
+    }
+    return await original(id, ms);
+  };
+  const c = cliente([fim("Oi!\n\nComo posso ajudar?"), fim("Sobre o que chegou agora: posso ajudar.")]);
+  assertEquals(await rodar(fake, c, QUI_22H30, "oi"), "respondida");
+  assertEquals(c.chamadas.length, 2);
+  // A primeira resposta cobre só "oi"; "chegou agora" fica pendente e a 2ª execução responde.
+  assertEquals(daIris(fake).map(cobre), ["msg-1", undefined, "msg-2"]);
+  assertEquals(pendentesDe(fake), []);
+});
+
+Deno.test("reconferência após destravar é limitada", async () => {
+  const fake = montar(QUI_22H30);
+  const original = fake.salvarMensagens;
+  let n = 0;
+  fake.salvarMensagens = async (id, ms) => {
+    const r = await original(id, ms);
+    await fake.salvarMensagem(id, { autor: "paciente", texto: `mais uma ${++n}`, status: "enviada" });
+    return r;
+  };
+  const c = cliente(Array.from({ length: 10 }, (_, i) => fim(`r${i + 1}`)));
+  assertEquals(await rodar(fake, c, QUI_22H30, "oi"), "respondida");
+  assertEquals(c.chamadas.length, 6); // execução inicial + 5 extras
+  assertEquals(pendentesDe(fake), ["mais uma 6"]);
+  assert(await fake.travar(fake.conversa.id, 180), "a trava deveria estar livre");
+});
+
+Deno.test("trava vencida durante o modelo: quem perdeu não grava nem solta a trava do outro", async () => {
+  const fake = montar(QUI_22H30);
+  let liberar!: () => void;
+  const segura = new Promise<void>((r) => (liberar = r));
+  let segundaNoModelo!: () => void;
+  const entrou = new Promise<void>((r) => (segundaNoModelo = r));
+  let segunda: Promise<Desfecho> | null = null;
+  const c = cliente([fim("resposta da primeira"), fim("resposta da segunda")], async (n) => {
+    if (n === 1) {
+      fake.agora = new Date(QUI_22H30.getTime() + 181_000); // a trava de 180 s venceu
+      segunda = rodar(fake, c, fake.agora, "ainda aí?");
+      await entrou; // a segunda já tem a trava e está no modelo
+    }
+    if (n === 2) {
+      segundaNoModelo();
+      await segura;
+    }
+  });
+  assertEquals(await rodar(fake, c, QUI_22H30, "oi"), "enfileirada");
+  assertEquals(daIris(fake).length, 0);
+  assertEquals(await fake.travar(fake.conversa.id, 180), null, "a trava da segunda execução foi solta");
+  liberar();
+  assertEquals(await segunda!, "respondida");
+  assertEquals(c.chamadas.length, 2);
+  assertEquals(daIris(fake).map((m) => [m.texto, cobre(m)]), [["resposta da segunda", "msg-2"]]);
+  assertEquals(pendentesDe(fake), []);
+});
+
+// pendentes: regra de cobertura
+const msg = (id: string, autor: Mensagem["autor"], status: Mensagem["status"] = "enviada", meta: unknown = {}): Mensagem =>
+  ({ id, autor, texto: id, status, created_at: "", meta });
+const ids = (ms: Mensagem[]) => pendentes(ms).map((m) => m.id);
+
+Deno.test("pendentes: o que vem depois do marcador", () => {
+  assertEquals(ids([msg("p1", "paciente"), msg("p2", "paciente"), msg("i1", "iris", "enviada", { cobre_ate: "p1" })]), ["p2"]);
+  assertEquals(ids([msg("p1", "paciente"), msg("i1", "iris", "enviada", { cobre_ate: "p1" }), msg("p2", "paciente")]), ["p2"]);
+});
+Deno.test("pendentes: mensagem da equipe cobre tudo antes dela", () => {
+  assertEquals(ids([msg("p1", "paciente"), msg("e1", "equipe"), msg("p2", "paciente")]), ["p2"]);
+  assertEquals(ids([msg("p1", "paciente"), msg("e1", "equipe", "rascunho")]), ["p1"]);
+});
+Deno.test("pendentes: rascunho e descartada não cobrem", () => {
+  assertEquals(ids([msg("p1", "paciente"), msg("i1", "iris", "rascunho", { cobre_ate: "p1" })]), ["p1"]);
+  assertEquals(ids([msg("p1", "paciente"), msg("i1", "iris", "descartada", { cobre_ate: "p1" })]), ["p1"]);
+});
+Deno.test("pendentes: marcador com id desconhecido cobre até a própria mensagem", () => {
+  assertEquals(ids([msg("p1", "paciente"), msg("i1", "iris", "enviada", { cobre_ate: "sumiu" }), msg("p2", "paciente")]), ["p2"]);
+});
+Deno.test("pendentes: nada pendente", () => {
+  assertEquals(ids([]), []);
+  assertEquals(ids([msg("s1", "sistema"), msg("i1", "iris", "enviada", { cobre_ate: "x" })]), []);
+  assertEquals(ids([msg("p1", "paciente", "descartada")]), []);
 });
 
 Deno.test("canal que não é o simulador: erro antes de gravar qualquer coisa", async () => {

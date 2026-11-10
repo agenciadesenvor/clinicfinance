@@ -20,13 +20,17 @@ export interface Repo {
   ocupados(userId: string, de: string, ate: string, opts: OpcoesOcupados): Promise<Ocupado[]>;
   segurar(conversaId: string, proc: Procedimento, s: Slot, valorCentavos: number): Promise<Reserva | null>;
   salvarMensagem(conversaId: string, m: NovaMensagem): Promise<string>;
+  // Várias mensagens num único insert (os textos de uma resposta entram juntos ou nenhum entra).
+  salvarMensagens(conversaId: string, ms: NovaMensagem[]): Promise<string[]>;
   descartarRascunhos(conversaId: string): Promise<void>;
   atualizarConversa(
     conversaId: string, campos: Partial<Pick<Conversa, "estado" | "equipe_desde" | "qualificacao">>,
   ): Promise<void>;
   abrirPendencia(conversaId: string, p: { motivo: string; resumo: string; urgente: boolean }): Promise<void>;
-  travar(conversaId: string, segundos: number): Promise<boolean>;
-  destravar(conversaId: string): Promise<void>;
+  // Trava com dono: travar devolve um token; renovar/destravar só agem se o token ainda for o dono.
+  travar(conversaId: string, segundos: number): Promise<string | null>;
+  renovar(conversaId: string, token: string, segundos: number): Promise<string | null>;
+  destravar(conversaId: string, token: string): Promise<void>;
   reserva(id: string): Promise<Reserva | null>;
   marcarReserva(id: string, status: Reserva["status"]): Promise<void>;
 }
@@ -123,7 +127,7 @@ export function repoSupabase(db: SupabaseClient): Repo {
           procedimento_chave: p.procedimento_chave ?? "", descricao: p.descricao, valido_ate: p.valido_ate,
         })),
         mensagens: (ler(men, "mensagens") ?? []).map((m: Linha): Mensagem => ({
-          id: m.id, autor: m.autor, texto: m.texto, status: m.status, created_at: m.created_at,
+          id: m.id, autor: m.autor, texto: m.texto, status: m.status, created_at: m.created_at, meta: m.meta ?? {},
         })),
         pendencias: (ler(pen, "pendencias") ?? []).map((p: Linha): Pendencia => ({
           id: p.id, motivo: p.motivo ?? "", resumo: p.resumo ?? "", urgente: !!p.urgente, status: p.status,
@@ -182,6 +186,20 @@ export function repoSupabase(db: SupabaseClient): Repo {
       return l!.id;
     },
 
+    async salvarMensagens(conversaId, ms) {
+      if (ms.length === 0) return [];
+      const user_id = await donoDe(conversaId);
+      const linhas = ler(
+        await db.from("iris_mensagens").insert(ms.map((m) => ({
+          user_id, conversa_id: conversaId, autor: m.autor, texto: m.texto, status: m.status,
+          fora_expediente: m.fora_expediente ?? false, meta: m.meta ?? {},
+        }))).select("id"),
+        "salvar mensagens",
+      );
+      ler(await db.from("iris_conversas").update({ ultima_em: new Date().toISOString() }).eq("id", conversaId), "ultima_em");
+      return (linhas ?? []).map((l: Linha) => l.id as string);
+    },
+
     async descartarRascunhos(conversaId) {
       ler(
         await db.from("iris_mensagens").update({ status: "descartada" }).eq("conversa_id", conversaId).eq("status", "rascunho"),
@@ -203,6 +221,7 @@ export function repoSupabase(db: SupabaseClient): Repo {
       );
     },
 
+    // O token é o próprio processando_ate gravado (ISO); sem mudança de schema.
     async travar(conversaId, segundos) {
       const agora = new Date();
       const ate = new Date(agora.getTime() + segundos * 1000).toISOString();
@@ -211,11 +230,25 @@ export function repoSupabase(db: SupabaseClient): Repo {
           .or(`processando_ate.is.null,processando_ate.lt.${agora.toISOString()}`).select("id"),
         "travar",
       );
-      return (linhas?.length ?? 0) > 0;
+      return (linhas?.length ?? 0) > 0 ? ate : null;
     },
 
-    async destravar(conversaId) {
-      ler(await db.from("iris_conversas").update({ processando_ate: null }).eq("id", conversaId), "destravar");
+    async renovar(conversaId, token, segundos) {
+      const ate = new Date(Date.now() + segundos * 1000).toISOString();
+      const linhas = ler(
+        await db.from("iris_conversas").update({ processando_ate: ate }).eq("id", conversaId)
+          .eq("processando_ate", token).select("id"),
+        "renovar",
+      );
+      return (linhas?.length ?? 0) > 0 ? ate : null;
+    },
+
+    async destravar(conversaId, token) {
+      ler(
+        await db.from("iris_conversas").update({ processando_ate: null }).eq("id", conversaId)
+          .eq("processando_ate", token),
+        "destravar",
+      );
     },
 
     async reserva(id) {

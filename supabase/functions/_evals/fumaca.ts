@@ -33,15 +33,15 @@ checar(
   await db.from("iris_manual").upsert([
     {
       user_id: uid, chave: "avaliacao", nome: "Avaliação", informa_preco: true, preco_texto: "R$ 100",
-      duracao_min: 30, agenda_direto: true, sinal_centavos: 10000,
+      duracao_min: 30, agenda_direto: true, sinal_centavos: 10000, aprovado: true,
     },
     {
       user_id: uid, chave: "limpeza_de_pele", nome: "Limpeza de pele", informa_preco: true, preco_texto: "R$ 130",
-      duracao_min: 60, agenda_direto: true, sinal_centavos: 6500,
+      duracao_min: 60, agenda_direto: true, sinal_centavos: 6500, aprovado: true,
     },
     {
       user_id: uid, chave: "botox", nome: "Botox", informa_preco: true,
-      preco_texto: "A partir de R$ 1.000, depende das áreas", agenda_direto: false,
+      preco_texto: "A partir de R$ 1.000, depende das áreas", agenda_direto: false, aprovado: true,
     },
   ], { onConflict: "user_id,chave" }),
   "iris_manual",

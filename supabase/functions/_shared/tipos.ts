@@ -24,7 +24,7 @@ export interface Conversa {
 }
 export interface Mensagem {
   id: string; autor: "paciente" | "iris" | "equipe" | "sistema"; texto: string;
-  status: "rascunho" | "enviada" | "descartada"; created_at: string;
+  status: "rascunho" | "enviada" | "descartada"; created_at: string; meta?: unknown;
 }
 export interface Pendencia { id: string; motivo: string; resumo: string; urgente: boolean; status: "aberta" | "resolvida" }
 export interface Reserva {

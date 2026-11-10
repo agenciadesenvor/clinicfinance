@@ -6,6 +6,8 @@ import { cors, json, usuario } from "../_shared/http.ts";
 import { repoSupabase } from "../_shared/repo.ts";
 
 const MAX_TEXTO = 4000;
+const MAX_CORPO = 20_000; // bytes
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 Deno.serve(async (req) => {
   const h = cors(req);
@@ -15,14 +17,18 @@ Deno.serve(async (req) => {
     const uid = await usuario(req);
     if (!uid) return json({ erro: "nao_autenticado" }, 401, h);
 
+    // Corpo grande é recusado antes de ler (pelo cabeçalho) e depois de ler (pelo tamanho real).
+    if (Number(req.headers.get("content-length") ?? 0) > MAX_CORPO) return json({ erro: "corpo_grande" }, 400, h);
+    const bruto = await req.text();
+    if (new TextEncoder().encode(bruto).length > MAX_CORPO) return json({ erro: "corpo_grande" }, 400, h);
     let corpo: unknown;
     try {
-      corpo = await req.json();
+      corpo = JSON.parse(bruto);
     } catch {
       return json({ erro: "json_invalido" }, 400, h);
     }
     const { conversa_id, texto } = (corpo ?? {}) as Record<string, unknown>;
-    if (typeof conversa_id !== "string" || !conversa_id) return json({ erro: "conversa_id_invalido" }, 400, h);
+    if (typeof conversa_id !== "string" || !UUID.test(conversa_id)) return json({ erro: "conversa_id_invalido" }, 400, h);
     if (texto !== undefined && (typeof texto !== "string" || !texto.trim() || texto.length > MAX_TEXTO)) {
       return json({ erro: "texto_invalido" }, 400, h);
     }

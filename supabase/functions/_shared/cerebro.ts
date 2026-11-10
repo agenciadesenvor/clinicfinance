@@ -8,7 +8,8 @@ export interface ClienteClaude {
 }
 
 export function clienteAnthropic(): ClienteClaude {
-  const client = new Anthropic({ timeout: 60_000 }); // lê ANTHROPIC_API_KEY; retries padrão do SDK
+  // Lê ANTHROPIC_API_KEY. Uma nova tentativa só: uma chamada fica em ~2 min, dentro da trava de 180 s.
+  const client = new Anthropic({ timeout: 60_000, maxRetries: 1 });
   // Os tipos do SDK não conhecem todos os campos (fallbacks, output_config); o formato no fio é o que vale.
   return { criar: (params) => client.beta.messages.create(params as never) as Promise<Anthropic.Beta.BetaMessage> };
 }

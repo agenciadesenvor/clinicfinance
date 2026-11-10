@@ -41,10 +41,21 @@ export function criarRepoFake(inicial: InicialFake = {}) {
     pendencias: [] as Pendencia[],
     reservas: [] as Reserva[],
     agendamentos: [] as Ocupado[],
-    processandoAte: null as number | null,
+    trava: null as string | null, // token = processando_ate em ISO, como no Supabase
     recusar: false,
     seq: 0,
   };
+
+  function gravar(m: NovaMensagem): string {
+    const n = estado.mensagens.length + 1;
+    const msg: MensagemFake = {
+      id: `msg-${n}`, autor: m.autor, texto: m.texto, status: m.status,
+      created_at: new Date(fake.agora.getTime() + n).toISOString(), // estritamente crescente
+      fora_expediente: m.fora_expediente ?? false, meta: m.meta ?? {},
+    };
+    estado.mensagens.push(msg);
+    return msg.id;
+  }
 
   const repo: Repo = {
     carregar(id) {
@@ -102,14 +113,11 @@ export function criarRepoFake(inicial: InicialFake = {}) {
     },
 
     salvarMensagem(_id, m: NovaMensagem) {
-      const n = estado.mensagens.length + 1;
-      const msg: MensagemFake = {
-        id: `msg-${n}`, autor: m.autor, texto: m.texto, status: m.status,
-        created_at: new Date(fake.agora.getTime() + n).toISOString(), // estritamente crescente
-        fora_expediente: m.fora_expediente ?? false, meta: m.meta ?? {},
-      };
-      estado.mensagens.push(msg);
-      return Promise.resolve(msg.id);
+      return Promise.resolve(gravar(m));
+    },
+
+    salvarMensagens(_id, ms: NovaMensagem[]) {
+      return Promise.resolve(ms.map(gravar));
     },
 
     descartarRascunhos() {
@@ -129,12 +137,21 @@ export function criarRepoFake(inicial: InicialFake = {}) {
 
     travar(_id, segundos) {
       const t = fake.agora.getTime();
-      if (estado.processandoAte !== null && estado.processandoAte >= t) return Promise.resolve(false);
-      estado.processandoAte = t + segundos * 1000;
-      return Promise.resolve(true);
+      if (estado.trava !== null && Date.parse(estado.trava) >= t) return Promise.resolve(null);
+      estado.trava = new Date(t + segundos * 1000).toISOString();
+      return Promise.resolve(estado.trava);
     },
 
-    destravar() { estado.processandoAte = null; return Promise.resolve(); },
+    renovar(_id, token, segundos) {
+      if (estado.trava !== token) return Promise.resolve(null);
+      estado.trava = new Date(fake.agora.getTime() + segundos * 1000).toISOString();
+      return Promise.resolve(estado.trava);
+    },
+
+    destravar(_id, token) {
+      if (estado.trava === token) estado.trava = null;
+      return Promise.resolve();
+    },
 
     reserva(id) { return Promise.resolve(estado.reservas.find((r) => r.id === id) ?? null); },
 
