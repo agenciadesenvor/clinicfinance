@@ -26,6 +26,8 @@ export const MAX_ITERACOES = 6;
 export async function responder(p: {
   ctx: Ctx; systemEstavel: string; systemContexto: string;
   historico: { role: "user" | "assistant"; content: string }[]; autorizados: number[]; cliente: ClienteClaude;
+  // Consultado antes de cada chamada; falso = não seguir (nem chamar o modelo nem rodar mais ferramentas).
+  antesDeCadaChamada?: () => Promise<boolean>;
 }): Promise<Resultado> {
   const uso = { entrada: 0, saida: 0, cache_lido: 0, cache_escrito: 0 };
   const bloquear = (bloqueio: Bloqueio): Resultado => ({ textos: [], bloqueio, uso });
@@ -38,6 +40,7 @@ export async function responder(p: {
   const messages: any[] = p.historico.map((m) => ({ role: m.role, content: m.content }));
 
   for (let i = 1; i <= MAX_ITERACOES; i++) {
+    if (p.antesDeCadaChamada && !(await p.antesDeCadaChamada())) return bloquear("erro_api");
     let r: Anthropic.Beta.BetaMessage;
     try {
       r = await p.cliente.criar({

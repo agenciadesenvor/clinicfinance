@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { agendamentoParaOcupado } from "./repo.ts";
+import { agendamentoParaOcupado, linhasDeMensagens } from "./repo.ts";
 import { criarRepoFake } from "./repo_fake.ts";
 
 Deno.test("agendamento sem hora de início não bloqueia", () => {
@@ -32,4 +32,21 @@ Deno.test("fake: trava com dono; token antigo não renova nem destrava", async (
   await fake.destravar(id, t1!);
   assertEquals(await fake.travar(id, 180), null, "token antigo soltou a trava");
   assertEquals(typeof (await fake.renovar(id, t2!, 180)), "string");
+});
+
+Deno.test("linhasDeMensagens: created_at estritamente crescente na ordem e campos preservados", () => {
+  const base = new Date("2026-11-13T01:30:00.000Z");
+  const linhas = linhasDeMensagens("c1", "u1", [
+    { autor: "iris", texto: "a", status: "enviada", fora_expediente: true, meta: { uso: 1, cobre_ate: "p1" } },
+    { autor: "iris", texto: "b", status: "enviada", fora_expediente: true },
+    { autor: "iris", texto: "c", status: "rascunho" },
+  ], base);
+  assertEquals(linhas.map((l) => l.created_at), [
+    "2026-11-13T01:30:00.000Z", "2026-11-13T01:30:00.001Z", "2026-11-13T01:30:00.002Z",
+  ]);
+  assertEquals(linhas.map((l) => [l.user_id, l.conversa_id, l.autor, l.texto, l.status, l.fora_expediente, l.meta]), [
+    ["u1", "c1", "iris", "a", "enviada", true, { uso: 1, cobre_ate: "p1" }],
+    ["u1", "c1", "iris", "b", "enviada", true, {}],
+    ["u1", "c1", "iris", "c", "rascunho", false, {}],
+  ]);
 });

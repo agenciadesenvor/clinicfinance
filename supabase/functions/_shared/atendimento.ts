@@ -119,7 +119,10 @@ async function secaoTravada(p: Turno): Promise<{ desfecho: Desfecho; vistas: Set
         systemContexto: montarContexto({ agora, conversa, pendencias: c.pendencias, reserva: c.reserva, canal: conversa.canal }),
         historico: montarHistorico(emOrdemDeResposta(c.mensagens)),
         autorizados: valoresAutorizados(c.manual, c.promocoes, hoje),
+        // Renova antes de cada chamada ao modelo: quem perdeu a trava para sem rodar mais ferramentas.
+        antesDeCadaChamada: renovar,
       });
+      if (token === null) return { desfecho: "enfileirada", vistas };
 
       // Rajada: se a paciente escreveu de novo enquanto o modelo pensava, a resposta já está velha.
       // Descarta os textos (notas das ferramentas ficam) e responde de novo com tudo.
@@ -141,29 +144,24 @@ async function persistir(
   repo: Repo, id: string, r: Resultado, config: IrisConfig, agora: Date, cobre_ate: string,
 ): Promise<Desfecho> {
   const fora = foraDoExpediente(agora, config.horarios);
-  const nota = (meta?: unknown) =>
-    repo.salvarMensagem(id, { autor: "sistema", texto: NOTAS[r.bloqueio!], status: "enviada", meta });
-  // Todos os textos num só insert; a primeira leva o uso e até onde a resposta cobre.
-  const textos = (status: NovaMensagem["status"], extra: Partial<NovaMensagem> = {}) =>
-    repo.salvarMensagens(
-      id,
-      r.textos.map((texto, i) => ({ autor: "iris", texto, status, ...extra, meta: i === 0 ? { uso: r.uso, cobre_ate } : undefined })),
-    );
+  const nota = (meta?: unknown): NovaMensagem => ({ autor: "sistema", texto: NOTAS[r.bloqueio!], status: "enviada", meta });
+  // Os textos (e a nota, se houver) num só insert, na ordem; o primeiro texto leva o uso e a cobertura.
+  const textos = (status: NovaMensagem["status"], extra: Partial<NovaMensagem> = {}): NovaMensagem[] =>
+    r.textos.map((texto, i) => ({ autor: "iris", texto, status, ...extra, meta: i === 0 ? { uso: r.uso, cobre_ate } : undefined }));
 
   if (r.bloqueio === null) {
     // Supervisionado em horário comercial: a equipe revisa antes. Fora do expediente não há quem
     // revise, então sai direto (marcado como fora do expediente).
     const rascunho = config.modo === "supervisionado" && !fora;
-    await textos(rascunho ? "rascunho" : "enviada", { fora_expediente: fora });
+    await repo.salvarMensagens(id, textos(rascunho ? "rascunho" : "enviada", { fora_expediente: fora }));
     return rascunho ? "rascunho" : "respondida";
   }
   if (r.bloqueio === "valor_nao_autorizado") {
     // Valor fora do Manual nunca sai sozinho, em nenhum modo.
-    await textos("rascunho");
-    await nota();
+    await repo.salvarMensagens(id, [...textos("rascunho"), nota()]);
     return "rascunho";
   }
   // Sem marcador: a mensagem continua pendente e a próxima chamada tenta de novo.
-  await nota({ uso: r.uso });
+  await repo.salvarMensagem(id, nota({ uso: r.uso }));
   return "bloqueada";
 }

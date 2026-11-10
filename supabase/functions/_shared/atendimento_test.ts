@@ -360,3 +360,40 @@ Deno.test("canal que não é o simulador: erro antes de gravar qualquer coisa", 
   await assertRejects(() => rodar(fake, c, QUI_22H30, "oi"), Error, "canal não suportado nesta fase");
   assertEquals([fake.mensagens.length, c.chamadas.length], [0, 0]);
 });
+
+Deno.test("trava perdida entre duas chamadas da mesma rodada: enfileirada, nada gravado", async () => {
+  const fake = montar(QUI_22H30);
+  let outra: string | null = null;
+  const consulta = { procedimento: "avaliacao", a_partir_de: null, periodo: "qualquer" };
+  const c = cliente([
+    { stop_reason: "tool_use", content: [{ type: "tool_use", id: "tu_1", name: "consultar_horarios", input: consulta }], usage: USO },
+    fim("não deveria sair"),
+  ], async (n) => {
+    if (n === 1) {
+      fake.agora = new Date(QUI_22H30.getTime() + 181_000);
+      outra = await fake.travar(fake.conversa.id, 180); // outra execução assume
+    }
+  });
+  assertEquals(await rodar(fake, c, QUI_22H30, "oi"), "enfileirada");
+  assert(outra !== null);
+  assertEquals(c.chamadas.length, 1);
+  assertEquals(daIris(fake).length, 0);
+  assertEquals(notas(fake), []);
+  assertEquals(await fake.travar(fake.conversa.id, 180), null, "a trava da outra execução foi solta");
+  assertEquals(pendentesDe(fake), ["oi"]);
+});
+
+Deno.test("trava perdida depois da última chamada: a renovação antes de gravar impede a gravação", async () => {
+  const fake = montar(QUI_22H30);
+  let outra: string | null = null;
+  const c = cliente([fim("não deveria sair")], async () => {
+    fake.agora = new Date(QUI_22H30.getTime() + 181_000);
+    outra = await fake.travar(fake.conversa.id, 180);
+  });
+  assertEquals(await rodar(fake, c, QUI_22H30, "oi"), "enfileirada");
+  assert(outra !== null);
+  assertEquals(c.chamadas.length, 1);
+  assertEquals(daIris(fake).length, 0);
+  assertEquals(notas(fake), []);
+  assertEquals(await fake.travar(fake.conversa.id, 180), null);
+});

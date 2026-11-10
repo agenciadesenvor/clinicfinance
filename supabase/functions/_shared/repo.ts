@@ -80,6 +80,16 @@ export function agendamentoParaOcupado(a: Linha): Ocupado | null {
   return { data: a.data, inicio: hhmm(a.hora_inicio)!, fim: hhmm(a.hora_fim), procedimento: a.procedimento ?? null };
 }
 
+// Linhas de iris_mensagens com created_at explícito e estritamente crescente na ordem dada
+// (o default now() repete o mesmo instante num insert de várias linhas).
+export function linhasDeMensagens(conversaId: string, userId: string, ms: NovaMensagem[], base: Date) {
+  return ms.map((m, i) => ({
+    user_id: userId, conversa_id: conversaId, autor: m.autor, texto: m.texto, status: m.status,
+    fora_expediente: m.fora_expediente ?? false, meta: m.meta ?? {},
+    created_at: new Date(base.getTime() + i).toISOString(),
+  }));
+}
+
 export function repoSupabase(db: SupabaseClient): Repo {
   // Todo write precisa do user_id da conversa (as tabelas filhas exigem).
   async function donoDe(conversaId: string): Promise<string> {
@@ -97,7 +107,8 @@ export function repoSupabase(db: SupabaseClient): Repo {
         db.from("iris_config").select("*").eq("user_id", c.user_id).maybeSingle(),
         db.from("iris_manual").select("*").eq("user_id", c.user_id).order("ordem", { ascending: true }),
         db.from("iris_promocoes").select("*").eq("user_id", c.user_id),
-        db.from("iris_mensagens").select("*").eq("conversa_id", conversaId).order("created_at", { ascending: true }),
+        db.from("iris_mensagens").select("*").eq("conversa_id", conversaId)
+          .order("created_at", { ascending: true }).order("id", { ascending: true }), // desempate determinístico
         db.from("iris_pendencias").select("*").eq("conversa_id", conversaId).eq("status", "aberta")
           .order("created_at", { ascending: true }),
         db.from("iris_reservas").select("*").eq("conversa_id", conversaId).eq("status", "ativa").gt("expira_em", agora)
@@ -176,10 +187,8 @@ export function repoSupabase(db: SupabaseClient): Repo {
     async salvarMensagem(conversaId, m) {
       const user_id = await donoDe(conversaId);
       const l = ler(
-        await db.from("iris_mensagens").insert({
-          user_id, conversa_id: conversaId, autor: m.autor, texto: m.texto, status: m.status,
-          fora_expediente: m.fora_expediente ?? false, meta: m.meta ?? {},
-        }).select("id").single(),
+        await db.from("iris_mensagens").insert(linhasDeMensagens(conversaId, user_id, [m], new Date())[0])
+          .select("id").single(),
         "salvar mensagem",
       );
       ler(await db.from("iris_conversas").update({ ultima_em: new Date().toISOString() }).eq("id", conversaId), "ultima_em");
@@ -190,10 +199,7 @@ export function repoSupabase(db: SupabaseClient): Repo {
       if (ms.length === 0) return [];
       const user_id = await donoDe(conversaId);
       const linhas = ler(
-        await db.from("iris_mensagens").insert(ms.map((m) => ({
-          user_id, conversa_id: conversaId, autor: m.autor, texto: m.texto, status: m.status,
-          fora_expediente: m.fora_expediente ?? false, meta: m.meta ?? {},
-        }))).select("id"),
+        await db.from("iris_mensagens").insert(linhasDeMensagens(conversaId, user_id, ms, new Date())).select("id"),
         "salvar mensagens",
       );
       ler(await db.from("iris_conversas").update({ ultima_em: new Date().toISOString() }).eq("id", conversaId), "ultima_em");

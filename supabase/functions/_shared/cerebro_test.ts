@@ -203,3 +203,16 @@ Deno.test("falha na 2ª chamada depois de uma ferramenta: erro_api e uso da 1ª 
   assertEquals([r.bloqueio, r.textos], ["erro_api", []]);
   assertEquals(r.uso, { entrada: 10, saida: 5, cache_lido: 0, cache_escrito: 0 });
 });
+
+Deno.test("antesDeCadaChamada falso: para antes da chamada, sem mais ferramentas", async () => {
+  const PASSAR = { motivo: "duvida_clinica", resumo: "dúvida", urgente: false };
+  const c = fila([usa("passar_para_dra", PASSAR, "tu_1"), usa("passar_para_dra", PASSAR, "tu_2"), fim("ok")]);
+  const p = base(c);
+  let consultas = 0;
+  const r = await responder({ ...p, antesDeCadaChamada: () => Promise.resolve(++consultas < 2) });
+  assertEquals(consultas, 2);
+  assertEquals(c.chamadas.length, 1);
+  // deno-lint-ignore no-explicit-any
+  assertEquals((p.ctx.repo as any).pendencias.length, 1); // só a ferramenta da 1ª resposta rodou
+  assertEquals([r.textos, r.bloqueio], [[], "erro_api"]);
+});
