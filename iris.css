@@ -1,0 +1,218 @@
+/* ============================================================
+   ClinicFinance — iris.css
+   Íris: abas, Manual, Promoções e Configurações (prefixo iris-)
+   ============================================================ */
+
+/* item de menu escondido até a Íris ser liberada */
+.nav-item[hidden] { display: none !important; }
+
+/* menu compacto em telas baixas: com a Íris são 13 itens, precisam caber sem rolar */
+@media (max-height: 820px) and (min-width: 769px) {
+  .sidebar.collapsed .nav-item { width: 38px; height: 38px; }
+  .sidebar.collapsed .sb-act { width: 38px; height: 38px; }
+}
+
+/* ---------- Abas ---------- */
+.iris-tabs { margin-bottom: 24px; }
+.iris-body { display: flex; flex-direction: column; gap: 20px; }
+
+/* ---------- Títulos ---------- */
+.iris-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.iris-h2 {
+  font-family: var(--font-display); font-size: 21px; font-weight: 500;
+  letter-spacing: -0.01em; line-height: 1.2; color: var(--text-1);
+}
+.iris-h3 { font-size: 14.5px; font-weight: 650; color: var(--text-1); margin-top: 28px; }
+.iris-sub { font-size: 13.5px; color: var(--text-2); margin-top: 4px; line-height: 1.5; max-width: 62ch; }
+.iris-count {
+  font-size: 13px; font-weight: 600; color: var(--text-2);
+  background: var(--card); border: 1px solid var(--border-light); border-radius: 999px;
+  padding: 6px 14px; white-space: nowrap;
+}
+
+/* ---------- Aviso fixo do Manual ---------- */
+.iris-aviso {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 14px 18px; border-radius: 16px;
+  background: #F5EAD8; border: 1px solid #EAD9BC; color: #6E5230;
+  font-size: 13.5px; font-weight: 500; line-height: 1.5;
+}
+.iris-aviso svg { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; color: #9A7238; }
+
+/* ---------- Cartões ---------- */
+.iris-card {
+  background: var(--card); border: 1px solid var(--border-light); box-shadow: var(--shadow-sm);
+  border-radius: var(--d2-radius, 26px); padding: 26px 28px; min-width: 0;
+}
+
+/* ---------- Manual: grade de itens ---------- */
+.iris-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.iris-item {
+  display: flex; flex-direction: column; gap: 6px; text-align: left; min-width: 0;
+  padding: 18px 20px; border-radius: 20px;
+  background: var(--card); border: 1px solid var(--border-light); box-shadow: var(--shadow-sm);
+  color: var(--text-1); font: inherit; cursor: pointer; transition: var(--transition);
+}
+.iris-item:hover { border-color: var(--border); box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.iris-item:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; border-radius: 20px; }
+.iris-item-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 2px; }
+.iris-item-nome { font-size: 15px; font-weight: 650; letter-spacing: -0.1px; line-height: 1.35; }
+.iris-item-linha { font-size: 13.5px; color: var(--text-1); line-height: 1.45; }
+.iris-item-meta { font-size: 12.5px; color: var(--text-2); line-height: 1.45; }
+
+.iris-chip { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; flex-shrink: 0; }
+.iris-chip svg { width: 12px; height: 12px; stroke-width: 2.6; }
+.iris-chip--nota { margin-left: 6px; font-size: 10.5px; padding: 2px 8px; vertical-align: 1px; }
+
+/* ---------- Formulários ---------- */
+.iris-form { display: flex; flex-direction: column; gap: 22px; }
+.iris-fs { border: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.iris-legend {
+  font-size: 11.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--text-3); padding: 0; margin: 0;
+  float: left; width: 100%; /* legend comum (fora da borda) vira item do flex */
+}
+.iris-fs + .iris-fs { border-top: 1px solid var(--border-light); padding-top: 20px; }
+.iris-form-grid { gap: 14px 16px; }
+.iris-form .form-actions { margin-top: 0; display: flex; justify-content: flex-end; gap: 10px; }
+.iris-erro { font-size: 12.5px; font-weight: 500; color: var(--red); line-height: 1.4; }
+.iris-erro:empty { display: none; }
+.form-control[aria-invalid="true"], .cf-datepicker-input[aria-invalid="true"] { border-color: var(--red); background: var(--red-light); }
+.form-control:disabled { opacity: .5; cursor: not-allowed; }
+.iris-hint-off { color: var(--text-2); font-style: italic; }
+.iris-hint-off[hidden] { display: none; }
+
+.iris-aprovar {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 16px 18px; border-radius: 16px;
+  background: var(--bg-2); border: 1px solid var(--border-light);
+}
+.iris-aprovar .iris-switch-label { font-weight: 650; }
+
+/* ---------- Interruptor ---------- */
+.iris-switch { position: relative; display: inline-flex; align-items: center; gap: 10px; cursor: pointer; width: fit-content; user-select: none; }
+.iris-switch input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; pointer-events: none; }
+.iris-switch-track {
+  position: relative; flex-shrink: 0; width: 38px; height: 22px; border-radius: 999px;
+  background: #D8CCBB; transition: background-color .2s ease;
+}
+.iris-switch-track::after {
+  content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%;
+  background: #fff; box-shadow: 0 1px 3px rgba(62,50,42,.25); transition: transform .2s ease;
+}
+.iris-switch input:checked + .iris-switch-track { background: var(--accent); }
+.iris-switch input:checked + .iris-switch-track::after { transform: translateX(16px); }
+.iris-switch input:focus-visible + .iris-switch-track { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.iris-switch-label { font-size: 13.5px; font-weight: 500; color: var(--text-1); }
+
+/* ---------- Promoções ---------- */
+.iris-card.iris-promos { list-style: none; padding: 6px 0; }
+.iris-promo {
+  display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 16px;
+  padding: 16px 24px; border-bottom: 1px solid var(--border-light);
+}
+.iris-promo:last-child { border-bottom: none; }
+.iris-promo-txt { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.iris-promo-proc { font-size: 14px; font-weight: 650; color: var(--text-1); }
+.iris-promo-desc { font-size: 13.5px; color: var(--text-2); line-height: 1.45; overflow-wrap: anywhere; }
+.iris-promo-fim { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
+.iris-promo-data { font-size: 13px; color: var(--text-2); white-space: nowrap; }
+.iris-promo.is-vencida .iris-promo-txt,
+.iris-promo.is-vencida .iris-promo-data { opacity: .55; }
+
+/* ---------- Configurações: modo ---------- */
+.iris-modos { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; }
+.iris-modo { position: relative; cursor: pointer; }
+.iris-modo input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.iris-modo-box {
+  display: flex; flex-direction: column; gap: 4px; height: 100%;
+  padding: 16px 18px 16px 48px; border-radius: 18px; position: relative;
+  border: 1px solid var(--border); background: var(--card); transition: var(--transition);
+}
+.iris-modo-box::before {
+  content: ''; position: absolute; left: 18px; top: 18px; width: 18px; height: 18px; border-radius: 50%;
+  border: 1.5px solid var(--border); background: var(--card); transition: var(--transition);
+}
+.iris-modo:hover .iris-modo-box { border-color: var(--accent); }
+.iris-modo input:checked + .iris-modo-box { border-color: var(--accent); background: var(--accent-light); box-shadow: inset 0 0 0 1px var(--accent); }
+.iris-modo input:checked + .iris-modo-box::before { border-color: var(--accent); background: var(--accent); box-shadow: inset 0 0 0 4px var(--card); }
+.iris-modo input:focus-visible + .iris-modo-box { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.iris-modo-t { font-size: 14.5px; font-weight: 650; color: var(--text-1); }
+.iris-modo-d { font-size: 13px; color: var(--text-2); line-height: 1.45; }
+.iris-nota { margin-top: 14px; }
+
+/* ---------- Configurações: horários ---------- */
+.iris-dias { display: flex; flex-direction: column; margin-top: 16px; }
+.iris-dia {
+  display: grid; grid-template-columns: 110px auto 1fr; align-items: center; gap: 8px 20px;
+  padding: 10px 0; border-bottom: 1px solid var(--border-light);
+}
+.iris-dia:last-child { border-bottom: none; }
+.iris-dia .iris-erro { grid-column: 2 / -1; }
+.iris-dia-nome { font-size: 14px; font-weight: 600; color: var(--text-1); }
+.iris-dia-nota { font-size: 12.5px; color: var(--text-2); }
+.iris-dia.is-fechado .iris-faixa { opacity: .45; }
+.iris-dia.is-fechado .iris-dia-nome { color: var(--text-2); }
+.iris-faixa { display: flex; align-items: center; gap: 8px; }
+.iris-as { font-size: 13px; color: var(--text-2); }
+.form-control.iris-hora { width: 112px; padding: 8px 10px; font-variant-numeric: tabular-nums; }
+
+.iris-exc {
+  display: grid; grid-template-columns: minmax(150px, 180px) minmax(140px, 160px) auto auto; align-items: center; gap: 10px 14px;
+  padding: 10px 0; border-bottom: 1px solid var(--border-light); justify-content: start;
+}
+.iris-exc:first-child { margin-top: 10px; }
+.iris-exc .iris-erro { grid-column: 1 / -1; }
+.iris-exc .form-control { padding-top: 8px; padding-bottom: 8px; }
+.iris-exc .cf-datepicker-input { padding-top: 8px; padding-bottom: 8px; }
+.iris-vazio-linha { font-size: 13px; color: var(--text-3); margin-top: 10px; }
+.iris-add { margin-top: 14px; }
+.iris-acoes { display: flex; justify-content: flex-end; margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--border-light); }
+.iris-card .iris-form-grid { margin-top: 18px; }
+
+/* ---------- Estados (carregando, erro, vazio) ---------- */
+.iris-state {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  min-height: 220px; padding: 40px 24px; text-align: center;
+  background: var(--card); border: 1px solid var(--border-light); border-radius: var(--d2-radius, 26px);
+  color: var(--text-2); font-size: 14px;
+}
+.iris-state[role="status"] { flex-direction: row; }
+.iris-state h3 { font-family: var(--font-display); font-weight: 500; font-size: 20px; color: var(--text-1); }
+.iris-state p { max-width: 420px; line-height: 1.5; }
+.iris-state .btn { margin-top: 6px; }
+.iris-state--vazio svg { width: 36px; height: 36px; color: var(--text-3); }
+.iris-state-sub { font-size: 13px; color: var(--text-3); }
+.iris-spinner {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid var(--border); border-top-color: var(--accent);
+  animation: irisGira .8s linear infinite;
+}
+@keyframes irisGira { to { transform: rotate(360deg); } }
+
+/* ---------- Celular ---------- */
+@media (max-width: 768px) {
+  .iris-tabs { width: 100%; }
+  .iris-tabs .subtab-btn { flex: 1; padding: 8px 4px; font-size: 12.5px; }
+  .iris-card { padding: 20px 18px; border-radius: 22px; }
+  .iris-grid { grid-template-columns: 1fr; }
+  .iris-modos { grid-template-columns: 1fr; }
+  .iris-promo { grid-template-columns: 1fr auto; padding: 14px 18px; gap: 6px 12px; }
+  .iris-promo-fim { grid-row: 2; justify-content: flex-start; }
+  .iris-promo .btn-icon { grid-row: 1 / 3; grid-column: 2; }
+  .iris-dia { grid-template-columns: 1fr auto; gap: 8px 12px; }
+  .iris-dia .iris-faixa { grid-column: 1 / -1; grid-row: 2; }
+  .iris-dia .iris-switch, .iris-dia .iris-dia-nota { grid-column: 2; grid-row: 1; justify-self: end; }
+  .iris-dia .iris-erro { grid-column: 1 / -1; }
+  .form-control.iris-hora { width: auto; flex: 1; min-width: 0; }
+  .iris-exc { grid-template-columns: 1fr auto; gap: 8px 10px; }
+  .iris-exc .iris-exc-data { grid-column: 1; grid-row: 1; }
+  .iris-exc .btn-icon { grid-column: 2; grid-row: 1; }
+  .iris-exc .iris-exc-tipo, .iris-exc .iris-faixa { grid-column: 1 / -1; }
+  .iris-acoes .btn { width: 100%; justify-content: center; }
+  .iris-head .btn { width: 100%; justify-content: center; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .iris-spinner { animation-duration: 2s; }
+  .iris-switch-track, .iris-switch-track::after, .iris-item { transition: none; }
+}

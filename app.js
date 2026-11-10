@@ -687,7 +687,7 @@ function navigateTo(view) {
     margem:'Margem de Lucro', precificacao:'Precificação', graficos:'Gráficos & Relatórios', perfil:'Perfil',
     crm:'CRM de Atendimento', agenda:'Agenda', pacientes:'Pacientes',
     anamnese:'Ficha de Anamnese', receituario:'Receituário', exames:'Receituário de Exames',
-    contratos:'Contratos & Termos'
+    contratos:'Contratos & Termos', iris:'Íris'
   };
   if (typeof updateTopbarTitle === 'function') updateTopbarTitle(view, titles[view] || view);
   else document.getElementById('pageTitle').textContent = titles[view] || view;
@@ -707,7 +707,8 @@ function renderView(view) {
     anamnese: (typeof renderAnamnese === 'function' ? renderAnamnese : () => ''),
     receituario: (typeof renderReceituario === 'function' ? renderReceituario : () => ''),
     exames: (typeof renderExames === 'function' ? renderExames : () => ''),
-    contratos: (typeof renderContratos === 'function' ? renderContratos : () => '')
+    contratos: (typeof renderContratos === 'function' ? renderContratos : () => ''),
+    iris: (typeof renderIris === 'function' ? renderIris : () => '')
   };
   // Se uma ação assíncrona (salvar/excluir) terminar depois que o usuário trocou de aba,
   // redesenha a aba ATUAL — nunca a antiga (evita título "Entradas" com conteúdo de Saídas).

@@ -16,6 +16,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://accounts.google.com/gsi/client" async></script>
   <link rel="stylesheet" href="style.css?v=26" />
+  <link rel="stylesheet" href="iris.css?v=1" />
 </head>
 <body>
 
@@ -118,6 +119,12 @@
           <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
         </svg>
         <span>Agenda</span>
+      </a>
+      <a href="#" class="nav-item" data-view="iris" data-tooltip="Íris" hidden>
+        <svg aria-hidden="true" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+        </svg>
+        <span>Íris</span>
       </a>
 
       <div class="nav-section-label nav-label-docs">Documentos</div>
@@ -275,13 +282,15 @@
   <!-- ClinicAI (botão flutuante + painel) desativado temporariamente — restaurar do histórico do git quando for reativar -->
 
   <script src="config.js"></script>
-  <script src="app.js?v=31"></script>
+  <script src="app.js?v=32"></script>
   <script src="documentos.js?v=10"></script>
   <script src="crm.js?v=11"></script>
   <script src="kanban.js?v=1"></script>
   <script src="dashboard.js?v=1"></script>
   <script src="importar.js?v=1"></script>
   <script src="agenda.js?v=4"></script>
+  <script src="iris.js?v=1"></script>
+  <script src="iris-manual.js?v=1"></script>
   <!-- <script src="ai.js?v=1"></script> ClinicAI desativado temporariamente -->
 </body>
 </html>
