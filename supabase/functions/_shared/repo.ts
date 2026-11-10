@@ -33,6 +33,8 @@ export interface Repo {
   destravar(conversaId: string, token: string): Promise<void>;
   reserva(id: string): Promise<Reserva | null>;
   marcarReserva(id: string, status: Reserva["status"]): Promise<void>;
+  // Portão de idempotência: marca paga só se ainda não estava; true quando esta chamada mudou a linha.
+  pagarReserva(id: string): Promise<boolean>;
 }
 
 // Padrões de iris.sql para quem ainda não tem linha em iris_config.
@@ -264,6 +266,15 @@ export function repoSupabase(db: SupabaseClient): Repo {
 
     async marcarReserva(id, status) {
       ler(await db.from("iris_reservas").update({ status }).eq("id", id), "marcar reserva");
+    },
+
+    async pagarReserva(id) {
+      const linhas = ler(
+        await db.from("iris_reservas").update({ status: "paga", pago_em: new Date().toISOString() })
+          .eq("id", id).neq("status", "paga").select("id"),
+        "pagar reserva",
+      );
+      return (linhas?.length ?? 0) > 0;
     },
   };
 }

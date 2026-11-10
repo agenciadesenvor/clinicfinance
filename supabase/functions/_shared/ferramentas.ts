@@ -110,13 +110,20 @@ function sinalDe(proc: Procedimento, manual: ItemManual[]): number {
 
 // Ocupados da janela [início, início+15 dias], com início = max(hoje, desde). Reservas de teste só contam
 // no simulador, e a própria reserva ativa não bloqueia.
-function ocupadosDe(ctx: Ctx, desde?: string) {
-  const hoje = agoraRecife(ctx.agora).data;
+export function ocupadosJanela(
+  p: { repo: Repo; userId: string; agora: Date; incluirTestes: boolean; excetoConversaId?: string }, desde?: string,
+) {
+  const hoje = agoraRecife(p.agora).data;
   const ini = desde && desde > hoje ? desde : hoje;
-  return ctx.repo.ocupados(ctx.conversa.user_id, ini, somaDias(ini, 15), {
-    incluirTestes: ctx.conversa.canal === "simulador", excetoConversaId: ctx.conversa.id,
+  return p.repo.ocupados(p.userId, ini, somaDias(ini, 15), {
+    incluirTestes: p.incluirTestes, excetoConversaId: p.excetoConversaId,
   });
 }
+const ocupadosDe = (ctx: Ctx, desde?: string) =>
+  ocupadosJanela({
+    repo: ctx.repo, userId: ctx.conversa.user_id, agora: ctx.agora,
+    incluirTestes: ctx.conversa.canal === "simulador", excetoConversaId: ctx.conversa.id,
+  }, desde);
 
 async function consultarHorarios(entrada: unknown, ctx: Ctx) {
   const o = objeto(entrada, ["procedimento", "a_partir_de", "periodo"]);

@@ -43,6 +43,7 @@ export function criarRepoFake(inicial: InicialFake = {}) {
     agendamentos: [] as Ocupado[],
     trava: null as string | null, // token = processando_ate em ISO, como no Supabase
     recusar: false,
+    pagoEm: {} as Record<string, string>,
     seq: 0,
   };
 
@@ -160,6 +161,14 @@ export function criarRepoFake(inicial: InicialFake = {}) {
       if (r) r.status = status;
       return Promise.resolve();
     },
+
+    pagarReserva(id) {
+      const r = estado.reservas.find((x) => x.id === id);
+      if (!r || r.status === "paga") return Promise.resolve(false);
+      r.status = "paga";
+      estado.pagoEm[id] = fake.agora.toISOString();
+      return Promise.resolve(true);
+    },
   };
 
   // Objeto exposto: o Repo mais os arrays e controles que os testes usam.
@@ -174,6 +183,7 @@ export function criarRepoFake(inicial: InicialFake = {}) {
     mensagens: estado.mensagens,
     pendencias: estado.pendencias,
     reservas: estado.reservas,
+    pagoEm: estado.pagoEm,
     ocupar(o: Ocupado) { estado.agendamentos.push(o); },
     recusarProximaReserva() { estado.recusar = true; },
   };
