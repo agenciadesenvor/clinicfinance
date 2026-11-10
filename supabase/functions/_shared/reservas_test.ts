@@ -1,4 +1,4 @@
-import { assertEquals } from "@std/assert";
+import { assertEquals, assertRejects } from "@std/assert";
 import { criarRepoFake } from "./repo_fake.ts";
 import { efeitosSimulados } from "./ferramentas.ts";
 import { confirmarReserva } from "./reservas.ts";
@@ -141,4 +141,62 @@ Deno.test("pagarReserva no fake: segunda chamada devolve false", async () => {
   assertEquals(await fake.pagarReserva(reserva.id), true);
   assertEquals(await fake.pagarReserva(reserva.id), false);
   assertEquals(await fake.pagarReserva("nao-existe"), false);
+});
+
+Deno.test("corrida: outra chamada pagou no meio do caminho vira ja_confirmada", async () => {
+  const { fake, reserva, textos, DEPOIS } = await montar();
+  const repo = { ...fake, ocupados: async (...a: Parameters<typeof fake.ocupados>) => {
+    await fake.pagarReserva(reserva.id); // a outra chamada vence o portão
+    return fake.ocupados(...a);
+  } };
+  const r = await confirmarReserva({
+    repo, efeitos: efeitosSimulados(fake, fake.conversa.id), reservaId: reserva.id, agora: DEPOIS,
+    config: fake.config, nome: "Camila",
+  });
+  assertEquals(r, "ja_confirmada");
+  assertEquals(fake.reservas[0].status, "paga");
+  assertEquals(fake.pendencias.length, 0);
+  assertEquals(textos("iris").length, 0);
+});
+
+Deno.test("expirarReserva no fake: false em paga e na segunda chamada", async () => {
+  const a = await montar();
+  assertEquals(await a.fake.expirarReserva(a.reserva.id), true);
+  assertEquals(await a.fake.expirarReserva(a.reserva.id), false);
+  const b = await montar();
+  await b.fake.pagarReserva(b.reserva.id);
+  assertEquals(await b.fake.expirarReserva(b.reserva.id), false);
+  assertEquals(b.fake.reservas[0].status, "paga");
+});
+
+Deno.test("recuperação: salvarMensagens falha uma vez, status volta e o retry confirma", async () => {
+  const { fake, reserva, confirmar, textos } = await montar();
+  let falhou = false;
+  const original = fake.salvarMensagens;
+  fake.salvarMensagens = (id, ms) => {
+    if (!falhou && ms[0].autor === "iris") { falhou = true; return Promise.reject(new Error("boom")); }
+    return original(id, ms);
+  };
+  await assertRejects(() => confirmar(), Error, "boom");
+  assertEquals(fake.reservas[0].status, "ativa");
+  assertEquals(await confirmar(), "confirmada");
+  assertEquals(fake.reservas[0].status, "paga");
+  assertEquals(textos("iris").length, 3);
+  assertEquals(reserva.id, fake.reservas[0].id);
+});
+
+Deno.test("recuperação no horário perdido: abrirPendencia falha uma vez e o retry conclui", async () => {
+  const { fake, confirmar, textos, DEPOIS } = await montar();
+  fake.ocupar({ data: "2026-11-13", inicio: "09:00", fim: "09:30", procedimento: "avaliacao" });
+  let falhou = false;
+  const original = fake.abrirPendencia;
+  fake.abrirPendencia = (id, p) => {
+    if (!falhou) { falhou = true; return Promise.reject(new Error("boom")); }
+    return original(id, p);
+  };
+  await assertRejects(() => confirmar("Camila", DEPOIS), Error, "boom");
+  assertEquals(fake.reservas[0].status, "ativa");
+  assertEquals(await confirmar("Camila", DEPOIS), "horario_perdido");
+  assertEquals(fake.pendencias.length, 1);
+  assertEquals(textos("iris").length, 1);
 });

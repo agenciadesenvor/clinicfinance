@@ -17,6 +17,7 @@ export async function confirmarReserva(p: {
   const { repo, efeitos, agora, config } = p;
   const r = await repo.reserva(p.reservaId);
   if (!r) return "inexistente";
+  const anterior = r.status; // o fake devolve a própria linha; guardar antes de qualquer gravação
   if (r.status === "paga") return "ja_confirmada";
   if (r.status === "expirada") return "horario_perdido"; // o caminho do horário perdido já rodou
 
@@ -24,18 +25,25 @@ export async function confirmarReserva(p: {
   const userId = noPrazo ? "" : (await repo.carregar(r.conversa_id))?.conversa.user_id;
   if (userId === undefined) throw new Error(`conversa ${r.conversa_id} não existe`);
 
-  if (!noPrazo && await horarioOcupado(repo, userId, r)) return await perderHorario(p, r, userId);
+  if (!noPrazo && await horarioOcupado(repo, userId, r)) return await perderHorario(p, r, userId, anterior);
 
   if (!await repo.pagarReserva(r.id)) return "ja_confirmada";
-  await efeitos.criarAgendamento({ procedimento: LEGIVEL[r.procedimento], data: r.data, inicio: r.hora_inicio, fim: r.hora_fim });
-  await efeitos.moverCard("agendado");
-  await efeitos.etiquetar("Sinal pago");
-  const textos = [
-    `Pagamento confirmado${vocativo(p.nome)}. Sua ${LEGIVEL[r.procedimento]} está marcada para ${rotuloDe(r)}.`,
-    config.endereco.trim(),
-    "Um dia antes eu te envio uma confirmação.",
-  ].filter((t) => t !== "");
-  await repo.salvarMensagens(r.conversa_id, textos.map((texto) => ({ autor: "iris", texto, status: "enviada" })));
+  // Troca consciente: se algo falhar depois do portão, devolvemos o status anterior para a paciente paga não ficar
+  // sem confirmação. Um retry pode duplicar notas simuladas; efeitos reais (fase futura) precisam ser idempotentes.
+  try {
+    await efeitos.criarAgendamento({ procedimento: LEGIVEL[r.procedimento], data: r.data, inicio: r.hora_inicio, fim: r.hora_fim });
+    await efeitos.moverCard("agendado");
+    await efeitos.etiquetar("Sinal pago");
+    const textos = [
+      `Pagamento confirmado${vocativo(p.nome)}. Sua ${LEGIVEL[r.procedimento]} está marcada para ${rotuloDe(r)}.`,
+      config.endereco.trim(),
+      "Um dia antes eu te envio uma confirmação.",
+    ].filter((t) => t !== "");
+    await repo.salvarMensagens(r.conversa_id, textos.map((texto) => ({ autor: "iris", texto, status: "enviada" })));
+  } catch (e) {
+    await repo.marcarReserva(r.id, anterior);
+    throw e;
+  }
   return "confirmada";
 }
 
@@ -51,20 +59,28 @@ async function horarioOcupado(repo: Repo, userId: string, r: Reserva): Promise<b
 }
 
 async function perderHorario(
-  p: Parameters<typeof confirmarReserva>[0], r: Reserva, userId: string,
+  p: Parameters<typeof confirmarReserva>[0], r: Reserva, userId: string, anterior: Reserva["status"],
 ): Promise<Resultado> {
   const { repo, agora, config } = p;
-  await repo.marcarReserva(r.id, "expirada");
-  await repo.abrirPendencia(r.conversa_id, {
-    motivo: "pagamento_apos_prazo", urgente: false,
-    resumo: `Pagamento recebido depois do prazo e o horário de ${rotuloDe(r)} já estava ocupado. Valor fica como crédito.`,
-  });
-  const ocupados = await ocupadosJanela({ repo, userId, agora, incluirTestes: r.teste });
-  const livres = slotsLivres({ agora, procedimento: r.procedimento, horarios: config.horarios, ocupados, max: 2 });
-  const base = `Recebi seu pagamento${vocativo(p.nome)}, mas esse horário acabou de ser ocupado. Seu valor fica como crédito.`;
-  const texto = livres.length === 2
-    ? `${base} Posso te oferecer ${rotuloSlot(livres[0])} ou ${rotuloSlot(livres[1])}?`
-    : `${base} A equipe vai falar com você para remarcar.`;
-  await repo.salvarMensagens(r.conversa_id, [{ autor: "iris", texto, status: "enviada" }]);
+  // Só quem expirou a reserva abre a pendência e avisa; se perdeu a corrida, o outro lado já decidiu.
+  if (!await repo.expirarReserva(r.id)) {
+    return (await repo.reserva(r.id))?.status === "paga" ? "ja_confirmada" : "horario_perdido";
+  }
+  try {
+    await repo.abrirPendencia(r.conversa_id, {
+      motivo: "pagamento_apos_prazo", urgente: false,
+      resumo: `Pagamento recebido depois do prazo e o horário de ${rotuloDe(r)} já estava ocupado. Valor fica como crédito.`,
+    });
+    const ocupados = await ocupadosJanela({ repo, userId, agora, incluirTestes: r.teste });
+    const livres = slotsLivres({ agora, procedimento: r.procedimento, horarios: config.horarios, ocupados, max: 2 });
+    const base = `Recebi seu pagamento${vocativo(p.nome)}, mas esse horário acabou de ser ocupado. Seu valor fica como crédito.`;
+    const texto = livres.length === 2
+      ? `${base} Posso te oferecer ${rotuloSlot(livres[0])} ou ${rotuloSlot(livres[1])}?`
+      : `${base} A equipe vai falar com você para remarcar.`;
+    await repo.salvarMensagens(r.conversa_id, [{ autor: "iris", texto, status: "enviada" }]);
+  } catch (e) {
+    await repo.marcarReserva(r.id, anterior); // mesma troca do caminho confirmado
+    throw e;
+  }
   return "horario_perdido";
 }

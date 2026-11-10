@@ -169,6 +169,13 @@ export function criarRepoFake(inicial: InicialFake = {}) {
       estado.pagoEm[id] = fake.agora.toISOString();
       return Promise.resolve(true);
     },
+
+    expirarReserva(id) {
+      const r = estado.reservas.find((x) => x.id === id);
+      if (!r || r.status === "paga" || r.status === "expirada") return Promise.resolve(false);
+      r.status = "expirada";
+      return Promise.resolve(true);
+    },
   };
 
   // Objeto exposto: o Repo mais os arrays e controles que os testes usam.
