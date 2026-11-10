@@ -5,14 +5,15 @@ const MAX_MENSAGENS = 3;
 
 // Cada parágrafo vira uma mensagem; o que passar da 3ª fica junto na última.
 export function dividirMensagens(texto: string): string[] {
-  const partes = texto.split(/\n[ \t]*\n/).map((p) => p.trim()).filter((p) => p.length > 0);
+  const partes = texto.replace(/\r\n?/g, "\n").split(/\n[ \t]*\n/).map((p) => p.trim()).filter((p) => p.length > 0);
   if (partes.length <= MAX_MENSAGENS) return partes;
   return [...partes.slice(0, MAX_MENSAGENS - 1), partes.slice(MAX_MENSAGENS - 1).join("\n\n")];
 }
 
 // Número no formato brasileiro: "1.000", "65,00", "1.450,50", "100".
 const NUM = String.raw`(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:,\d{1,2})?)`;
-const COM_CIFRAO = new RegExp(String.raw`R\$\s*` + NUM, "g");
+// "R$", "r$", "R $" e "RS" digitado no lugar do $ (este só quando vem um número logo depois).
+const COM_CIFRAO = new RegExp(String.raw`(?<!\p{L})(?:R\s*\$|RS(?=\s*\d))\s*` + NUM, "giu");
 const COM_REAIS = new RegExp(String.raw`(?<![\d.,])` + NUM + String.raw`\s*(?:reais|real)(?![\p{L}])`, "giu");
 
 const paraNumero = (s: string) => Number(s.replace(/\./g, "").replace(",", "."));

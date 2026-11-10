@@ -37,3 +37,14 @@ Deno.test("valores autorizados: preços informáveis, sinais e promoções váli
   ];
   assertEquals(ordenar(valoresAutorizados(manual, promos, "2026-11-12")), [65, 100, 130, 1000, 1450.5]);
 });
+Deno.test("pega variações de R$: minúsculo, espaço antes do $ e RS", () => {
+  assertEquals(valoresNaoAutorizados("Fica r$ 900.", [100]), [900]);
+  assertEquals(valoresNaoAutorizados("Fica R $ 900.", [100]), [900]);
+  assertEquals(valoresNaoAutorizados("Fica RS 900 ou rs900.", [100]), [900]);
+  assertEquals(valoresNaoAutorizados("Fica RS 1.200,50.", [100]), [1200.5]);
+});
+Deno.test("não confunde telefone, data, hora nem palavras com rs", () => {
+  assertEquals(valoresNaoAutorizados("Ligue (81) 99999-9999. Dia 13/11/2026 às 14:30, sala 2. Cursos 3 vezes.", [100]), []);
+  assertEquals(valoresNaoAutorizados("Tenho quinta às 14h ou sexta às 10h.", [100]), []);
+});
+Deno.test("divide: normaliza \\r\\n", () => assertEquals(dividirMensagens("a\r\n\r\nb"), ["a", "b"]));

@@ -141,7 +141,9 @@ export function montarContexto(
 }
 
 export function montarHistorico(msgs: Mensagem[]): { role: "user" | "assistant"; content: string }[] {
-  const validas = msgs.filter((m) => m.status === "enviada" && m.autor !== "sistema").slice(-MAX_HISTORICO);
+  const validas = msgs
+    .filter((m) => m.status === "enviada" && m.autor !== "sistema" && (m.texto ?? "").trim() !== "")
+    .slice(-MAX_HISTORICO);
   const out: { role: "user" | "assistant"; content: string }[] = [];
   for (const m of validas) {
     const role = m.autor === "paciente" ? "user" : "assistant";

@@ -131,3 +131,8 @@ Deno.test("histórico: só as últimas 60 mensagens", () => {
   assertEquals(h[0], { role: "user", content: "m10" });
   assertEquals(h.at(-1), { role: "assistant", content: "m69" });
 });
+Deno.test("histórico: mensagens vazias ou só com espaços ficam de fora", () => {
+  const h = montarHistorico([msg("paciente", "oi", "enviada"), msg("iris", "   \n ", "enviada"), msg("paciente", "", "enviada"),
+    msg("iris", "Olá", "enviada")]);
+  assertEquals(h, [{ role: "user", content: "oi" }, { role: "assistant", content: "Olá" }]);
+});
