@@ -1,13 +1,13 @@
 /* ============================================================
    ClinicFinance — iris.js
    Íris (secretária com IA): view, abas e estado compartilhado.
-   As abas Manual, Promoções e Configurações ficam em iris-manual.js.
+   A aba Conversas fica em iris-conversas.js; Manual, Promoções e
+   Configurações ficam em iris-manual.js.
    Tabelas: iris_config, iris_manual, iris_promocoes (ver iris.sql)
    ============================================================ */
 
 /* ===== Estado ===== */
-// tab padrão: manual enquanto Conversas é só um aviso (a etapa seguinte troca para 'conversas')
-const _iris = { tab: 'manual', status: 'carregando', erro: '', config: null, manual: [], promocoes: [] };
+const _iris = { tab: 'conversas', status: 'carregando', erro: '', config: null, manual: [], promocoes: [] };
 
 const IRIS_TABS = [
   ['conversas', 'Conversas'],
@@ -86,7 +86,12 @@ function irisMsgErro(e) {
 function irisRenderBody() {
   const el = document.getElementById('irisBody');
   if (!el || state.currentView !== 'iris') return;
-  if (_iris.tab === 'conversas') { el.innerHTML = irisTabConversas(); return; }
+  // Conversas tem carga própria: monta uma vez por abertura da aba (as outras renderizações da carga não a refazem)
+  if (_iris.tab === 'conversas') {
+    if (el.dataset.aba !== 'conversas' && typeof irisTabConversas === 'function') { el.dataset.aba = 'conversas'; irisTabConversas(el); }
+    return;
+  }
+  el.dataset.aba = _iris.tab;
   if (_iris.status === 'carregando') { el.innerHTML = irisCarregando(); return; }
   if (_iris.status === 'erro') { el.innerHTML = irisErro(_iris.erro); return; }
   const tabs = {
@@ -110,9 +115,21 @@ function irisErro(msg) {
     <button type="button" class="btn btn-secondary" onclick="irisCarregar()">Tentar de novo</button>
   </div>`;
 }
-function irisTabConversas() {
-  return `<div class="iris-state iris-state--vazio">
-    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-    <p>As conversas aparecem aqui na próxima etapa.</p>
-  </div>`;
+
+/* ===== Funções da Íris (Edge Functions) ===== */
+// POST para a função; devolve o JSON da resposta, ou { erro: true } depois de avisar quem usa o app
+async function irisChamar(funcao, corpo) {
+  try {
+    const r = await fetch(`${SUPABASE_URL}/functions/v1/${funcao}`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${_accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(corpo)
+    });
+    if (!r.ok) throw new Error(`${funcao} respondeu ${r.status}`);
+    return await r.json();
+  } catch (e) {
+    console.error('Íris: erro ao chamar', funcao, e);
+    toast('Não foi possível falar com a Íris. Tente de novo.', 'error');
+    return { erro: true };
+  }
 }
