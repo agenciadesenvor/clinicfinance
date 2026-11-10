@@ -84,6 +84,12 @@ function irisParseReais(s) {
   if (!/^\d+(\.\d{1,2})?$/.test(t)) return undefined;
   return Math.round(parseFloat(t) * 100);
 }
+// texto com número de valor sem "R$" (ignora porcentagens e datas): a Íris não cita esse valor
+function irisValorSemRS(texto) {
+  const t = String(texto || '');
+  if (/R\$/.test(t)) return false;
+  return /\d/.test(t.replace(/\d+([.,]\d+)?\s*%/g, '').replace(/\d{1,2}\/\d{1,2}(\/\d{2,4})?/g, ''));
+}
 function irisMarcar(campos, invalido) {
   campos.forEach(id => {
     const f = document.getElementById(id);
@@ -108,7 +114,8 @@ const irisIconInfo = () => `<svg aria-hidden="true" viewBox="0 0 24 24" fill="no
 
 /* ===== Aba Manual ===== */
 function irisRegraPreco(it) {
-  return it.informa_preco && String(it.preco_texto || '').trim() ? it.preco_texto.trim() : 'Preço só na avaliação';
+  // mesma frase que o backend usa quando o preço não pode ser informado
+  return it.informa_preco && String(it.preco_texto || '').trim() ? it.preco_texto.trim() : IRIS_SEM_PRECO;
 }
 function irisRegraAgenda(it) {
   if (!it.agenda_direto) return 'Agendado pela clínica depois da avaliação';
@@ -133,10 +140,11 @@ function irisTabManual() {
     <span class="iris-count" aria-live="polite">${aprovados} de ${itens.length} aprovados</span>
   </div>
   ${itens.length ? `<div class="iris-grid">${itens.map(it => `
-    <button type="button" class="iris-item ${it.aprovado ? 'is-ok' : ''}" onclick="irisAbrirItem('${esc(it.id)}')">
-      <span class="iris-item-top"><span class="iris-item-nome">${esc(it.nome || it.chave)}</span>${irisChip(it.aprovado)}</span>
-      <span class="iris-item-linha">${esc(irisRegraPreco(it))}</span>
+    <button type="button" class="iris-item ${it.aprovado ? 'is-ok' : ''}" data-id="${esc(it.id)}" onclick="irisAbrirItem(this.dataset.id)">
+      <span class="iris-item-nome">${esc(it.nome || it.chave)}</span>
+      <span class="iris-item-linha" title="${esc(irisRegraPreco(it))}">${esc(irisRegraPreco(it))}</span>
       <span class="iris-item-meta">${esc(irisRegraAgenda(it))}</span>
+      <span class="iris-item-chip">${irisChip(it.aprovado)}</span>
     </button>`).join('')}</div>`
   : `<div class="iris-state iris-state--vazio"><p>Nenhum procedimento no Manual ainda.</p><button type="button" class="btn btn-secondary" onclick="irisCarregar()">Tentar de novo</button></div>`}`;
 }
@@ -150,7 +158,7 @@ function irisAbrirItem(id) {
       <textarea class="form-control" id="${cid}" rows="3" placeholder="${ph}">${esc(valor)}</textarea>
     </div>`;
   openModal(it.nome || 'Procedimento', `
-  <form class="iris-form" onsubmit="irisSalvarItem(event, '${esc(it.id)}')" novalidate>
+  <form class="iris-form" data-id="${esc(it.id)}" onsubmit="irisSalvarItem(event, this.dataset.id)" novalidate>
     <fieldset class="iris-fs">
       <legend class="iris-legend">O que a Íris pode explicar</legend>
       <p class="form-hint">Escreva como a Íris deve explicar para a paciente. Campo vazio, ela não fala do assunto.</p>
@@ -230,7 +238,7 @@ async function irisSalvarItem(ev, id) {
   let ok = true;
   let msgPreco = '';
   if (informa && !precoTexto) msgPreco = 'Escreva o preço ou desligue a opção acima.';
-  else if (informa && /\d/.test(precoTexto) && !/R\$/.test(precoTexto)) msgPreco = 'Escreva o valor com R$ (ex.: R$ 130).';
+  else if (informa && irisValorSemRS(precoTexto)) msgPreco = 'Escreva o valor com R$ (ex.: R$ 130).';
   ok = irisErroCampo('irisMPrecoErro', msgPreco, ['irisMPreco']) && ok;
   ok = irisErroCampo('irisMDurErro', dur !== null && !(Number.isInteger(dur) && dur >= 5 && dur <= 480) ? 'Use minutos inteiros, de 5 a 480.' : '', ['irisMDur']) && ok;
   ok = irisErroCampo('irisMSinalErro', sinal === undefined ? 'Use só números, como 65 ou 65,50.' : '', ['irisMSinal']) && ok;
@@ -273,14 +281,15 @@ function irisTabPromocoes() {
         ${vencida ? '<span class="badge badge-gray iris-chip">Vencida</span>' : ''}
         <span class="iris-promo-data">${vencida ? 'Valia até' : 'Válida até'} ${esc(fDate(p.valido_ate))}</span>
       </div>
-      <button type="button" class="btn btn-danger btn-icon" title="Excluir" aria-label="Excluir promoção de ${esc(irisNomeProc(p.procedimento_chave))}" onclick="irisExcluirPromocao('${esc(p.id)}')">${iconTrash()}</button>
+      <button type="button" class="btn btn-danger btn-icon" title="Excluir" aria-label="Excluir promoção de ${esc(irisNomeProc(p.procedimento_chave))}" data-id="${esc(p.id)}" onclick="irisExcluirPromocao(this.dataset.id)">${iconTrash()}</button>
     </li>`;
   return `
   <div class="iris-head">
     <div><h2 class="iris-h2">Promoções</h2><p class="iris-sub">A Íris só fala das promoções cadastradas aqui, e só até a data de validade.</p></div>
     <button type="button" class="btn btn-primary" onclick="irisNovaPromocao()">${iconPlus()} Nova promoção</button>
   </div>
-  ${_iris.promocoes.length ? `<ul class="iris-card iris-promos">${vigentes.map(p => linha(p, false)).join('')}${vencidas.map(p => linha(p, true)).join('')}</ul>`
+  ${_iris.promoErro ? `<div class="iris-state iris-state--erro" role="alert"><h3>Não foi possível atualizar a lista</h3><p>A promoção foi salva, mas a lista não carregou. Confira a internet e tente de novo.</p><button type="button" class="btn btn-secondary" onclick="irisRecarregarPromocoes()">Tentar de novo</button></div>`
+  : _iris.promocoes.length ? `<ul class="iris-card iris-promos">${vigentes.map(p => linha(p, false)).join('')}${vencidas.map(p => linha(p, true)).join('')}</ul>`
   : `<div class="iris-state iris-state--vazio"><p>Nenhuma promoção cadastrada.</p><p class="iris-state-sub">Quando houver uma promoção, cadastre aqui para a Íris poder falar dela.</p></div>`}`;
 }
 
@@ -296,9 +305,10 @@ function irisNovaPromocao() {
     </div>
     <div class="form-group">
       <label class="form-label" for="irisPDesc">Descrição</label>
-      <textarea class="form-control" id="irisPDesc" rows="3" aria-describedby="irisPDescHint irisPDescErro"></textarea>
+      <textarea class="form-control" id="irisPDesc" rows="3" aria-describedby="irisPDescHint irisPDescErro irisPDescAviso" oninput="irisAvisoPromo()"></textarea>
       <p class="form-hint" id="irisPDescHint">Escreva o valor com R$ (ex.: Limpeza de pele por R$ 99). A Íris só cita valores escritos aqui ou no Manual.</p>
       <span class="iris-erro" id="irisPDescErro" role="alert"></span>
+      <span class="iris-aviso-campo" id="irisPDescAviso" aria-live="polite"></span>
     </div>
     <div class="form-group">
       <label class="form-label" for="irisPAte">Válida até</label>
@@ -312,6 +322,12 @@ function irisNovaPromocao() {
   </form>`);
 }
 
+// aviso que não impede salvar
+function irisAvisoPromo() {
+  const el = document.getElementById('irisPDescAviso');
+  if (el) el.textContent = irisValorSemRS(document.getElementById('irisPDesc')?.value) ? 'Escreva o valor com R$ para a Íris poder citar (ex.: R$ 99).' : '';
+}
+
 async function irisSalvarPromocao(ev) {
   ev.preventDefault();
   const proc = document.getElementById('irisPProc').value;
@@ -320,6 +336,7 @@ async function irisSalvarPromocao(ev) {
   let ok = irisErroCampo('irisPProcErro', proc ? '' : 'Escolha o procedimento.', ['irisPProc']);
   ok = irisErroCampo('irisPDescErro', desc ? '' : 'Escreva a promoção.', ['irisPDesc']) && ok;
   ok = irisErroCampo('irisPAteErro', /^\d{4}-\d{2}-\d{2}$/.test(ate) ? '' : 'Escolha até quando vale.') && ok;
+  irisAvisoPromo();
   if (!ok) return;
   const btn = document.getElementById('irisPSalvar');
   irisOcupado(btn, true);
@@ -332,7 +349,13 @@ async function irisSalvarPromocao(ev) {
   }
   closeModal();
   toast('Salvo');
-  const r = await db('iris_promocoes').select('*').eq('user_id', uid).order('valido_ate', { ascending: true });
+  await irisRecarregarPromocoes();
+}
+
+// relê a lista; se falhar, a aba mostra o erro com "Tentar de novo" em vez da lista antiga
+async function irisRecarregarPromocoes() {
+  const r = await db('iris_promocoes').select('*').eq('user_id', currentUser.id).order('valido_ate', { ascending: true });
+  _iris.promoErro = !!r.error;
   if (!r.error) _iris.promocoes = r.data || [];
   irisRenderBody();
 }
@@ -390,7 +413,7 @@ function irisTabConfig() {
     <div class="iris-dia ${fechado ? 'is-fechado' : ''}" id="irisD${d}">
       <span class="iris-dia-nome">${IRIS_DIAS[d]}</span>
       <div class="iris-faixa">${irisHora(`irisD${d}i`, fx.inicio, `${IRIS_DIAS[d]}, início`, fechado)}<span class="iris-as">às</span>${irisHora(`irisD${d}f`, fx.fim, `${IRIS_DIAS[d]}, fim`, fechado)}</div>
-      ${irisSwitch(`irisD${d}x`, 'Fechado', fechado, `onchange="irisDiaFechado(${d})"`)}
+      ${irisSwitch(`irisD${d}x`, 'Fechado', fechado, `data-dia="${d}" onchange="irisDiaFechado(this.dataset.dia)"`)}
       <span class="iris-erro" id="irisD${d}Erro" role="alert"></span>
     </div>`;
   };
@@ -453,7 +476,7 @@ function irisExcecoesHTML() {
         <option value="bloqueio" ${e.tipo === 'bloqueio' ? 'selected' : ''}>Bloqueio</option>
       </select>
       <div class="iris-faixa">${irisHora(`irisE${i}i`, e.inicio, 'Início')}<span class="iris-as">às</span>${irisHora(`irisE${i}f`, e.fim, 'Fim')}</div>
-      <button type="button" class="btn btn-danger btn-icon" title="Remover" aria-label="Remover esta data" onclick="irisRemoverExcecao(${i})">${iconTrash()}</button>
+      <button type="button" class="btn btn-danger btn-icon" title="Remover" aria-label="Remover esta data" data-i="${i}" onclick="irisRemoverExcecao(Number(this.dataset.i))">${iconTrash()}</button>
       <span class="iris-erro" id="irisE${i}Erro" role="alert"></span>
     </div>`).join('');
 }

@@ -4,7 +4,7 @@
    ============================================================ */
 
 /* item de menu escondido até a Íris ser liberada */
-.nav-item[hidden] { display: none !important; }
+.nav-item[data-view="iris"][hidden] { display: none !important; }
 
 /* menu compacto em telas baixas: com a Íris são 13 itens, precisam caber sem rolar */
 @media (max-height: 820px) and (min-width: 769px) {
@@ -55,9 +55,9 @@
 }
 .iris-item:hover { border-color: var(--border); box-shadow: var(--shadow-md); transform: translateY(-1px); }
 .iris-item:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; border-radius: 20px; }
-.iris-item-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 2px; }
 .iris-item-nome { font-size: 15px; font-weight: 650; letter-spacing: -0.1px; line-height: 1.35; }
-.iris-item-linha { font-size: 13.5px; color: var(--text-1); line-height: 1.45; }
+.iris-item-linha { font-size: 13.5px; color: var(--text-1); line-height: 1.45; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.iris-item-chip { margin-top: auto; padding-top: 8px; display: flex; }
 .iris-item-meta { font-size: 12.5px; color: var(--text-2); line-height: 1.45; }
 
 .iris-chip { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; flex-shrink: 0; }
@@ -77,8 +77,13 @@
 .iris-form .form-actions { margin-top: 0; display: flex; justify-content: flex-end; gap: 10px; }
 .iris-erro { font-size: 12.5px; font-weight: 500; color: var(--red); line-height: 1.4; }
 .iris-erro:empty { display: none; }
-.form-control[aria-invalid="true"], .cf-datepicker-input[aria-invalid="true"] { border-color: var(--red); background: var(--red-light); }
-.form-control:disabled { opacity: .5; cursor: not-allowed; }
+.iris-form .form-control[aria-invalid="true"],
+.iris-card .form-control[aria-invalid="true"],
+.iris-card .cf-datepicker-input[aria-invalid="true"] { border-color: var(--red); background: var(--red-light); }
+.iris-form .form-control:disabled,
+.iris-card .form-control:disabled { opacity: .5; cursor: not-allowed; }
+.iris-aviso-campo { font-size: 12.5px; font-weight: 500; color: #9A7238; line-height: 1.4; }
+.iris-aviso-campo:empty { display: none; }
 .iris-hint-off { color: var(--text-2); font-style: italic; }
 .iris-hint-off[hidden] { display: none; }
 

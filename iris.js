@@ -24,7 +24,7 @@ function renderIris() {
     <div><div class="section-title">Íris</div><div class="section-sub">A secretária que responde às pacientes: o que ela pode dizer, promoções e horários</div></div>
   </div>
   <div class="subtabs iris-tabs" role="tablist" aria-label="Seções da Íris">
-    ${IRIS_TABS.map(([k, label]) => `<button type="button" role="tab" class="subtab-btn ${_iris.tab === k ? 'active' : ''}" data-tab="${k}" aria-selected="${_iris.tab === k}" onclick="irisSetTab('${k}')">${label}</button>`).join('')}
+    ${IRIS_TABS.map(([k, label]) => `<button type="button" role="tab" class="subtab-btn ${_iris.tab === k ? 'active' : ''}" data-tab="${k}" aria-selected="${_iris.tab === k}" onclick="irisSetTab(this.dataset.tab)">${label}</button>`).join('')}
   </div>
   <div id="irisBody" class="iris-body">${irisCarregando()}</div>`;
 }
@@ -64,6 +64,7 @@ async function irisCarregar() {
     _iris.manual = (m.data || []).slice().sort((a, b) => (a.ordem ?? 99) - (b.ordem ?? 99));
     _iris.promocoes = p.data || [];
     _iris.status = 'pronto';
+    _iris.promoErro = false;
   } catch (e) {
     console.error('Íris: erro ao carregar', e);
     _iris.status = 'erro';
