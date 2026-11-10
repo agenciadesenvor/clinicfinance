@@ -3,6 +3,7 @@
 //   --simulado         usa o cliente falso (sem API); --simulado-ruim usa roteiros que quebram regras de propósito
 // Sem --simulado, lê ANTHROPIC_API_KEY do ambiente e gasta tokens de verdade.
 import { type ClienteClaude, clienteAnthropic, responder, type Resultado } from "../_shared/cerebro.ts";
+import { emOrdemDeResposta } from "../_shared/atendimento.ts";
 import { efeitosSimulados, type Ctx } from "../_shared/ferramentas.ts";
 import { valoresAutorizados } from "../_shared/guardas.ts";
 import { agoraRecife } from "../_shared/horarios.ts";
@@ -94,7 +95,7 @@ export async function executarRepeticao(caso: Caso, cliente: ClienteClaude, m: M
       ctx, cliente: observador,
       systemEstavel: montarSystem({ config: c.config, manual: c.manual, promocoes: c.promocoes, hoje }),
       systemContexto: montarContexto({ agora: AGORA, conversa: c.conversa, pendencias: c.pendencias, reserva: c.reserva, canal: c.conversa.canal }),
-      historico: montarHistorico(c.mensagens),
+      historico: montarHistorico(emOrdemDeResposta(c.mensagens)),
       autorizados: valoresAutorizados(c.manual, c.promocoes, hoje),
     });
     for (const k of Object.keys(m.uso) as (keyof Uso)[]) m.uso[k] += r.uso[k];

@@ -20,16 +20,21 @@ function contarEmojis(textos: string[]): number {
   return n;
 }
 
-// Horários do dia citados ("9h", "9h30", "14:00"), normalizados para HH:MM e sem repetição.
+// Horários do dia citados, contando cada ocorrência ("9h", "9h30", "14:00", "9 horas"). Duração
+// ("a avaliação dura 1h", "leva 1h30") não é horário.
 function horariosCitados(texto: string): string[] {
-  const achados = new Set<string>();
-  for (const m of texto.matchAll(/(?<![\d:.,])(\d{1,2})h(\d{2})?(?![\p{L}\d])|(?<![\d:.,])(\d{1,2}):(\d{2})(?![\d])/gu)) {
-    const h = Number(m[1] ?? m[3]);
+  const achados: string[] = [];
+  const re = /(?<![\d:.,])(?:(\d{1,2})h(\d{2})?(?![\p{L}\d])|(\d{1,2}):(\d{2})(?!\d)|(\d{1,2})\s+horas?(?![\p{L}]))/giu;
+  for (const m of texto.matchAll(re)) {
+    const h = Number(m[1] ?? m[3] ?? m[5]);
     const min = Number(m[2] ?? m[4] ?? "0");
     if (h > 23 || min > 59) continue;
-    achados.add(`${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`);
+    // Até 20 caracteres antes do horário (e na mesma frase) denunciam uma duração.
+    const antes = texto.slice(Math.max(0, m.index! - 20), m.index!).split(/[.!?\n]/).at(-1)!;
+    if (/\b(?:dura|duração|leva|demora|cerca de|em torno de)\b/iu.test(antes)) continue;
+    achados.push(m[0]);
   }
-  return [...achados];
+  return achados;
 }
 
 const LISTA = /^[ \t]*(?:[-–•*]|\d+[.)])[ \t]+\S/m;

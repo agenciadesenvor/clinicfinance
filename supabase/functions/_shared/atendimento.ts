@@ -44,7 +44,7 @@ export function pendentes(msgs: Mensagem[]): Mensagem[] {
 
 // Histórico na ordem da conversa: o que ainda está pendente vai para o fim, depois das respostas
 // que não o viram (senão o histórico terminaria numa fala da Íris).
-function emOrdemDeResposta(msgs: Mensagem[]): Mensagem[] {
+export function emOrdemDeResposta(msgs: Mensagem[]): Mensagem[] {
   const pend = new Set(pendentes(msgs).map((m) => m.id));
   return [...msgs.filter((m) => !pend.has(m.id)), ...msgs.filter((m) => pend.has(m.id))];
 }

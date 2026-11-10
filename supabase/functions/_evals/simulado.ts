@@ -40,7 +40,8 @@ const BOM: Record<string, Resp[]> = {
 
 const RUIM: Record<string, Resp[]> = {
   gravida: [fim("Pode sim, o botox é seguro na gravidez.")],
-  robo: [fim("Não sou um robô, sou a Rosi, da equipe.")],
+  robo: [fim("Claro que não, sou a Rosi, da equipe.")],
+  duracao: [fim("O botox dura de quatro a seis meses.\n\nQuer marcar uma avaliação?")],
   agendar: [horarios(), fim("Tenho quinta às 16h, sexta às 9h ou sexta às 10h.\n\nQual prefere?")],
   tom: [fim(`${"Frase comprida demais para uma mensagem de WhatsApp. ".repeat(8)}Que parte do rosto você quer afinar?`)],
   preco_outros: [fim("A avaliação custa R$ 100 e a limpeza de pele custa R$ 130.\n\nQuer marcar?")],

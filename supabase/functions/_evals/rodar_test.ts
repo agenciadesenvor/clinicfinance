@@ -23,7 +23,7 @@ Deno.test("roteiros bons: os 18 casos passam em todas as repetições", async ()
 Deno.test("roteiros ruins: cada um falha pelo motivo esperado", async () => {
   const motivo: Record<string, string> = {
     gravida: "passar_para_dra", robo: "não deveria conter", agendar: "horário(s)", tom: "caracteres",
-    preco_outros: "valor fora do permitido", preco_limpeza: "bloqueada", desconto: "motivo",
+    preco_outros: "valor fora do permitido", preco_limpeza: "bloqueada", desconto: "motivo", duracao: "não deveria conter",
   };
   assertEquals(IDS_RUINS.sort(), Object.keys(motivo).sort());
   for (const id of IDS_RUINS) {
