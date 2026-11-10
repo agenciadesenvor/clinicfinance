@@ -76,6 +76,7 @@ Deno.test("corrida: horário livre na consulta mas a reserva atômica recusa", a
   fake.recusarProximaReserva();
   const r = await rodar("segurar_horario", { procedimento: "avaliacao", data: "2026-11-13", hora: "09:00" }, ctx);
   assertEquals([r.ok, r.motivo, r.alternativas.length], [false, "horario_indisponivel", 2]);
+  assert(!r.alternativas.some((a: { data: string; hora: string }) => a.data === "2026-11-13" && a.hora === "09:00"));
 });
 
 Deno.test("a reserva ativa da própria conversa não bloqueia a nova tentativa", async () => {
@@ -198,3 +199,11 @@ Deno.test("todas as ferramentas são strict e fecham o schema", () =>
     assertEquals(s.additionalProperties, false);
     assertEquals([...s.required].sort(), Object.keys(s.properties).sort());
   }));
+
+Deno.test("consultar_horarios a_partir_de adiante respeita ocupação daquele dia", async () => {
+  const { fake, ctx } = montar();
+  fake.ocupar({ data: "2026-12-01", inicio: "09:00", fim: "10:00", procedimento: "Limpeza" });
+  const r = await rodar("consultar_horarios", { procedimento: "avaliacao", a_partir_de: "2026-12-01", periodo: "qualquer" }, ctx);
+  const horas = r.horarios.filter((h: { data: string }) => h.data === "2026-12-01").map((h: { hora: string }) => h.hora);
+  assert(horas.length > 0 && !horas.includes("09:00") && !horas.includes("09:30"));
+});

@@ -46,7 +46,7 @@ const CONFIG_PADRAO: IrisConfig = {
   politica_cancelamento: "", politica_atraso: "", nunca_dizer: "", frase_emergencia: "",
 };
 
-const hhmm = (t: string) => t.slice(0, 5);
+const hhmm = (t: string | null | undefined) => (t ? t.slice(0, 5) : null);
 const somaMin = (t: string, min: number) => {
   const m = Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5)) + min;
   return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
@@ -65,9 +65,15 @@ function ler(r: { data: unknown; error: { message: string } | null }, onde: stri
 function paraReserva(l: Linha): Reserva {
   return {
     id: l.id, conversa_id: l.conversa_id, procedimento: l.procedimento, data: l.data,
-    hora_inicio: hhmm(l.hora_inicio), hora_fim: hhmm(l.hora_fim), valor_centavos: l.valor_centavos,
+    hora_inicio: hhmm(l.hora_inicio)!, hora_fim: hhmm(l.hora_fim)!, valor_centavos: l.valor_centavos,
     status: l.status, teste: !!l.teste, expira_em: l.expira_em,
   };
+}
+
+// Linha de agendamentos -> Ocupado. Cancelado e sem hora de início não bloqueiam (status nulo bloqueia).
+export function agendamentoParaOcupado(a: Linha): Ocupado | null {
+  if (a.status === "cancelado" || !a.hora_inicio) return null;
+  return { data: a.data, inicio: hhmm(a.hora_inicio)!, fim: hhmm(a.hora_fim), procedimento: a.procedimento ?? null };
 }
 
 export function repoSupabase(db: SupabaseClient): Repo {
@@ -137,8 +143,8 @@ export function repoSupabase(db: SupabaseClient): Repo {
       const out: Ocupado[] = [];
       // status nulo também ocupa; só 'cancelado' libera
       for (const a of ler(ag, "agendamentos") ?? []) {
-        if (a.status === "cancelado") continue;
-        out.push({ data: a.data, inicio: hhmm(a.hora_inicio), fim: a.hora_fim ? hhmm(a.hora_fim) : null, procedimento: a.procedimento ?? null });
+        const o = agendamentoParaOcupado(a);
+        if (o) out.push(o);
       }
       for (const r of ler(rs, "reservas") ?? []) {
         if (r.teste && !opts.incluirTestes) continue;
@@ -146,7 +152,7 @@ export function repoSupabase(db: SupabaseClient): Repo {
           if (new Date(r.expira_em).getTime() <= agora) continue;
           if (opts.excetoConversaId && r.conversa_id === opts.excetoConversaId) continue;
         }
-        out.push({ data: r.data, inicio: hhmm(r.hora_inicio), fim: hhmm(r.hora_fim), procedimento: r.procedimento ?? null });
+        out.push({ data: r.data, inicio: hhmm(r.hora_inicio)!, fim: hhmm(r.hora_fim), procedimento: r.procedimento ?? null });
       }
       return out;
     },

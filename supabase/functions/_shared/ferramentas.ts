@@ -108,10 +108,12 @@ function sinalDe(proc: Procedimento, manual: ItemManual[]): number {
   return typeof s === "number" && s > 0 ? s : SINAL_PADRAO[proc];
 }
 
-// Ocupados de hoje a +15 dias; reservas de teste só contam no simulador, e a própria reserva ativa não bloqueia.
-function ocupadosDe(ctx: Ctx) {
+// Ocupados da janela [início, início+15 dias], com início = max(hoje, desde). Reservas de teste só contam
+// no simulador, e a própria reserva ativa não bloqueia.
+function ocupadosDe(ctx: Ctx, desde?: string) {
   const hoje = agoraRecife(ctx.agora).data;
-  return ctx.repo.ocupados(ctx.conversa.user_id, hoje, somaDias(hoje, 15), {
+  const ini = desde && desde > hoje ? desde : hoje;
+  return ctx.repo.ocupados(ctx.conversa.user_id, ini, somaDias(ini, 15), {
     incluirTestes: ctx.conversa.canal === "simulador", excetoConversaId: ctx.conversa.id,
   });
 }
@@ -121,7 +123,7 @@ async function consultarHorarios(entrada: unknown, ctx: Ctx) {
   const procedimento = enumDe<Procedimento>(o.procedimento, PROCS);
   const aPartirDe = o.a_partir_de === null ? undefined : dataValida(o.a_partir_de);
   const periodo = enumDe<"manha" | "tarde" | "qualquer">(o.periodo, ["manha", "tarde", "qualquer"]);
-  const ocupados = await ocupadosDe(ctx);
+  const ocupados = await ocupadosDe(ctx, aPartirDe);
   const slots = slotsLivres({ agora: ctx.agora, procedimento, horarios: ctx.config.horarios, ocupados, aPartirDe, periodo, max: 6 });
   return slots.length ? { horarios: slots.map(rotulado) } : { horarios: [], aviso: "sem_horarios_no_periodo" };
 }
@@ -131,12 +133,15 @@ async function segurarHorario(entrada: unknown, ctx: Ctx) {
   const proc = enumDe<Procedimento>(o.procedimento, PROCS);
   const data = dataValida(o.data);
   const hora = horaValida(o.hora);
-  const ocupados = await ocupadosDe(ctx);
-  const base = { agora: ctx.agora, procedimento: proc, horarios: ctx.config.horarios, ocupados };
-  const slot = slotsLivres({ ...base, aPartirDe: data, max: 400 }).find((s) => s.data === data && s.hora === hora);
+  const ocupados = await ocupadosDe(ctx, data);
+  const base = { agora: ctx.agora, procedimento: proc, horarios: ctx.config.horarios };
+  const slot = slotsLivres({ ...base, ocupados, aPartirDe: data, max: 400 }).find((s) => s.data === data && s.hora === hora);
   const reserva = slot ? await ctx.repo.segurar(ctx.conversa.id, proc, slot, sinalDe(proc, ctx.manual)) : null;
   if (!slot || !reserva) {
-    const alternativas = slotsLivres({ ...base, max: 2 }).map(rotulado);
+    // Ocupação refeita: se a corrida tirou o horário, o estado antigo ainda o mostraria livre.
+    const atuais = await ocupadosDe(ctx);
+    const alternativas = slotsLivres({ ...base, ocupados: atuais, max: 3 })
+      .filter((s) => !(s.data === data && s.hora === hora)).slice(0, 2).map(rotulado);
     return { ok: false, motivo: "horario_indisponivel", alternativas };
   }
   await ctx.repo.salvarMensagem(ctx.conversa.id, {
