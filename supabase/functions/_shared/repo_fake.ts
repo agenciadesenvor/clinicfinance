@@ -8,6 +8,9 @@ import type {
 const paraMin = (t: string) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
 const deMin = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 
+// Mensagem como fica gravada: os testes conferem também fora_expediente e meta.
+export type MensagemFake = Mensagem & { fora_expediente: boolean; meta: unknown };
+
 export interface InicialFake {
   conversa?: Partial<Conversa>; config?: Partial<IrisConfig>; manual?: ItemManual[]; promocoes?: Promocao[]; agora?: Date;
 }
@@ -34,7 +37,7 @@ export function criarRepoFake(inicial: InicialFake = {}) {
     } as IrisConfig,
     manual: inicial.manual ?? ([] as ItemManual[]),
     promocoes: inicial.promocoes ?? ([] as Promocao[]),
-    mensagens: [] as Mensagem[],
+    mensagens: [] as MensagemFake[],
     pendencias: [] as Pendencia[],
     reservas: [] as Reserva[],
     agendamentos: [] as Ocupado[],
@@ -100,9 +103,10 @@ export function criarRepoFake(inicial: InicialFake = {}) {
 
     salvarMensagem(_id, m: NovaMensagem) {
       const n = estado.mensagens.length + 1;
-      const msg: Mensagem = {
+      const msg: MensagemFake = {
         id: `msg-${n}`, autor: m.autor, texto: m.texto, status: m.status,
         created_at: new Date(fake.agora.getTime() + n).toISOString(), // estritamente crescente
+        fora_expediente: m.fora_expediente ?? false, meta: m.meta ?? {},
       };
       estado.mensagens.push(msg);
       return Promise.resolve(msg.id);
