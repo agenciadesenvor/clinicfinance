@@ -335,9 +335,12 @@ function irisRenderConversa() {
   const inbox = document.getElementById('irisInbox');
   const cEl = document.getElementById('irisConversa'), rEl = document.getElementById('irisResumo');
   if (!inbox || !cEl || !rEl) return;
+  if (typeof irisConferirEdicao === 'function') irisConferirEdicao();
   const c = irisAberta();
   const sim = !!c && c.canal === 'simulador';
   const folha = sim && typeof _irisAcoes !== 'undefined' && _irisAcoes.folha;
+  // lê a tela antes de mudar as classes: o celular escondido não tem rolagem para guardar
+  const antes = c ? irisCapturarTela(cEl, c.id) : null;
   inbox.classList.toggle('is-aberta', !!c);
   inbox.classList.toggle('is-sim', sim);
   inbox.classList.toggle('is-folha', folha);
@@ -348,7 +351,6 @@ function irisRenderConversa() {
     rEl.innerHTML = '';
     return;
   }
-  const antes = irisCapturarTela(cEl, c.id);
   cEl.dataset.id = c.id;
   const sit = irisSituacao(c);
   const comEquipe = c.estado === 'equipe';
@@ -388,7 +390,8 @@ function irisRenderConversa() {
 // o que a pessoa estava fazendo antes de redesenhar: foco e cursor, rolagem da conversa e do celular
 function irisCapturarTela(cEl, id) {
   const mesma = cEl.dataset.id === id;
-  const rolagem = el => (el && mesma ? { topo: el.scrollTop, noFim: el.scrollHeight - el.scrollTop - el.clientHeight < 24 } : null);
+  // sem conversa igual, ou painel invisível (folha do celular fechada): sem posição, vai para o fim
+  const rolagem = el => (el && mesma && el.clientHeight > 0 ? { topo: el.scrollTop, noFim: el.scrollHeight - el.scrollTop - el.clientHeight < 24 } : null);
   const foco = document.activeElement;
   const campo = foco?.dataset?.campo && foco.closest('#irisConversa, #irisResumo') ? foco.dataset.campo : null;
   return {
@@ -401,7 +404,8 @@ function irisCapturarTela(cEl, id) {
 function irisRestaurarTela(a) {
   const rolar = (el, r) => { if (el) el.scrollTop = !r || r.noFim ? el.scrollHeight : r.topo; };
   rolar(document.getElementById('irisThread'), a.thread);
-  rolar(document.getElementById('irisCelMsgs'), a.cel);
+  const celFim = typeof _irisAcoes !== 'undefined' && _irisAcoes.celFim;
+  rolar(document.getElementById('irisCelMsgs'), celFim ? null : a.cel);
   if (a.campo) {
     const el = [...document.querySelectorAll('[data-campo]')].find(x => x.dataset.campo === a.campo);
     if (el && !el.disabled) {
@@ -488,7 +492,7 @@ function irisHtmlRascunho(c) {
   const rascunhos = (c.mensagens || []).filter(m => m.status === 'rascunho');
   if (!rascunhos.length) return '';
   const chave = `rascunho:${c.id}`, oc = irisAttrOcupado(chave), ocupado = irisOcupadoEm(chave);
-  if (typeof _irisAcoes !== 'undefined' && _irisAcoes.editando === c.id) {
+  if (typeof _irisAcoes !== 'undefined' && _irisAcoes.editando?.conv === c.id) {
     return `<div class="iris-rascunho is-editando" id="irisRascunho" data-id="${esc(c.id)}">
       <label class="iris-rascunho-titulo" for="irisEdicao">Editar a resposta da Íris</label>
       <textarea class="form-control iris-edicao" id="irisEdicao" rows="5" data-campo="edit:${esc(c.id)}" oninput="irisGuardarCampo(this)" aria-describedby="irisEdicaoDica irisEdicaoErro" ${oc}>${irisCampo(`edit:${c.id}`)}</textarea>

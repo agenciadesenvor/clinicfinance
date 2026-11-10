@@ -10,13 +10,14 @@
 /* ===== Estado ===== */
 const _irisAcoes = {
   ocupado: new Set(),     // chaves das ações em andamento (ignora clique duplo)
-  editando: null,         // id da conversa com o rascunho aberto para edição
+  editando: null,         // { conv, linhas: [{ id, meta, created_at }] } do rascunho aberto para edição
   erroEdicao: '',
   pensando: new Set(),    // conversas com a Íris respondendo agora
   simPendente: {},        // conversa → texto enviado como paciente, ainda sem retorno
   simStatus: {},          // conversa → linha de aviso abaixo do celular
   simVista: 'celular',    // coluna da direita no simulador: 'celular' | 'resumo'
-  folha: false            // celular aberto como folha (telas menores)
+  folha: false,           // celular aberto como folha (telas menores)
+  celFim: false           // depois de escrever como paciente, o celular rola até o fim
 };
 const IRIS_CLINICA = 'Dra. Patrícia Nascimento';
 const IRIS_SIM_AVISO = 'Aqui você escreve como se fosse a paciente. Nada deste teste vai para o CRM, a Agenda ou o financeiro.';
@@ -42,28 +43,35 @@ const irisUid = () => currentUser.id;
 const irisRascunhosDe = c => (c?.mensagens || []).filter(m => m.status === 'rascunho');
 
 /* ===== Ajudante: gravar, mostrar ocupado, avisar erro, recarregar ===== */
-// passos: funções que devolvem { error } (db) e rodam em ordem; para no primeiro erro.
-// Se nada foi gravado, a tela não muda; se algo foi gravado antes do erro, recarrega para mostrar o real.
-// aoGravar roda logo depois de tudo gravado (antes de recarregar); depois roda no fim.
-async function irisAcao(chave, passos, { erro = 'Não foi possível salvar. Confira a internet e tente de novo.', aoGravar, depois } = {}) {
+// passos: em ordem, para no primeiro erro. Cada passo é uma função que devolve { error } (db)
+// ou { passo, erro, aoFeito, conferir }: erro = aviso próprio se ESTE passo falhar; aoFeito roda
+// logo que ele grava; conferir = só lê (não conta como gravação) e pode devolver { abortar: aviso }.
+// Se nada foi gravado, a tela não muda (abortar recarrega: os dados mudaram); se algo foi gravado
+// antes do erro, recarrega para mostrar o real. aoFalhar(gravados) roda antes de recarregar;
+// aoGravar roda com tudo gravado (antes de recarregar); depois roda no fim.
+async function irisAcao(chave, passos, { erro = 'Não foi possível salvar. Confira a internet e tente de novo.', aoGravar, aoFalhar, depois } = {}) {
   if (_irisAcoes.ocupado.has(chave)) return false;
   _irisAcoes.ocupado.add(chave);
   irisRenderConversa();
-  let feitos = 0, ok = true;
-  try {
-    for (const passo of passos) {
-      const r = await passo();
-      if (r && r.error) throw r.error;
-      feitos++;
+  let gravados = 0, ok = true, abortou = false;
+  for (const item of passos) {
+    const p = typeof item === 'function' ? { passo: item } : item;
+    let r;
+    try { r = await p.passo(); } catch (e) { r = { error: e }; }
+    if (r && r.abortar) { ok = false; abortou = true; toast(r.abortar, 'error'); break; }
+    if (r && r.error) {
+      ok = false;
+      console.error('Íris: erro na ação', chave, r.error);
+      toast(p.erro || erro, 'error');
+      break;
     }
-  } catch (e) {
-    ok = false;
-    console.error('Íris: erro na ação', chave, e);
-    toast(erro, 'error');
+    if (!p.conferir) gravados++;
+    if (p.aoFeito) p.aoFeito();
   }
   _irisAcoes.ocupado.delete(chave);
+  if (!ok && aoFalhar) aoFalhar(gravados, abortou);
   if (ok && aoGravar) aoGravar();
-  if (ok || feitos) await irisRecarregar();
+  if (ok || gravados || abortou) await irisRecarregar();
   else irisRenderConversa();
   if (ok && depois) await depois();
   return ok;
@@ -81,10 +89,31 @@ const irisDescartarRascunhos = id => () =>
 const irisAtualizarConversa = (id, dados) => () => db('iris_conversas').update(dados).eq('id', id);
 
 /* ===== Rascunho da Íris ===== */
+const IRIS_RASCUNHO_NOVO = 'A Íris escreveu um rascunho novo. Confira antes de enviar.';
+const IRIS_RASCUNHO_SUMIU = 'Esse rascunho não existe mais.';
+const irisMesmosIds = (a, b) => a.length === b.length && a.every(id => b.includes(id));
+
+// Passo de conferência: os rascunhos no banco ainda são exatamente os que a pessoa está vendo?
+// (a paciente pode ter escrito de novo e a Íris trocado o rascunho)
+const irisConferirRascunhos = (conversaId, ids) => ({
+  conferir: true,
+  erro: 'Não foi possível conferir o rascunho. Confira a internet e tente de novo.',
+  passo: async () => {
+    const r = await db('iris_mensagens').select('id').eq('conversa_id', conversaId).eq('status', 'rascunho');
+    if (r.error) return r;
+    const atuais = (r.data || []).map(x => x.id);
+    if (!atuais.length) return { abortar: IRIS_RASCUNHO_SUMIU };
+    if (!irisMesmosIds(atuais, ids)) return { abortar: IRIS_RASCUNHO_NOVO };
+    return {};
+  }
+});
+
 function irisEnviarRascunho() {
   const c = irisConversaAtual();
-  if (!c || !irisRascunhosDe(c).length) return;
+  const vistos = irisRascunhosDe(c).map(m => m.id); // os que estão na tela
+  if (!c || !vistos.length) return;
   return irisAcao(`rascunho:${c.id}`, [
+    irisConferirRascunhos(c.id, vistos),
     () => db('iris_mensagens').update({ status: 'enviada' }).eq('conversa_id', c.id).eq('status', 'rascunho')
   ], { erro: 'Não foi possível enviar o rascunho. Confira a internet e tente de novo.' });
 }
@@ -94,7 +123,8 @@ function irisEditarRascunho() {
   if (!c) return;
   const rascunhos = irisRascunhosDe(c);
   if (!rascunhos.length) return;
-  _irisAcoes.editando = c.id;
+  // guarda as linhas que estão sendo editadas: o envio grava só nelas
+  _irisAcoes.editando = { conv: c.id, linhas: rascunhos.map(m => ({ id: m.id, meta: m.meta, created_at: m.created_at })) };
   _irisAcoes.erroEdicao = '';
   _irisConv.campos[`edit:${c.id}`] = rascunhos.map(m => String(m.texto || '')).join('\n\n');
   irisRenderConversa();
@@ -102,19 +132,37 @@ function irisEditarRascunho() {
   if (campo) { campo.focus(); campo.setSelectionRange(campo.value.length, campo.value.length); }
 }
 
-function irisCancelarEdicao() {
-  const id = _irisAcoes.editando;
+function irisFecharEdicao() {
+  const ed = _irisAcoes.editando;
   _irisAcoes.editando = null;
   _irisAcoes.erroEdicao = '';
-  if (id) delete _irisConv.campos[`edit:${id}`];
+  if (ed) delete _irisConv.campos[`edit:${ed.conv}`];
+}
+
+function irisCancelarEdicao() {
+  irisFecharEdicao();
   irisRenderConversa();
 }
 
-// parágrafo i → rascunho i (mantém o meta, com editada: true); rascunhos a mais → descartados;
-// parágrafos a mais → novas mensagens da Íris, depois das atualizações
+// chamada antes de cada renderização da conversa: se os rascunhos mudaram (ou sumiram) desde que
+// a edição abriu, o texto editado não vale mais para eles; fecha a edição e avisa
+function irisConferirEdicao() {
+  const ed = _irisAcoes.editando;
+  if (!ed || _irisAcoes.ocupado.has(`rascunho:${ed.conv}`)) return;
+  const c = _irisConv.lista.find(x => x.id === ed.conv);
+  if (!c) { irisFecharEdicao(); return; }
+  const atuais = irisRascunhosDe(c).map(m => m.id);
+  if (irisMesmosIds(atuais, ed.linhas.map(l => l.id))) return;
+  irisFecharEdicao();
+  toast(atuais.length ? IRIS_RASCUNHO_NOVO : IRIS_RASCUNHO_SUMIU, 'error');
+}
+
+// parágrafo i → rascunho i lembrado ao abrir a edição (mantém o meta, com editada: true);
+// rascunhos a mais → descartados; parágrafos a mais → novas mensagens da Íris, depois das atualizações
 async function irisEnviarEdicao() {
   const c = irisConversaAtual();
-  if (!c || _irisAcoes.editando !== c.id) return;
+  const ed = _irisAcoes.editando;
+  if (!c || !ed || ed.conv !== c.id) return;
   const partes = String(_irisConv.campos[`edit:${c.id}`] || '').split(/\n\s*\n/).map(s => s.trim()).filter(Boolean);
   if (!partes.length) {
     _irisAcoes.erroEdicao = 'Escreva a mensagem antes de enviar.';
@@ -123,11 +171,12 @@ async function irisEnviarEdicao() {
     return;
   }
   _irisAcoes.erroEdicao = '';
-  const linhas = irisRascunhosDe(c);
-  const passos = linhas.map((m, i) => i < partes.length
+  const linhas = ed.linhas;
+  const passos = [irisConferirRascunhos(c.id, linhas.map(l => l.id))];
+  linhas.forEach((m, i) => passos.push(i < partes.length
     ? () => db('iris_mensagens').update({ texto: partes[i], status: 'enviada', meta: { ...(m.meta && typeof m.meta === 'object' ? m.meta : {}), editada: true } })
       .eq('id', m.id).eq('status', 'rascunho')
-    : () => db('iris_mensagens').update({ status: 'descartada' }).eq('id', m.id).eq('status', 'rascunho'));
+    : () => db('iris_mensagens').update({ status: 'descartada' }).eq('id', m.id).eq('status', 'rascunho')));
   const extras = partes.slice(linhas.length);
   if (extras.length) {
     // horário explícito e crescente (como o backend), sempre depois do último rascunho
@@ -140,7 +189,9 @@ async function irisEnviarEdicao() {
   }
   await irisAcao(`rascunho:${c.id}`, passos, {
     erro: 'Não foi possível enviar a mensagem editada. Confira a internet e tente de novo.',
-    aoGravar: () => { _irisAcoes.editando = null; delete _irisConv.campos[`edit:${c.id}`]; }
+    aoGravar: irisFecharEdicao,
+    // rascunho trocado, ou parte já gravada: o texto não pode ser reenviado às cegas
+    aoFalhar: (gravados, abortou) => { if (gravados || abortou) irisFecharEdicao(); }
   });
 }
 
@@ -186,11 +237,14 @@ async function irisEscrever(ev) {
   const texto = String(_irisConv.campos[chave] || '').trim();
   if (!texto) return;
   const agora = irisAgoraIso();
+  // primeiro pausa a Íris e descarta os rascunhos; a mensagem é o último passo (se ela falhar,
+  // nada foi enviado e dá para tentar de novo sem duplicar)
   const ok = await irisAcao(chave, [
-    () => db('iris_mensagens').insert({ user_id: irisUid(), conversa_id: c.id, autor: 'equipe', status: 'enviada', texto }),
+    irisAtualizarConversa(c.id, { estado: 'equipe', equipe_desde: agora, ultima_em: agora }),
     irisDescartarRascunhos(c.id),
-    irisAtualizarConversa(c.id, { estado: 'equipe', equipe_desde: agora, ultima_em: agora })
-  ], { erro: 'Não foi possível enviar a mensagem. Confira a internet e tente de novo.', aoGravar: () => irisLimparCampo(chave), depois: () => document.getElementById('irisEscrever')?.focus() });
+    { passo: () => db('iris_mensagens').insert({ user_id: irisUid(), conversa_id: c.id, autor: 'equipe', status: 'enviada', texto }),
+      erro: 'A mensagem não foi enviada, mas a conversa já ficou com a equipe. Tente de novo.' }
+  ], { erro: 'Não foi possível enviar a mensagem. Tente de novo.', aoGravar: () => irisLimparCampo(chave), depois: () => document.getElementById('irisEscrever')?.focus() });
   return ok;
 }
 
@@ -212,12 +266,15 @@ async function irisResponderPendencia(id) {
     return;
   }
   const agora = irisAgoraIso();
-  // não muda o estado: a Íris segue com o resto do atendimento
+  // não muda o estado: a Íris segue com o resto do atendimento.
+  // A mensagem é o ponto sem volta: gravada, o campo esvazia (nunca fica texto já enviado nele).
+  const naoResolveu = 'Mensagem enviada, mas a pendência continua aberta. Use "Marcar como resolvido".';
   await irisAcao(chave, [
-    () => db('iris_mensagens').insert({ user_id: irisUid(), conversa_id: c.id, autor: 'equipe', status: 'enviada', texto }),
-    () => db('iris_pendencias').update({ status: 'resolvida', resolvida_em: agora }).eq('id', id),
-    irisAtualizarConversa(c.id, { ultima_em: agora })
-  ], { erro: 'Não foi possível enviar a resposta. Confira a internet e tente de novo.', aoGravar: () => irisLimparCampo(chave) });
+    { passo: () => db('iris_mensagens').insert({ user_id: irisUid(), conversa_id: c.id, autor: 'equipe', status: 'enviada', texto }),
+      aoFeito: () => irisLimparCampo(chave) },
+    { passo: irisAtualizarConversa(c.id, { ultima_em: agora }), erro: naoResolveu },
+    { passo: () => db('iris_pendencias').update({ status: 'resolvida', resolvida_em: agora }).eq('id', id), erro: naoResolveu }
+  ], { erro: 'Não foi possível enviar a resposta. Confira a internet e tente de novo.' });
 }
 
 function irisResolverPendencia(id) {
@@ -253,7 +310,8 @@ async function irisChamarChat(conversaId, texto, aoVoltar) {
   const r = await irisChamar('iris-chat', corpo);
   _irisAcoes.pensando.delete(conversaId);
   if (aoVoltar) aoVoltar(r);
-  if (!r || r.erro) { irisRenderConversa(); return { erro: true }; }
+  // erro: a função pode ter gravado parte (a mensagem da paciente, uma nota); recarrega para mostrar o real
+  if (!r || r.erro) { await irisRecarregar(); return { erro: true }; }
   const desfecho = r.desfecho;
   _irisAcoes.simStatus[conversaId] = desfecho in IRIS_DESFECHOS ? desfecho : '';
   await irisRecarregar();
@@ -337,17 +395,22 @@ async function irisSimEnviar(ev) {
   if (!texto || _irisAcoes.simPendente[c.id] !== undefined || _irisAcoes.pensando.has(c.id)) return;
   _irisAcoes.simPendente[c.id] = texto;
   _irisAcoes.simStatus[c.id] = '';
+  _irisAcoes.celFim = true; // quem acabou de escrever quer ver o fim da conversa
   delete _irisConv.campos[chave];
   const r = await irisChamarChat(c.id, texto, resp => {
-    if (resp && !resp.erro) return;
-    // erro: tira a bolha e devolve o texto ao campo, para não perder o que foi escrito
-    delete _irisAcoes.simPendente[c.id];
-    if (!String(_irisConv.campos[chave] || '').trim()) _irisConv.campos[chave] = texto;
+    if (!resp || resp.erro) delete _irisAcoes.simPendente[c.id];
   });
-  if (!r.erro) { // a bolha "enviando…" sai só depois que a mensagem gravada já está na tela
-    delete _irisAcoes.simPendente[c.id];
-    irisRenderConversa();
+  // a bolha "enviando…" sai só depois que a mensagem gravada já está na tela
+  delete _irisAcoes.simPendente[c.id];
+  if (r.erro) {
+    // devolve o texto ao campo para não se perder, a não ser que a função já o tenha gravado
+    // (aí reenviar duplicaria a mensagem da paciente)
+    const enviadas = (_irisConv.lista.find(x => x.id === c.id)?.mensagens || []).filter(m => m.autor === 'paciente' && m.status === 'enviada');
+    const gravou = String(enviadas[enviadas.length - 1]?.texto || '').trim() === texto;
+    if (!gravou && !String(_irisConv.campos[chave] || '').trim()) _irisConv.campos[chave] = texto;
   }
+  irisRenderConversa();
+  _irisAcoes.celFim = false;
   if (irisAberta()?.id === c.id) document.getElementById('irisSimCampo')?.focus();
 }
 
@@ -383,7 +446,7 @@ async function irisExcluirTeste(id) {
   }
   if (_irisConv.aberta === id) _irisConv.aberta = null;
   _irisAcoes.folha = false;
-  if (_irisAcoes.editando === id) _irisAcoes.editando = null;
+  if (_irisAcoes.editando?.conv === id) _irisAcoes.editando = null;
   delete _irisAcoes.simStatus[id];
   Object.keys(_irisConv.campos).forEach(k => { if (k.endsWith(`:${id}`)) delete _irisConv.campos[k]; });
   toast('Conversa de teste excluída');
