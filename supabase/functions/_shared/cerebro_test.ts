@@ -174,3 +174,32 @@ Deno.test("blocos de texto são juntados com linha em branco; pause_turn continu
   assertEquals((c.chamadas[1].messages as any[]).at(-1), { role: "assistant", content: [{ type: "text", text: "parcial" }] });
   assertEquals(r.textos, ["Primeiro.", "Segundo."]);
 });
+
+async function semConsoleError<T>(f: () => Promise<T>): Promise<T> {
+  const original = console.error;
+  console.error = () => {};
+  try {
+    return await f();
+  } finally {
+    console.error = original;
+  }
+}
+
+Deno.test("stop_reason nulo ou desconhecido falha fechado, sem texto", async () => {
+  for (const sr of [null, "model_context_window_exceeded"]) {
+    const r = await semConsoleError(() => responder(base(fila([resp(sr as never, [{ type: "text", text: "Olá." }])]))));
+    assertEquals([r.bloqueio, r.textos], ["erro_api", []]);
+  }
+});
+
+Deno.test("resposta sem content não lança: erro_api", async () => {
+  const r = await semConsoleError(() => responder(base(fila([{ stop_reason: "end_turn", usage: USO }]))));
+  assertEquals([r.bloqueio, r.textos], ["erro_api", []]);
+});
+
+Deno.test("falha na 2ª chamada depois de uma ferramenta: erro_api e uso da 1ª preservado", async () => {
+  const c = fila([usa("consultar_horarios", HORARIOS)]); // a 2ª chamada rejeita (fila vazia)
+  const r = await semConsoleError(() => responder(base(c)));
+  assertEquals([r.bloqueio, r.textos], ["erro_api", []]);
+  assertEquals(r.uso, { entrada: 10, saida: 5, cache_lido: 0, cache_escrito: 0 });
+});

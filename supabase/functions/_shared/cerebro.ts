@@ -54,6 +54,11 @@ export async function responder(p: {
     uso.cache_lido += r.usage?.cache_read_input_tokens ?? 0;
     uso.cache_escrito += r.usage?.cache_creation_input_tokens ?? 0;
 
+    // Resposta sem lista de blocos: nada utilizável, falha fechado.
+    if (!Array.isArray(r.content)) {
+      console.error("resposta do Claude sem content");
+      return bloquear("erro_api");
+    }
     if (r.stop_reason === "refusal") return bloquear("recusa");
     if (r.stop_reason === "max_tokens") return bloquear("resposta_cortada");
 
@@ -72,7 +77,11 @@ export async function responder(p: {
       continue;
     }
 
-    // end_turn e stop_sequence
+    // Só end_turn e stop_sequence liberam texto; qualquer outro valor (ou nulo) falha fechado.
+    if (r.stop_reason !== "end_turn" && r.stop_reason !== "stop_sequence") {
+      console.error("stop_reason inesperado:", r.stop_reason);
+      return bloquear("erro_api");
+    }
     const texto = r.content.flatMap((b) => (b.type === "text" ? [b.text] : [])).join("\n\n");
     const textos = dividirMensagens(texto);
     if (textos.length === 0) return bloquear("resposta_cortada");
