@@ -352,11 +352,36 @@
   background: var(--bg-2); border: 1px solid var(--border-light); border-radius: 16px;
 }
 
-/* faixa de pendência */
-.iris-pends { display: flex; flex-direction: column; gap: 10px; padding: 14px 24px 0; }
+/* faixa de pendência: separada da conversa, rola sozinha quando há várias */
+.iris-pends {
+  display: flex; flex-direction: column; gap: 10px; padding: 12px 24px; flex-shrink: 0;
+  max-height: 38%; overflow-y: auto; border-bottom: 1px solid var(--border-light);
+  box-shadow: 0 6px 12px -10px rgba(62,50,42,.35); position: relative; z-index: 1; background: var(--card);
+}
 .iris-pend { padding: 12px 16px 14px; border-radius: 16px; background: var(--purple-light); border: 1px solid #DCCFD6; }
 .iris-pend--urgente { background: var(--red-light); border-color: rgba(184,92,68,.4); box-shadow: inset 4px 0 0 var(--red); }
-.iris-pend-motivo { font-size: 13px; font-weight: 700; color: #6E5A66; }
+.iris-pend-cab { display: flex; align-items: flex-start; gap: 10px; }
+.iris-pend-motivo { flex: 1; min-width: 0; font-size: 13px; font-weight: 700; color: #6E5A66; }
+.iris-pend-resolver {
+  flex-shrink: 0; padding: 2px 4px; border: 0; background: none; cursor: pointer;
+  font: inherit; font-size: 12.5px; font-weight: 600; color: var(--text-2); text-decoration: underline; text-underline-offset: 3px;
+}
+.iris-pend-resolver:hover { color: var(--text-1); }
+.iris-pend-resolver:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; border-radius: 4px; }
+.iris-pend-resolver:disabled { opacity: .5; cursor: not-allowed; }
+.iris-pend-abrir { display: none; }
+@media (max-width: 1279px) {
+  /* compacto: o campo de resposta fica atrás de "Responder" */
+  .iris-pend-abrir {
+    display: inline-flex; flex-shrink: 0; padding: 4px 12px; border-radius: 999px; cursor: pointer;
+    border: 1px solid currentColor; background: var(--card); font: inherit; font-size: 12.5px; font-weight: 650; color: #6E5A66;
+  }
+  .iris-pend--urgente .iris-pend-abrir { color: #A04E38; }
+  .iris-pend-abrir:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+  .iris-pend.is-respondendo .iris-pend-abrir { display: none; }
+  .iris-pend:not(.is-respondendo) .iris-pend-form { display: none; }
+  .iris-pend-cab { align-items: center; flex-wrap: wrap; }
+}
 .iris-pend--urgente .iris-pend-motivo { color: #A04E38; }
 .iris-pend-resumo { margin-top: 4px; max-height: 6.2em; overflow-y: auto; font-size: 13.5px; line-height: 1.5; color: var(--text-1); overflow-wrap: anywhere; }
 .iris-pend-form { display: flex; gap: 8px; margin-top: 10px; }
@@ -453,8 +478,11 @@
   .iris-resumo-movel { display: block; }
   .iris-conv-topo { padding: 12px 14px; gap: 8px 10px; }
   .iris-conv-nome { font-size: 19px; }
-  .iris-pends { padding: 12px 14px 0; }
-  .iris-pend-form { flex-direction: column; }
+  .iris-pends { padding: 10px 14px; max-height: 45%; }
+  .iris-pend { padding: 10px 12px 12px; }
+  .iris-pend-resumo { max-height: 4.6em; }
+  .iris-pend-cab { gap: 6px 12px; }
+  .iris-pend-motivo { flex-basis: 100%; }
   .iris-thread { padding: 16px 14px 18px; }
   .iris-msg { max-width: 86%; }
   .iris-composer { padding: 10px 14px 12px; }
@@ -462,4 +490,173 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .iris-ci, .iris-filtro, .iris-atualizar, .iris-busca, .iris-resumo-movel summary::after { transition: none; }
+}
+
+/* ============================================================
+   Conversas: ações da equipe e Simulador
+   ============================================================ */
+/* dois botões ao lado da busca: os dois só com ícone (o nome fica no title e para leitores de tela) */
+.iris-busca-linha .iris-atualizar { width: 40px; padding: 0; justify-content: center; }
+.iris-busca-linha .iris-atualizar-txt { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.iris-nova-teste { color: var(--accent); }
+.iris-nova-teste svg { width: 16px; height: 16px; }
+.iris-conv-nada { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+
+/* cabeçalho: quem atende, celular e mais ações */
+.iris-conv-acoes { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.iris-conv-acoes .btn { white-space: nowrap; }
+.iris-btn-cel { display: none; }
+.iris-btn-cel svg { width: 16px; height: 16px; }
+.iris-mais { position: relative; }
+.iris-mais summary {
+  display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; list-style: none; cursor: pointer;
+  border: 1px solid var(--border); border-radius: 12px; background: var(--card); color: var(--text-2); transition: var(--transition);
+}
+.iris-mais summary::-webkit-details-marker { display: none; }
+.iris-mais summary svg { width: 18px; height: 18px; }
+.iris-mais summary:hover, .iris-mais[open] summary { color: var(--text-1); border-color: var(--accent); }
+.iris-mais summary:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.iris-mais-menu {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 6; min-width: 220px; padding: 6px;
+  background: var(--card); border: 1px solid var(--border-light); border-radius: 14px; box-shadow: var(--shadow-lg);
+}
+.iris-mais-item {
+  display: block; width: 100%; padding: 10px 12px; border: 0; border-radius: 10px; background: none; cursor: pointer; text-align: left;
+  font: inherit; font-size: 13.5px; font-weight: 600; color: #A04E38;
+}
+.iris-mais-item:hover { background: var(--red-light); }
+.iris-mais-item:focus-visible { outline: 2px solid var(--accent-2); outline-offset: -2px; }
+.iris-mais-item:disabled { opacity: .5; cursor: not-allowed; }
+
+/* faixas: fora do expediente e "Íris não respondeu" */
+.iris-barra {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; padding: 10px 24px; flex-shrink: 0;
+  border-bottom: 1px solid var(--border-light); font-size: 13.5px; line-height: 1.45;
+}
+.iris-barra p { flex: 1 1 260px; margin: 0; }
+.iris-barra .btn { white-space: nowrap; padding-top: 7px; padding-bottom: 7px; }
+.iris-barra--fora { background: var(--blue-light); color: #3F5563; }
+.iris-barra--atencao { background: var(--red-light); color: #8A4230; }
+
+/* rascunho em edição */
+.iris-rascunho.is-editando { border-style: solid; }
+.iris-rascunho-titulo { display: block; }
+.iris-edicao { margin-top: 8px; min-height: 120px; resize: vertical; line-height: 1.5; background: var(--card); }
+.iris-rascunho-dica { margin-top: 6px; font-size: 12.5px; color: var(--text-2); }
+.iris-rascunho .iris-erro:empty { display: none; }
+
+/* ---------- Simulador: coluna da direita ---------- */
+.iris-inbox.is-sim .iris-col-resumo { overflow: hidden; }
+.iris-sim { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.iris-sim-troca { display: flex; gap: 4px; margin: 14px 16px 0; padding: 4px; border-radius: 12px; background: var(--bg); flex-shrink: 0; }
+.iris-sim-troca-btn {
+  flex: 1; padding: 7px 6px; border: 0; border-radius: 9px; background: transparent; cursor: pointer; white-space: nowrap;
+  font: inherit; font-size: 12px; font-weight: 650; color: var(--text-2); transition: var(--transition);
+}
+.iris-sim-troca-btn.is-on { background: var(--card); color: var(--text-1); box-shadow: var(--shadow-sm); }
+.iris-sim-troca-btn:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 1px; }
+.iris-sim-folha-topo { display: none; }
+.iris-sim-vista-cel { display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 12px 16px 14px; }
+.iris-sim-vista-resumo { display: none; overflow-y: auto; flex: 1; min-height: 0; }
+.iris-sim[data-vista="resumo"] .iris-sim-vista-cel { display: none; }
+.iris-sim[data-vista="resumo"] .iris-sim-vista-resumo { display: block; }
+.iris-sim-vista-resumo .iris-resumo { padding: 18px 22px 24px; }
+
+.iris-sim-aviso {
+  margin: 0 0 10px; padding: 8px 12px; border-radius: 12px; background: #F5EAD8; color: #6B4E26;
+  font-size: 12.5px; line-height: 1.45; flex-shrink: 0;
+}
+.iris-sim-aviso--modal { margin-bottom: 16px; }
+.iris-sim-status { min-height: 1.45em; margin: 8px 2px 0; font-size: 12.5px; line-height: 1.45; color: var(--text-2); flex-shrink: 0; }
+.iris-sim-status:empty { margin-top: 0; min-height: 0; }
+
+/* o celular */
+.iris-cel {
+  display: flex; flex-direction: column; flex: 1; min-height: 260px; overflow: hidden;
+  border: 6px solid #3E322A; border-radius: 30px; background: #EFE6DA; box-shadow: var(--shadow-md, var(--shadow-sm));
+}
+.iris-cel-topo { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #3E322A; color: #FBF8F2; flex-shrink: 0; }
+.iris-cel-avatar {
+  display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+  background: var(--accent-light); color: #3E322A; font-family: var(--font-display); font-size: 15px; font-weight: 600;
+}
+.iris-cel-quem { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.iris-cel-quem strong { font-size: 13.5px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.iris-cel-quem small { font-size: 11.5px; opacity: .78; }
+.iris-cel-msgs { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 12px 10px; }
+.iris-cel-vazio { margin: auto; padding: 0 12px; text-align: center; font-size: 12.5px; color: var(--text-2); }
+.iris-cel-msg { display: flex; }
+.iris-cel-msg--eu { justify-content: flex-end; }
+.iris-cel-bolha {
+  max-width: 84%; padding: 7px 10px 5px; border-radius: 14px; font-size: 13.5px; line-height: 1.42; color: #2C241E;
+  white-space: pre-wrap; overflow-wrap: anywhere; box-shadow: 0 1px 1px rgba(62,50,42,.12);
+}
+.iris-cel-bolha time { display: block; margin-top: 2px; text-align: right; font-size: 10.5px; color: rgba(44,36,30,.55); white-space: nowrap; }
+.iris-cel-msg--eu .iris-cel-bolha { background: #D9E8CF; border-bottom-right-radius: 4px; }
+.iris-cel-msg--clinica .iris-cel-bolha { background: #FFFDF9; border-bottom-left-radius: 4px; }
+.iris-cel-msg.is-enviando .iris-cel-bolha { opacity: .7; }
+.iris-cel-digitando { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-2); font-style: italic; }
+.iris-cel-pontos { display: inline-flex; gap: 3px; }
+.iris-cel-pontos i { width: 6px; height: 6px; border-radius: 50%; background: var(--text-3); animation: irisPonto 1.2s infinite ease-in-out; }
+.iris-cel-pontos i:nth-child(2) { animation-delay: .15s; }
+.iris-cel-pontos i:nth-child(3) { animation-delay: .3s; }
+@keyframes irisPonto { 0%, 60%, 100% { transform: translateY(0); opacity: .45; } 30% { transform: translateY(-3px); opacity: 1; } }
+.iris-cel-pagar { padding: 8px 10px 0; flex-shrink: 0; }
+.iris-cel-pagar .btn { width: 100%; justify-content: center; background: #FFFDF9; border-color: #4F7A52; color: #3F6642; }
+.iris-cel-pagar .btn:disabled { opacity: .6; cursor: not-allowed; }
+.iris-cel-campo { display: flex; align-items: flex-end; gap: 6px; padding: 8px; flex-shrink: 0; }
+.iris-cel-texto {
+  flex: 1; min-width: 0; min-height: 38px; max-height: 110px; padding: 9px 14px; resize: none; border: 0; border-radius: 20px;
+  background: #FFFDF9; font: inherit; font-size: 13.5px; line-height: 1.4; color: var(--text-1); outline: none;
+}
+.iris-cel-texto:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
+.iris-cel-texto:disabled { opacity: .6; }
+.iris-cel-enviar {
+  display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; flex-shrink: 0;
+  border: 0; border-radius: 50%; background: #3E322A; color: #FBF8F2; cursor: pointer;
+}
+.iris-cel-enviar svg { width: 17px; height: 17px; }
+.iris-cel-enviar:disabled { opacity: .45; cursor: not-allowed; }
+.iris-cel-enviar:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
+.iris-folha-fundo { display: none; }
+
+/* telas menores: o celular abre como folha por cima */
+@media (max-width: 1279px) {
+  .iris-inbox.is-sim .iris-btn-cel { display: inline-flex; }
+  .iris-sim-troca { display: none; }
+  .iris-sim-vista-resumo { display: none !important; }
+  .iris-sim .iris-sim-vista-cel { display: flex !important; }
+  .iris-inbox.is-folha .iris-col-resumo {
+    display: flex; position: fixed; z-index: 400; top: 0; right: 0; bottom: 0; width: min(420px, 100vw);
+    background: var(--bg-2); border-left: 1px solid var(--border-light); box-shadow: var(--shadow-lg);
+  }
+  .iris-inbox.is-folha .iris-folha-fundo { display: block; position: fixed; inset: 0; z-index: 399; background: rgba(44,36,30,.32); }
+  .iris-sim-folha-topo {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-shrink: 0;
+    padding: 12px 16px; border-bottom: 1px solid var(--border-light); background: var(--card);
+  }
+  .iris-sim-folha-t { font-size: 15px; font-weight: 650; color: var(--text-1); }
+  .iris-sim-fechar { padding-top: 7px; padding-bottom: 7px; }
+}
+@media (max-width: 1279px) and (min-width: 769px) {
+  /* nome e etiqueta numa linha; ações e "Resumo da paciente" na de baixo */
+  .iris-conv-topo { flex-wrap: wrap; padding: 12px 20px; gap: 8px 10px; }
+  .iris-conv-titulo { flex: 1 1 100%; }
+  .iris-conv-acoes { order: 4; margin-left: auto; }
+  .iris-resumo-movel { order: 3; }
+  .iris-conv-acoes .btn { padding-top: 7px; padding-bottom: 7px; }
+  .iris-mais summary { width: 36px; height: 36px; }
+}
+@media (max-width: 768px) {
+  .iris-conv-acoes { flex-basis: 100%; flex-wrap: wrap; }
+  .iris-conv-acoes .btn { flex: 1; justify-content: center; padding-top: 8px; padding-bottom: 8px; }
+  .iris-barra { padding: 10px 14px; }
+  .iris-barra .btn { width: 100%; justify-content: center; }
+  .iris-inbox.is-folha .iris-col-resumo { width: 100vw; border-left: 0; }
+  .iris-sim-vista-cel { padding: 10px 12px 12px; }
+  .iris-cel { border-width: 4px; border-radius: 22px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .iris-cel-pontos i { animation: none; opacity: .8; }
+  .iris-sim-troca-btn, .iris-mais summary { transition: none; }
 }

@@ -1,12 +1,18 @@
 /* ============================================================
    ClinicFinance — iris-conversas.js
-   Íris: aba Conversas (caixa de entrada da equipe). Só lê os dados;
-   as ações (enviar rascunho, escrever, resolver) chegam na etapa seguinte.
+   Íris: aba Conversas (caixa de entrada da equipe). Lê e desenha;
+   o que muda dados (ações da equipe e Simulador) fica em iris-acoes.js.
    Tabelas: iris_conversas, iris_mensagens, iris_pendencias, iris_reservas (ver iris.sql)
    ============================================================ */
 
 /* ===== Estado ===== */
-const _irisConv = { status: 'inicial', erro: '', lista: [], filtro: 'mim', busca: '', aberta: null, carga: null };
+const _irisConv = {
+  status: 'inicial', erro: '', lista: [], filtro: 'mim', busca: '', aberta: null, carga: null,
+  campos: {},          // texto digitado nos campos (data-campo), para sobreviver às renderizações
+  resumoAberto: false, // <details> "Resumo da paciente"
+  pendAbertas: new Set(), // telas menores: pendências com o campo de resposta aberto
+  relogio: null        // timer leve de 30 s
+};
 
 const IRIS_FILTROS = [
   ['mim', 'Precisa de mim'],
@@ -152,8 +158,10 @@ async function irisBuscarConversas() {
     const erro = c.error || m.error || p.error || r.error;
     if (erro) throw erro;
     const grupo = (linhas, id) => linhas.filter(x => x.conversa_id === id);
+    // compara o texto ISO (o Postgres devolve microssegundos; Date.parse os perderia), depois o id
+    const cmp = (x, y) => (x < y ? -1 : x > y ? 1 : 0);
     const msgs = (m.data || []).slice().sort((a, b) =>
-      (Date.parse(a.created_at) - Date.parse(b.created_at)) || String(a.id).localeCompare(String(b.id)));
+      cmp(String(a.created_at), String(b.created_at)) || cmp(String(a.id), String(b.id)));
     _irisConv.lista = (c.data || []).map(conv => ({
       ...conv,
       mensagens: grupo(msgs, conv.id),
@@ -174,8 +182,42 @@ async function irisBuscarConversas() {
   irisRenderInbox();
 }
 
-// recarrega mantendo filtro, busca e a conversa aberta
-function irisRecarregar() { return irisLoadConversas(); }
+// recarrega mantendo filtro, busca e a conversa aberta; se já há uma carga em andamento
+// (que pode ter começado antes de uma gravação), espera e busca de novo
+function irisRecarregar() {
+  const emCurso = _irisConv.carga;
+  return emCurso ? emCurso.then(() => irisLoadConversas()) : irisLoadConversas();
+}
+
+/* ===== Relógio leve: a cada 30 s redesenha o que depende da hora (sem buscar dados) ===== */
+function irisIniciarRelogio() {
+  irisPararRelogio();
+  _irisConv.relogio = setInterval(irisTique, 30000);
+}
+function irisPararRelogio() {
+  if (_irisConv.relogio) clearInterval(_irisConv.relogio);
+  _irisConv.relogio = null;
+}
+function irisTique() {
+  if (typeof state === 'undefined' || state.currentView !== 'iris' || _iris.tab !== 'conversas' || !document.getElementById('irisInbox')) {
+    irisPararRelogio();
+    return;
+  }
+  if (document.hidden) return;
+  irisRenderLista();
+  // não mexe na conversa enquanto alguém digita nela
+  const foco = document.activeElement;
+  const digitando = foco && foco.matches?.('input, textarea') && foco.closest('#irisConversa, #irisResumo');
+  if (!digitando) irisRenderConversa();
+}
+
+/* ===== Campos: o texto fica guardado para sobreviver às renderizações ===== */
+function irisGuardarCampo(el) {
+  if (el?.dataset.campo) _irisConv.campos[el.dataset.campo] = el.value;
+}
+const irisCampo = chave => esc(_irisConv.campos[chave] || '');
+const irisOcupadoEm = chave => typeof _irisAcoes !== 'undefined' && _irisAcoes.ocupado.has(chave);
+const irisAttrOcupado = chave => (irisOcupadoEm(chave) ? 'disabled aria-busy="true"' : '');
 
 /* ===== Entrada da aba (chamada por irisRenderBody) ===== */
 // irisRenderBody chama uma vez por abertura da aba: mostra o que já há e busca dados frescos
@@ -183,6 +225,7 @@ function irisTabConversas(el) {
   if (_irisConv.lista.length) irisRenderInbox();
   else el.innerHTML = irisCarregando();
   irisLoadConversas();
+  irisIniciarRelogio();
 }
 
 /* ===== Renderização ===== */
@@ -211,7 +254,7 @@ function irisHtmlSemConversas() {
   return `<div class="iris-state iris-state--vazio">
     <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
     <p>Nenhuma conversa ainda. Crie uma conversa de teste para ver a Íris atendendo.</p>
-    <button type="button" class="btn btn-primary" id="irisBtnNovaTeste" disabled>Nova conversa de teste</button>
+    <button type="button" class="btn btn-primary" id="irisBtnNovaTeste" onclick="irisNovaConversaTeste()">Nova conversa de teste</button>
   </div>`;
 }
 
@@ -228,6 +271,9 @@ function irisHtmlInbox() {
           <button type="button" class="iris-atualizar" id="irisBtnAtualizar" onclick="irisRecarregar()" title="Buscar mensagens novas">
             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-2.64-6.36"/><path d="M21 3v6h-6"/></svg><span class="iris-atualizar-txt">Atualizar</span>
           </button>
+          <button type="button" class="iris-atualizar iris-nova-teste" id="irisBtnNovaTesteLista" onclick="irisNovaConversaTeste()" title="Nova conversa de teste" aria-label="Nova conversa de teste">
+            <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
         </div>
         <div class="iris-filtros" id="irisFiltros" role="group" aria-label="Filtrar conversas"></div>
       </div>
@@ -235,6 +281,7 @@ function irisHtmlInbox() {
     </aside>
     <section class="iris-col iris-col-conversa" id="irisConversa" aria-label="Conversa"></section>
     <aside class="iris-col iris-col-resumo" id="irisResumo" aria-label="Resumo da paciente"></aside>
+    <div class="iris-folha-fundo" onclick="irisFecharCelular()" aria-hidden="true"></div>
   </div>`;
 }
 
@@ -289,15 +336,22 @@ function irisRenderConversa() {
   const cEl = document.getElementById('irisConversa'), rEl = document.getElementById('irisResumo');
   if (!inbox || !cEl || !rEl) return;
   const c = irisAberta();
+  const sim = !!c && c.canal === 'simulador';
+  const folha = sim && typeof _irisAcoes !== 'undefined' && _irisAcoes.folha;
   inbox.classList.toggle('is-aberta', !!c);
+  inbox.classList.toggle('is-sim', sim);
+  inbox.classList.toggle('is-folha', folha);
   if (!c) {
     cEl.removeAttribute('data-id');
-    cEl.innerHTML = `<div class="iris-conv-nada">Escolha uma conversa à esquerda.</div>`;
+    cEl.innerHTML = `<div class="iris-conv-nada">Escolha uma conversa à esquerda.
+      <button type="button" class="btn btn-secondary" onclick="irisNovaConversaTeste()">Nova conversa de teste</button></div>`;
     rEl.innerHTML = '';
     return;
   }
+  const antes = irisCapturarTela(cEl, c.id);
   cEl.dataset.id = c.id;
   const sit = irisSituacao(c);
+  const comEquipe = c.estado === 'equipe';
   cEl.innerHTML = `
     <header class="iris-conv-topo">
       <button type="button" class="iris-voltar" id="irisBtnVoltar" onclick="irisVoltar()">
@@ -305,35 +359,109 @@ function irisRenderConversa() {
       </button>
       <div class="iris-conv-titulo">
         <h2 class="iris-conv-nome" id="irisConvNome" tabindex="-1">${esc(irisNomeConversa(c))}</h2>
-        ${c.canal === 'simulador' ? '<span class="iris-teste">Teste</span>' : ''}
+        ${sim ? '<span class="iris-teste">Teste</span>' : ''}
         ${irisHtmlSituacao(sit)}
       </div>
       ${c.contato_telefone ? `<div class="iris-conv-tel">${esc(c.contato_telefone)}</div>` : ''}
-      <details class="iris-resumo-movel"><summary>Resumo da paciente</summary>${irisHtmlResumo(c)}</details>
+      <div class="iris-conv-acoes">
+        ${sim ? `<button type="button" class="btn btn-primary iris-btn-cel" id="irisBtnAbrirCel" onclick="irisAbrirCelular()">
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M11 18h2"/></svg>Abrir celular da paciente</button>` : ''}
+        <button type="button" class="btn btn-secondary iris-btn-estado" id="irisBtnEstado" onclick="${comEquipe ? 'irisDevolver()' : 'irisAssumir()'}" ${irisAttrOcupado(`estado:${c.id}`)}>${comEquipe ? 'Devolver para a Íris' : 'Assumir conversa'}</button>
+        ${sim ? `<details class="iris-mais">
+          <summary aria-label="Mais ações" title="Mais ações"><svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></summary>
+          <div class="iris-mais-menu"><button type="button" class="iris-mais-item" data-id="${esc(c.id)}" onclick="irisExcluirTeste(this.dataset.id)" ${irisAttrOcupado(`excluir:${c.id}`)}>Excluir conversa de teste</button></div>
+        </details>` : ''}
+      </div>
+      <details class="iris-resumo-movel" ontoggle="_irisConv.resumoAberto = this.open" ${_irisConv.resumoAberto ? 'open' : ''}><summary>Resumo da paciente</summary>${irisHtmlResumo(c)}</details>
     </header>
     ${irisHtmlPendencias(c)}
+    ${irisHtmlBarras(c, sit)}
     <div class="iris-thread" id="irisThread" role="log" aria-label="Mensagens">
       ${irisHtmlThread(c)}
       ${irisHtmlRascunho(c)}
     </div>
-    ${irisHtmlComposer()}`;
-  rEl.innerHTML = irisHtmlResumo(c);
-  const t = document.getElementById('irisThread');
-  if (t) t.scrollTop = t.scrollHeight;
+    ${irisHtmlComposer(c)}`;
+  rEl.innerHTML = sim && typeof irisHtmlColunaSim === 'function' ? irisHtmlColunaSim(c) : irisHtmlResumo(c);
+  irisRestaurarTela(antes);
+}
+
+// o que a pessoa estava fazendo antes de redesenhar: foco e cursor, rolagem da conversa e do celular
+function irisCapturarTela(cEl, id) {
+  const mesma = cEl.dataset.id === id;
+  const rolagem = el => (el && mesma ? { topo: el.scrollTop, noFim: el.scrollHeight - el.scrollTop - el.clientHeight < 24 } : null);
+  const foco = document.activeElement;
+  const campo = foco?.dataset?.campo && foco.closest('#irisConversa, #irisResumo') ? foco.dataset.campo : null;
+  return {
+    thread: rolagem(document.getElementById('irisThread')),
+    cel: rolagem(document.getElementById('irisCelMsgs')),
+    campo, ini: campo ? foco.selectionStart : 0, fim: campo ? foco.selectionEnd : 0,
+    focoId: !campo && foco?.id && foco.closest('#irisConversa, #irisResumo') ? foco.id : null
+  };
+}
+function irisRestaurarTela(a) {
+  const rolar = (el, r) => { if (el) el.scrollTop = !r || r.noFim ? el.scrollHeight : r.topo; };
+  rolar(document.getElementById('irisThread'), a.thread);
+  rolar(document.getElementById('irisCelMsgs'), a.cel);
+  if (a.campo) {
+    const el = [...document.querySelectorAll('[data-campo]')].find(x => x.dataset.campo === a.campo);
+    if (el && !el.disabled) {
+      el.focus({ preventScroll: true });
+      try { el.setSelectionRange(a.ini, a.fim); } catch (e) { /* campo sem seleção */ }
+    }
+  } else if (a.focoId) {
+    const el = document.getElementById(a.focoId);
+    if (el && !el.disabled) el.focus({ preventScroll: true });
+  }
 }
 
 function irisHtmlPendencias(c) {
   const abertas = (c.pendencias || []).filter(p => p.status === 'aberta');
   if (!abertas.length) return '';
-  return `<div class="iris-pends">${abertas.map(p => `
-    <div class="iris-pend ${p.urgente ? 'iris-pend--urgente' : ''}" data-id="${esc(p.id)}">
-      <div class="iris-pend-motivo">${p.urgente ? '🚨 Urgente · ' : 'Aguardando Dra. · '}${esc(irisMotivo(p.motivo))}</div>
+  return `<div class="iris-pends" aria-label="Para a Dra. responder">${abertas.map(p => {
+    const chave = `pend:${p.id}`, oc = irisAttrOcupado(chave);
+    // em telas menores o campo fica atrás de "Responder" (abre sozinho se já há texto nele)
+    const aberta = _irisConv.pendAbertas.has(p.id) || !!String(_irisConv.campos[chave] || '').trim();
+    return `
+    <div class="iris-pend ${p.urgente ? 'iris-pend--urgente' : ''} ${aberta ? 'is-respondendo' : ''}" data-id="${esc(p.id)}">
+      <div class="iris-pend-cab">
+        <div class="iris-pend-motivo">${p.urgente ? '🚨 Urgente · ' : 'Aguardando Dra. · '}${esc(irisMotivo(p.motivo))}</div>
+        <button type="button" class="iris-pend-abrir" data-id="${esc(p.id)}" onclick="irisAbrirRespostaPend(this.dataset.id)" aria-expanded="${aberta}">Responder</button>
+        <button type="button" class="iris-pend-resolver" data-id="${esc(p.id)}" onclick="irisResolverPendencia(this.dataset.id)" ${oc}>Marcar como resolvido</button>
+      </div>
       ${p.resumo ? `<p class="iris-pend-resumo">${esc(p.resumo)}</p>` : ''}
-      <form class="iris-pend-form" data-id="${esc(p.id)}" onsubmit="event.preventDefault()">
-        <input type="text" class="form-control iris-pend-resposta" data-id="${esc(p.id)}" placeholder="Responder à paciente…" aria-label="Responder à paciente" disabled />
-        <button type="button" class="btn btn-secondary iris-pend-resolver" data-id="${esc(p.id)}" disabled>Marcar como resolvido</button>
+      <form class="iris-pend-form" data-id="${esc(p.id)}" onsubmit="event.preventDefault(); irisResponderPendencia(this.dataset.id)">
+        <input type="text" class="form-control iris-pend-resposta" data-id="${esc(p.id)}" data-campo="${esc(chave)}" value="${irisCampo(chave)}" placeholder="Responder à paciente…" aria-label="Responder à paciente" autocomplete="off" oninput="irisGuardarCampo(this)" ${oc} />
+        <button type="submit" class="btn btn-primary iris-pend-enviar" ${oc}>${irisOcupadoEm(chave) ? 'Enviando…' : 'Enviar'}</button>
       </form>
-    </div>`).join('')}</div>`;
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function irisAbrirRespostaPend(id) {
+  if (_irisConv.pendAbertas.has(id)) _irisConv.pendAbertas.delete(id);
+  else _irisConv.pendAbertas.add(id);
+  irisRenderConversa();
+  if (_irisConv.pendAbertas.has(id)) [...document.querySelectorAll('.iris-pend-resposta')].find(x => x.dataset.id === id)?.focus();
+}
+
+// faixas que pedem algo da equipe: respostas fora do expediente e "Íris não respondeu"
+function irisHtmlBarras(c, sit) {
+  const pensando = typeof _irisAcoes !== 'undefined' && _irisAcoes.pensando.has(c.id);
+  let html = '';
+  if (sit.chave === 'atencao' && !pensando) {
+    html += `<div class="iris-barra iris-barra--atencao">
+      <p>A Íris não respondeu à última mensagem da paciente. Peça para ela tentar de novo ou responda você.</p>
+      <button type="button" class="btn btn-secondary" onclick="irisPedirNovaTentativa()">Pedir para a Íris tentar de novo</button>
+    </div>`;
+  }
+  if (irisForaPendente(c)) {
+    const chave = `revisada:${c.id}`;
+    html += `<div class="iris-barra iris-barra--fora">
+      <p>A Íris respondeu fora do expediente. Confira e marque como revisada.</p>
+      <button type="button" class="btn btn-secondary" onclick="irisMarcarRevisada()" ${irisAttrOcupado(chave)}>${irisOcupadoEm(chave) ? 'Salvando…' : 'Marcar como revisada'}</button>
+    </div>`;
+  }
+  return html;
 }
 
 function irisHtmlThread(c) {
@@ -359,21 +487,37 @@ function irisHtmlMensagem(m) {
 function irisHtmlRascunho(c) {
   const rascunhos = (c.mensagens || []).filter(m => m.status === 'rascunho');
   if (!rascunhos.length) return '';
+  const chave = `rascunho:${c.id}`, oc = irisAttrOcupado(chave), ocupado = irisOcupadoEm(chave);
+  if (typeof _irisAcoes !== 'undefined' && _irisAcoes.editando === c.id) {
+    return `<div class="iris-rascunho is-editando" id="irisRascunho" data-id="${esc(c.id)}">
+      <label class="iris-rascunho-titulo" for="irisEdicao">Editar a resposta da Íris</label>
+      <textarea class="form-control iris-edicao" id="irisEdicao" rows="5" data-campo="edit:${esc(c.id)}" oninput="irisGuardarCampo(this)" aria-describedby="irisEdicaoDica irisEdicaoErro" ${oc}>${irisCampo(`edit:${c.id}`)}</textarea>
+      <p class="iris-rascunho-dica" id="irisEdicaoDica">Uma linha em branco separa uma mensagem da outra.</p>
+      <span class="iris-erro" id="irisEdicaoErro" role="alert">${esc(_irisAcoes.erroEdicao)}</span>
+      <div class="iris-rascunho-acoes">
+        <button type="button" class="btn btn-primary" id="irisBtnEnviarEdicao" onclick="irisEnviarEdicao()" ${oc}>${ocupado ? 'Enviando…' : 'Enviar'}</button>
+        <button type="button" class="btn btn-secondary" id="irisBtnCancelarEdicao" onclick="irisCancelarEdicao()" ${oc}>Cancelar</button>
+      </div>
+    </div>`;
+  }
   return `<div class="iris-rascunho" id="irisRascunho" data-id="${esc(c.id)}">
     <div class="iris-rascunho-titulo">Rascunho da Íris · aguardando sua aprovação</div>
     ${rascunhos.map(m => `<p class="iris-rascunho-texto" data-id="${esc(m.id)}">${esc(m.texto)}</p>`).join('')}
     <div class="iris-rascunho-acoes">
-      <button type="button" class="btn btn-primary" id="irisBtnEnviarRascunho" disabled>Enviar</button>
-      <button type="button" class="btn btn-secondary" id="irisBtnEditarRascunho" disabled>Editar</button>
-      <button type="button" class="btn btn-secondary" id="irisBtnEuRespondo" disabled>Eu respondo</button>
+      <button type="button" class="btn btn-primary" id="irisBtnEnviarRascunho" onclick="irisEnviarRascunho()" ${oc}>${ocupado ? 'Enviando…' : 'Enviar'}</button>
+      <button type="button" class="btn btn-secondary" id="irisBtnEditarRascunho" onclick="irisEditarRascunho()" ${oc}>Editar</button>
+      <button type="button" class="btn btn-secondary" id="irisBtnEuRespondo" onclick="irisEuRespondo()" ${oc}>Eu respondo</button>
     </div>
   </div>`;
 }
 
-function irisHtmlComposer() {
-  return `<form class="iris-composer" id="irisComposer" onsubmit="event.preventDefault()">
-    <textarea class="form-control iris-composer-campo" id="irisEscrever" rows="1" placeholder="Escrever como equipe (pausa a Íris nesta conversa)…" aria-label="Escrever como equipe (pausa a Íris nesta conversa)" disabled></textarea>
-    <button type="submit" class="btn btn-primary" id="irisBtnEscrever" disabled>Enviar</button>
+// o campo tem id "irisEscrever" (como na etapa anterior); no handler inline esse nome apontaria
+// para o próprio campo, por isso a função é chamada como window.irisEscrever
+function irisHtmlComposer(c) {
+  const chave = `escrever:${c.id}`, oc = irisAttrOcupado(chave);
+  return `<form class="iris-composer" id="irisComposer" data-id="${esc(c.id)}" onsubmit="event.preventDefault(); window.irisEscrever(event)">
+    <textarea class="form-control iris-composer-campo" id="irisEscrever" rows="1" data-campo="${esc(chave)}" placeholder="Escrever como equipe (pausa a Íris nesta conversa)…" aria-label="Escrever como equipe (pausa a Íris nesta conversa)" oninput="irisGuardarCampo(this)" onkeydown="irisEnterEnvia(event)" ${oc}>${irisCampo(chave)}</textarea>
+    <button type="submit" class="btn btn-primary" id="irisBtnEscrever" ${oc}>${irisOcupadoEm(chave) ? 'Enviando…' : 'Enviar'}</button>
   </form>`;
 }
 
@@ -432,6 +576,7 @@ function irisBuscar(q) {
 
 function irisAbrir(id) {
   if (!_irisConv.lista.some(c => c.id === id)) return;
+  if (_irisConv.aberta !== id && typeof _irisAcoes !== 'undefined') _irisAcoes.folha = false;
   _irisConv.aberta = id;
   irisRenderLista();
   irisRenderConversa();
@@ -445,6 +590,7 @@ function irisAbrir(id) {
 function irisVoltar() {
   const id = _irisConv.aberta;
   _irisConv.aberta = null;
+  if (typeof _irisAcoes !== 'undefined') _irisAcoes.folha = false;
   irisRenderLista();
   irisRenderConversa();
   const item = [...document.querySelectorAll('#irisLista .iris-ci')].find(b => b.dataset.id === id);

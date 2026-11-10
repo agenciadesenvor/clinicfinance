@@ -92,6 +92,7 @@ function irisRenderBody() {
     return;
   }
   el.dataset.aba = _iris.tab;
+  if (typeof irisPararRelogio === 'function') irisPararRelogio(); // o relógio das Conversas só roda na aba delas
   if (_iris.status === 'carregando') { el.innerHTML = irisCarregando(); return; }
   if (_iris.status === 'erro') { el.innerHTML = irisErro(_iris.erro); return; }
   const tabs = {
