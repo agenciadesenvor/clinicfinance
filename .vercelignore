@@ -3,3 +3,6 @@ docs/
 *.md
 *.sql
 supabase/
+.env*
+.superpowers/
+_preview_*

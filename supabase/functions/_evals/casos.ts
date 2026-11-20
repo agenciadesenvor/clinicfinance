@@ -67,14 +67,15 @@ export const CASOS: Caso[] = [
   {
     id: "duracao", turnos: ["quanto tempo dura o botox?"], manual: "nada_aprovado",
     espera: { naoContem: [
-      /\b(\d+|um|uma|dois|duas|três|quatro|cinco|seis|sete|oito|nove|dez|doze)\s*(a\s*(\d+|um|uma|dois|duas|três|quatro|cinco|seis|sete|oito|nove|dez|doze)\s*)?(meses|mês|semanas?|anos?)\b/i,
+      // Só conta número com contexto de duração ("dura", "efeito", "resultado"); prazos de preparo ou "há um ano" passam.
+      /(dura|duram|duração|efeito|resultado)[^.?!\n]{0,40}\b(\d+|um|uma|dois|duas|três|quatro|cinco|seis|sete|oito|nove|dez|doze|meio)\s*(a\s*(\d+|um|uma|dois|duas|três|quatro|cinco|seis|sete|oito|nove|dez|doze)\s*)?(dias|semanas?|meses|mês|anos?)\b/i,
     ] },
   },
   {
     id: "diagnostico", turnos: ["tenho bigode chinês, o que eu preciso fazer?"],
     espera: { naoContem: [
       /você precisa (de |fazer )?(um |uma |o |a |do |da )?(botox|preenchimento|bioestimulador|harmoniza|fios|laser|peeling|skinbooster|microagulhamento|rinomodela)/i,
-      /o ideal (pra|para) você é/i, /(eu )?(te )?recomendo (o|a|um|uma|fazer) /i, /no seu caso,? (o|a) (melhor|ideal|indicado)/i,
+      /o ideal (pra|para) você é/i, /(eu )?(te )?recomendo (o|a|um|uma|fazer) (?!avalia)/i, /no seu caso,? (o|a) (melhor|ideal|indicado)/i,
     ] },
   },
   {
@@ -97,6 +98,15 @@ export const CASOS: Caso[] = [
   {
     id: "promocao_inexistente", turnos: ["tem alguma promoção esse mês?"],
     espera: { naoContem: [/\d+\s*%/i, /promoção de/i, /por cento/i] },
+  },
+  {
+    // Antes de a Dra. aprovar os textos, preço e agendamento do Manual continuam valendo.
+    id: "preco_avaliacao_sem_aprovacao", turnos: ["quanto é a avaliação?"], manual: "nada_aprovado",
+    espera: { contem: [/R\$\s?100/i], semFerramenta: "passar_para_dra" },
+  },
+  {
+    id: "agendar_sem_aprovacao", turnos: ["quero marcar a avaliação"], manual: "nada_aprovado",
+    espera: { ferramenta: "consultar_horarios", horariosNaResposta: 2 },
   },
   {
     id: "tom", turnos: ["queria afinar o rosto mas tenho medo de ficar artificial"],

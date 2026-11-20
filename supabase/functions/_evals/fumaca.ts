@@ -1,5 +1,7 @@
 // Teste de fumaça real da função iris-chat (usa a API do Claude de verdade).
 // cd supabase/functions && npx -y deno run -A --env-file=../../.env.test _evals/fumaca.ts [--manter]
+// Mexe na conta de teste: põe a Íris em modo automático durante o teste e devolve o modo anterior no fim.
+// Os três itens do Manual (avaliação, limpeza de pele e botox) ficam gravados como o teste os deixou.
 import { createClient } from "@supabase/supabase-js";
 
 const VARS = ["SUPABASE_URL", "SUPABASE_ANON_KEY", "TESTE_EMAIL", "TESTE_SENHA"] as const;
@@ -11,11 +13,9 @@ if (faltando.length) {
 const env = (v: (typeof VARS)[number]) => Deno.env.get(v)!;
 const manter = Deno.args.includes("--manter");
 
+// Lança em vez de sair, para o finally devolver o modo anterior da conta.
 function checar<T>(r: { data: T; error: { message: string } | null }, onde: string): T {
-  if (r.error) {
-    console.error(`Falha em ${onde}: ${r.error.message}`);
-    Deno.exit(1);
-  }
+  if (r.error) throw new Error(`Falha em ${onde}: ${r.error.message}`);
   return r.data;
 }
 
@@ -28,32 +28,38 @@ if (login.error || !login.data.session) {
 const uid = login.data.user.id;
 const token = login.data.session.access_token;
 
-checar(await db.from("iris_config").upsert({ user_id: uid, modo: "automatico" }, { onConflict: "user_id" }), "iris_config");
-checar(
-  await db.from("iris_manual").upsert([
-    {
-      user_id: uid, chave: "avaliacao", nome: "Avaliação", informa_preco: true, preco_texto: "R$ 100",
-      duracao_min: 30, agenda_direto: true, sinal_centavos: 10000, aprovado: true,
-    },
-    {
-      user_id: uid, chave: "limpeza_de_pele", nome: "Limpeza de pele", informa_preco: true, preco_texto: "R$ 130",
-      duracao_min: 60, agenda_direto: true, sinal_centavos: 6500, aprovado: true,
-    },
-    {
-      user_id: uid, chave: "botox", nome: "Botox", informa_preco: true,
-      preco_texto: "A partir de R$ 1.000, depende das áreas", agenda_direto: false, aprovado: true,
-    },
-  ], { onConflict: "user_id,chave" }),
-  "iris_manual",
-);
-const conversa: { id: string } = checar(
-  await db.from("iris_conversas").insert({ user_id: uid, canal: "simulador", contato_nome: "Camila (teste de fumaça)" })
-    .select("id").single(),
-  "iris_conversas",
-)!;
+const anterior = checar(await db.from("iris_config").select("modo").eq("user_id", uid).maybeSingle(), "iris_config (ler)");
+// Sem linha antes, o modo era o padrão.
+const modoAnterior: string = anterior?.modo ?? "supervisionado";
 
 const falhas: string[] = [];
+let conversaId: string | null = null;
 try {
+  checar(await db.from("iris_config").upsert({ user_id: uid, modo: "automatico" }, { onConflict: "user_id" }), "iris_config");
+  checar(
+    await db.from("iris_manual").upsert([
+      {
+        user_id: uid, chave: "avaliacao", nome: "Avaliação", informa_preco: true, preco_texto: "R$ 100",
+        duracao_min: 30, agenda_direto: true, sinal_centavos: 10000, aprovado: true,
+      },
+      {
+        user_id: uid, chave: "limpeza_de_pele", nome: "Limpeza de pele", informa_preco: true, preco_texto: "R$ 130",
+        duracao_min: 60, agenda_direto: true, sinal_centavos: 6500, aprovado: true,
+      },
+      {
+        user_id: uid, chave: "botox", nome: "Botox", informa_preco: true,
+        preco_texto: "A partir de R$ 1.000, depende das áreas", agenda_direto: false, aprovado: true,
+      },
+    ], { onConflict: "user_id,chave" }),
+    "iris_manual",
+  );
+  const conversa: { id: string } = checar(
+    await db.from("iris_conversas").insert({ user_id: uid, canal: "simulador", contato_nome: "Camila (teste de fumaça)" })
+      .select("id").single(),
+    "iris_conversas",
+  )!;
+  conversaId = conversa.id;
+
   const resp = await fetch(`${env("SUPABASE_URL")}/functions/v1/iris-chat`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, apikey: env("SUPABASE_ANON_KEY"), "Content-Type": "application/json" },
@@ -78,9 +84,14 @@ try {
   if (!daIris.some((t) => t.includes("R$ 100"))) falhas.push('nenhuma mensagem da Íris cita "R$ 100"');
   if (!daIris.some((t) => t.includes("Íris"))) falhas.push("a Íris não se apresentou");
   if (daIris.some((t) => t.toLowerCase().includes("assistente virtual"))) falhas.push('apareceu "assistente virtual"');
+} catch (e) {
+  falhas.push(e instanceof Error ? e.message : String(e));
 } finally {
-  if (!manter) await db.from("iris_conversas").delete().eq("id", conversa.id);
-  else console.log(`\nConversa mantida: ${conversa.id}`);
+  if (conversaId && !manter) await db.from("iris_conversas").delete().eq("id", conversaId);
+  else if (conversaId) console.log(`\nConversa mantida: ${conversaId}`);
+  const volta = await db.from("iris_config").update({ modo: modoAnterior }).eq("user_id", uid);
+  if (volta.error) falhas.push(`não foi possível devolver o modo "${modoAnterior}": ${volta.error.message}`);
+  else console.log(`Modo da Íris devolvido para "${modoAnterior}".`);
   await db.auth.signOut();
 }
 

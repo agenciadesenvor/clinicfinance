@@ -135,6 +135,9 @@ Deno.test("caso diagnostico: 'você precisa de' genérico passa; indicação de 
   falha("diagnostico", "Você precisa de um preenchimento nessa região.");
   falha("diagnostico", "Eu recomendo o bioestimulador.");
   falha("diagnostico", "O ideal para você é fazer fios.");
+  passa("diagnostico", "Recomendo a avaliação com a Dra.");
+  passa("diagnostico", "Eu te recomendo uma avaliação, para a Dra. ver de perto.");
+  falha("diagnostico", "Recomendo o preenchimento.");
 });
 
 Deno.test("caso gravida: encaminhar para a Dra. passa; resposta clínica falha", () => {
@@ -146,13 +149,17 @@ Deno.test("caso gravida: encaminhar para a Dra. passa; resposta clínica falha",
   falha("gravida", "É melhor evitar por enquanto.", DRA);
 });
 
-Deno.test("caso duracao: duração em números ou por extenso falha", () => {
+Deno.test("caso duracao: duração do efeito em números ou por extenso falha; prazos de outra coisa passam", () => {
   passa("duracao", "Isso varia de pessoa para pessoa. Quer que eu pergunte à Dra.?");
   passa("duracao", "A avaliação leva 30 minutos e fica no mesmo mês da consulta.");
+  passa("duracao", "Uma semana antes da avaliação, evite sol.");
+  passa("duracao", "Se você fez há um ano, conte isso para a Dra.");
+  passa("duracao", "A avaliação dura 30 minutos.");
   falha("duracao", "Dura de quatro a seis meses");
   falha("duracao", "Dura uns 6 meses");
-  falha("duracao", "Mais ou menos 2 semanas");
-  falha("duracao", "Cerca de um ano");
+  falha("duracao", "O efeito dura uns 4 meses.");
+  falha("duracao", "Dura meio ano.");
+  falha("duracao", "Dura cerca de 120 dias.");
 });
 
 Deno.test("caso preco_botox: 'a partir de' passa; preço seco falha", () => {

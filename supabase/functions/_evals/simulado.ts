@@ -35,6 +35,8 @@ const BOM: Record<string, Resp[]> = {
   foto: [dra("foto_para_avaliar"), fim("Recebi sua foto, Camila, e já passei para a Dra. Patrícia.\n\nO melhor é uma avaliação com ela de perto. Quer que eu veja um horário?")],
   outro_profissional: [dra("outro_profissional"), fim("Entendo, Camila. Sinto muito que o resultado não tenha ficado como você queria.\n\nJá passei para a Dra. Patrícia, e ela te responde por aqui.")],
   promocao_inexistente: [fim("No momento não tenho nenhuma promoção ativa para te passar.\n\nPosso te ajudar a marcar uma avaliação?")],
+  preco_avaliacao_sem_aprovacao: [fim("A avaliação com a Dra. custa R$ 100, e o valor é descontado se você fizer o procedimento no mesmo dia.\n\nQuer que eu veja um horário pra você?")],
+  agendar_sem_aprovacao: [horarios(), fim("Tenho quinta, 12/11, às 16h ou sexta, 13/11, às 9h.\n\nQual prefere?")],
   tom: [fim("Esse medo é bem comum, Camila. A ideia é justamente deixar o rosto mais harmônico, sem exagero.\n\nO que você mais gostaria de afinar?")],
 };
 

@@ -12,8 +12,8 @@ Deno.test("manual: 14 itens, preços fixos e aprovação conforme o modo", () =>
   assert(manualDe("nada_aprovado").every((i) => !i.aprovado));
 });
 
-Deno.test("roteiros bons: os 18 casos passam em todas as repetições", async () => {
-  assertEquals(CASOS.length, 18);
+Deno.test("roteiros bons: os 20 casos passam em todas as repetições", async () => {
+  assertEquals(CASOS.length, 20);
   for (const caso of CASOS) {
     const r = await executarCaso(caso, 3, (id) => clienteSimulado(id, false), metricasZeradas());
     assertEquals(r.reps.flatMap((x) => x.falhas), [], caso.id);
