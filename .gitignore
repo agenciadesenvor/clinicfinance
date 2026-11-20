@@ -17,3 +17,6 @@ limpeza-*.sql
 _preview_seed.js
 .superpowers/
 .env.test
+
+# Supabase CLI (estado local)
+supabase/.temp/
