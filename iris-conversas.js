@@ -520,7 +520,7 @@ function irisHtmlRascunho(c) {
 function irisHtmlComposer(c) {
   const chave = `escrever:${c.id}`, oc = irisAttrOcupado(chave);
   return `<form class="iris-composer" id="irisComposer" data-id="${esc(c.id)}" onsubmit="event.preventDefault(); window.irisEscrever(event)">
-    <textarea class="form-control iris-composer-campo" id="irisEscrever" rows="1" data-campo="${esc(chave)}" placeholder="Escrever como equipe (pausa a Íris nesta conversa)…" aria-label="Escrever como equipe (pausa a Íris nesta conversa)" oninput="irisGuardarCampo(this)" onkeydown="irisEnterEnvia(event)" ${oc}>${irisCampo(chave)}</textarea>
+    <textarea class="form-control iris-composer-campo" id="irisEscrever" rows="1" maxlength="4000" data-campo="${esc(chave)}" placeholder="Escrever como equipe (pausa a Íris nesta conversa)…" aria-label="Escrever como equipe (pausa a Íris nesta conversa)" oninput="irisGuardarCampo(this)" onkeydown="irisEnterEnvia(event)" ${oc}>${irisCampo(chave)}</textarea>
     <button type="submit" class="btn btn-primary" id="irisBtnEscrever" ${oc}>${irisOcupadoEm(chave) ? 'Enviando…' : 'Enviar'}</button>
   </form>`;
 }

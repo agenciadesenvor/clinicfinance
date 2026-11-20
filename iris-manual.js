@@ -7,6 +7,15 @@
 /* ===== Manual padrão (rascunhos iniciais; a Dra. revisa e aprova) ===== */
 const IRIS_RASCUNHO = ' (rascunho — a Dra. revisa)';
 const IRIS_SEM_PRECO = 'O valor é definido na avaliação';
+// Nesta fase a Íris só agenda estes dois; duração e sinal padrão iguais aos do backend (horarios.ts e ferramentas.ts)
+const IRIS_AGENDAVEIS = { avaliacao: { dur: 30, sinal: 10000 }, limpeza_de_pele: { dur: 60, sinal: 6500 } };
+const IRIS_DURACOES = [30, 60, 90, 120];
+const irisAgendavel = chave => Object.prototype.hasOwnProperty.call(IRIS_AGENDAVEIS, chave);
+// o que a Íris usa de fato: valor do Manual quando válido, senão o padrão
+const irisDurEfetiva = it => IRIS_DURACOES.includes(it.duracao_min) ? it.duracao_min : IRIS_AGENDAVEIS[it.chave].dur;
+const irisSinalEfetivo = it => it.sinal_centavos > 0 ? it.sinal_centavos : IRIS_AGENDAVEIS[it.chave].sinal;
+// marca dos textos padrão; sai ao aprovar o item
+const irisSemRascunho = t => String(t || '').split(IRIS_RASCUNHO).join('').trim();
 const irisItemPadrao = (chave, nome, oQueE, regras = {}) => ({
   chave, nome, o_que_e: oQueE + IRIS_RASCUNHO, indicacao: '', preparo: '', cuidados: '',
   informa_preco: false, preco_texto: IRIS_SEM_PRECO, duracao_min: null, agenda_direto: false,
@@ -118,11 +127,8 @@ function irisRegraPreco(it) {
   return it.informa_preco && String(it.preco_texto || '').trim() ? it.preco_texto.trim() : IRIS_SEM_PRECO;
 }
 function irisRegraAgenda(it) {
-  if (!it.agenda_direto) return 'Agendado pela clínica depois da avaliação';
-  const partes = ['Agenda direto'];
-  if (it.duracao_min) partes.push(`${it.duracao_min} min`);
-  if (it.sinal_centavos != null) partes.push(`sinal de ${irisReais(it.sinal_centavos)}`);
-  return partes.join(' · ');
+  if (!irisAgendavel(it.chave)) return 'Agendado pela clínica depois da avaliação';
+  return ['Agenda direto', `${irisDurEfetiva(it)} min`, `sinal de ${irisReais(irisSinalEfetivo(it))}`].join(' · ');
 }
 function irisChip(aprovado) {
   return aprovado
@@ -152,6 +158,7 @@ function irisTabManual() {
 function irisAbrirItem(id) {
   const it = _iris.manual.find(x => x.id === id);
   if (!it) return;
+  const agendavel = irisAgendavel(it.chave);
   const area = (cid, label, valor, ph) => `
     <div class="form-group">
       <label class="form-label" for="${cid}">${label}</label>
@@ -183,20 +190,19 @@ function irisAbrirItem(id) {
 
     <fieldset class="iris-fs">
       <legend class="iris-legend">Agendamento</legend>
-      ${irisSwitch('irisMDireto', 'Agenda direto, sem avaliação', it.agenda_direto, 'onchange="irisItemCampos()"')}
-      <p class="form-hint iris-hint-off" id="irisMDiretoHint">Agendado pela clínica depois da avaliação</p>
-      <div class="form-grid iris-form-grid">
+      ${irisSwitch('irisMDireto', 'Agenda direto, sem avaliação', agendavel, 'disabled aria-describedby="irisMDiretoHint"')}
+      <p class="form-hint" id="irisMDiretoHint">Nesta fase a Íris agenda sozinha só a avaliação e a limpeza de pele.</p>
+      ${agendavel ? `<div class="form-grid iris-form-grid">
         <div class="form-group">
           <label class="form-label" for="irisMDur">Tempo na agenda (min)</label>
-          <input type="number" class="form-control" id="irisMDur" min="5" max="480" step="5" inputmode="numeric" value="${it.duracao_min ?? ''}" aria-describedby="irisMDurErro" />
-          <span class="iris-erro" id="irisMDurErro" role="alert"></span>
+          <select class="form-control" id="irisMDur">${IRIS_DURACOES.map(d => `<option value="${d}" ${d === irisDurEfetiva(it) ? 'selected' : ''}>${d}</option>`).join('')}</select>
         </div>
         <div class="form-group">
           <label class="form-label" for="irisMSinal">Sinal para reservar (R$)</label>
-          <input type="text" class="form-control" id="irisMSinal" inputmode="decimal" value="${esc(irisReaisCampo(it.sinal_centavos))}" placeholder="Ex.: 65" aria-describedby="irisMSinalErro" />
+          <input type="text" class="form-control" id="irisMSinal" inputmode="decimal" value="${esc(irisReaisCampo(irisSinalEfetivo(it)))}" placeholder="Ex.: ${esc(irisReaisCampo(IRIS_AGENDAVEIS[it.chave].sinal))}" aria-describedby="irisMSinalErro" />
           <span class="iris-erro" id="irisMSinalErro" role="alert"></span>
         </div>
-      </div>
+      </div>` : ''}
     </fieldset>
 
     <div class="iris-aprovar">
@@ -212,15 +218,11 @@ function irisAbrirItem(id) {
   irisItemCampos();
 }
 
-// liga/desliga os campos que dependem dos interruptores
+// liga/desliga o campo que depende do interruptor de preço
 function irisItemCampos() {
   const informa = document.getElementById('irisMInforma')?.checked;
-  const direto = document.getElementById('irisMDireto')?.checked;
   const preco = document.getElementById('irisMPreco');
   if (preco) preco.disabled = !informa;
-  ['irisMDur', 'irisMSinal'].forEach(id => { const f = document.getElementById(id); if (f) f.disabled = !direto; });
-  const hint = document.getElementById('irisMDiretoHint');
-  if (hint) hint.hidden = !!direto;
 }
 
 async function irisSalvarItem(ev, id) {
@@ -229,10 +231,9 @@ async function irisSalvarItem(ev, id) {
   if (!it) return;
   const val = cid => document.getElementById(cid)?.value ?? '';
   const informa = document.getElementById('irisMInforma').checked;
-  const direto = document.getElementById('irisMDireto').checked;
+  const agendavel = irisAgendavel(it.chave);
   const precoTexto = val('irisMPreco').trim();
-  const durTxt = val('irisMDur').trim();
-  const dur = durTxt === '' ? null : Number(durTxt);
+  const dur = Number(val('irisMDur'));
   const sinal = irisParseReais(val('irisMSinal'));
 
   let ok = true;
@@ -240,18 +241,26 @@ async function irisSalvarItem(ev, id) {
   if (informa && !precoTexto) msgPreco = 'Escreva o preço ou desligue a opção acima.';
   else if (informa && irisValorSemRS(precoTexto)) msgPreco = 'Escreva o valor com R$ (ex.: R$ 130).';
   ok = irisErroCampo('irisMPrecoErro', msgPreco, ['irisMPreco']) && ok;
-  ok = irisErroCampo('irisMDurErro', dur !== null && !(Number.isInteger(dur) && dur >= 5 && dur <= 480) ? 'Use minutos inteiros, de 5 a 480.' : '', ['irisMDur']) && ok;
-  ok = irisErroCampo('irisMSinalErro', sinal === undefined ? 'Use só números, como 65 ou 65,50.' : '', ['irisMSinal']) && ok;
+  if (agendavel) {
+    const msgSinal = sinal === undefined ? 'Use só números, como 65 ou 65,50.'
+      : sinal === null || sinal <= 0 ? 'Escreva um valor maior que zero.' : '';
+    ok = irisErroCampo('irisMSinalErro', msgSinal, ['irisMSinal']) && ok;
+  }
   if (!ok) return;
 
+  const aprovado = document.getElementById('irisMAprov').checked;
+  // aprovado: a marca de rascunho do texto padrão não vai junto
+  const texto = cid => aprovado ? irisSemRascunho(val(cid)) : val(cid).trim();
   const payload = {
-    o_que_e: val('irisMOque').trim(), indicacao: val('irisMIndic').trim(),
-    preparo: val('irisMPrep').trim(), cuidados: val('irisMCuid').trim(),
+    o_que_e: texto('irisMOque'), indicacao: texto('irisMIndic'),
+    preparo: texto('irisMPrep'), cuidados: texto('irisMCuid'),
     informa_preco: informa, preco_texto: precoTexto,
-    duracao_min: dur, agenda_direto: direto, sinal_centavos: sinal,
-    aprovado: document.getElementById('irisMAprov').checked,
+    agenda_direto: agendavel,
+    aprovado,
     updated_at: new Date().toISOString()
   };
+  // tempo e sinal só existem para os itens que a Íris agenda; nos outros, o que está gravado fica como está
+  if (agendavel) Object.assign(payload, { duracao_min: IRIS_DURACOES.includes(dur) ? dur : irisDurEfetiva(it), sinal_centavos: sinal });
   const btn = document.getElementById('irisMSalvar');
   irisOcupado(btn, true);
   const { error } = await db('iris_manual').update(payload).eq('id', id).eq('user_id', currentUser.id);
@@ -397,10 +406,66 @@ function irisHorarios(h) {
 
 const irisHora = (id, valor, label, off = false) => `<input type="time" step="1800" class="form-control iris-hora" id="${id}" value="${esc(valor)}" aria-label="${label}" aria-describedby="${id.replace(/[ifIF]$/, '')}Erro" ${off ? 'disabled' : ''} />`;
 
+/* Rascunho da aba: o app redesenha a view quando o navegador volta para a aba (renovação da sessão),
+   e a aba é montada de novo a partir do banco. O que foi digitado e não salvo é guardado aqui antes de
+   cada redesenho e devolvido depois. O modo fica de fora: ele é salvo na hora. */
+const _irisCfg = { campos: null, exc: null, foco: null };
+
+// só os campos diferentes do que veio do banco (defaultValue/defaultChecked) viram rascunho
+function irisCapturarConfig() {
+  const raiz = document.querySelector('#irisBody .iris-config');
+  if (!raiz) return;
+  const campos = {};
+  raiz.querySelectorAll('input[id], textarea[id], select[id]').forEach(f => {
+    if (/^irisE\d/.test(f.id) || f.type === 'radio') return; // datas diferentes vão inteiras em `exc`
+    if (f.type === 'checkbox') { if (f.checked !== f.defaultChecked) campos[f.id] = { checked: f.checked }; }
+    else if (f.value !== f.defaultValue) campos[f.id] = { value: f.value };
+  });
+  _irisCfg.campos = Object.keys(campos).length ? campos : null;
+  irisLerExcecoes();
+  const doBanco = irisHorarios((_iris.config || {}).horarios).excecoes;
+  _irisCfg.exc = JSON.stringify(_iris.excRascunho) !== JSON.stringify(doBanco) ? _iris.excRascunho.map(e => ({ ...e })) : null;
+  const a = document.activeElement;
+  _irisCfg.foco = a && a.id && raiz.contains(a)
+    ? { id: a.id, ini: irisSelecao(a, 'selectionStart'), fim: irisSelecao(a, 'selectionEnd') } : null;
+}
+// campos como time e checkbox não têm seleção (alguns navegadores lançam ao ler)
+function irisSelecao(el, prop) { try { return el[prop]; } catch (e) { return null; } }
+
+function irisRestaurarConfig() {
+  const campos = _irisCfg.campos || {};
+  Object.keys(campos).forEach(id => {
+    const f = document.getElementById(id);
+    if (!f) return;
+    if ('checked' in campos[id]) {
+      f.checked = campos[id].checked;
+      const dia = f.dataset.dia;
+      if (dia) irisDiaFechado(dia);
+    } else f.value = campos[id].value;
+  });
+  const foco = _irisCfg.foco;
+  _irisCfg.foco = null;
+  const el = foco && document.getElementById(foco.id);
+  if (el && !el.disabled) {
+    el.focus({ preventScroll: true });
+    if (foco.ini != null) { try { el.setSelectionRange(foco.ini, foco.fim); } catch (e) { /* campo sem seleção */ } }
+  }
+}
+
+// depois de salvar, o que está na tela passa a ser o valor do banco (deixa de ser rascunho)
+function irisMarcarSalvos(ids) {
+  ids.forEach(id => {
+    const f = document.getElementById(id);
+    if (!f) return;
+    if (f.type === 'checkbox') f.defaultChecked = f.checked; else f.defaultValue = f.value;
+    if (_irisCfg.campos) delete _irisCfg.campos[id];
+  });
+}
+
 function irisTabConfig() {
   const c = _iris.config || {};
   const h = irisHorarios(c.horarios);
-  _iris.excRascunho = h.excecoes;
+  _iris.excRascunho = _irisCfg.exc ? _irisCfg.exc.map(e => ({ ...e })) : h.excecoes;
   const modo = c.modo === 'automatico' ? 'automatico' : 'supervisionado';
   const radio = (v, titulo, desc) => `
     <label class="iris-modo">
@@ -418,6 +483,7 @@ function irisTabConfig() {
     </div>`;
   };
   return `
+  <div class="iris-config">
   <section class="iris-card" aria-labelledby="irisModoT">
     <h2 class="iris-h2" id="irisModoT">Modo de atendimento</h2>
     <p class="iris-sub">A mudança vale assim que você escolhe.</p>
@@ -462,7 +528,8 @@ function irisTabConfig() {
       </div>`).join('')}
     </div>
     <div class="iris-acoes"><button type="button" class="btn btn-primary" id="irisISalvar" onclick="irisSalvarInfos()">${iconCheck()} Salvar informações</button></div>
-  </section>`;
+  </section>
+  </div>`;
 }
 
 function irisExcecoesHTML() {
@@ -562,6 +629,8 @@ async function irisSalvarHorarios() {
   const salvo = await irisSalvarConfig({ horarios });
   irisOcupado(btn, false);
   if (!salvo) { toast('Não foi possível salvar os horários. Confira a internet e tente de novo.', 'error'); return; }
+  irisMarcarSalvos([...Object.keys(IRIS_DIAS).flatMap(d => [`irisD${d}i`, `irisD${d}f`, `irisD${d}x`]), 'irisAlmI', 'irisAlmF']);
+  _irisCfg.exc = null;
   _iris.excRascunho = horarios.excecoes;
   irisRedesenharExcecoes();
   toast('Salvo');
@@ -575,5 +644,6 @@ async function irisSalvarInfos() {
   const salvo = await irisSalvarConfig(payload);
   irisOcupado(btn, false);
   if (!salvo) { toast('Não foi possível salvar as informações. Confira a internet e tente de novo.', 'error'); return; }
+  irisMarcarSalvos(IRIS_PRATICAS.map(([k]) => `irisI_${k}`));
   toast('Salvo');
 }

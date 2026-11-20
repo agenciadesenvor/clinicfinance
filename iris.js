@@ -18,6 +18,8 @@ const IRIS_TABS = [
 
 /* ===== View principal ===== */
 function renderIris() {
+  // a tela antiga ainda está no DOM: guarda o rascunho das Configurações antes de ser trocada
+  if (typeof irisCapturarConfig === 'function') irisCapturarConfig();
   setTimeout(() => irisCarregar(), 0);
   return `
   <div class="section-header">
@@ -86,6 +88,7 @@ function irisMsgErro(e) {
 function irisRenderBody() {
   const el = document.getElementById('irisBody');
   if (!el || state.currentView !== 'iris') return;
+  if (typeof irisCapturarConfig === 'function') irisCapturarConfig(); // rascunho das Configurações, se estiverem na tela
   // Conversas tem carga própria: monta uma vez por abertura da aba (as outras renderizações da carga não a refazem)
   if (_iris.tab === 'conversas') {
     if (el.dataset.aba !== 'conversas' && typeof irisTabConversas === 'function') { el.dataset.aba = 'conversas'; irisTabConversas(el); }
@@ -102,6 +105,7 @@ function irisRenderBody() {
   };
   const fn = tabs[_iris.tab];
   el.innerHTML = fn ? fn() : '';
+  if (_iris.tab === 'config' && typeof irisRestaurarConfig === 'function') irisRestaurarConfig();
   setTimeout(initDatePickers, 10);
 }
 
@@ -126,6 +130,13 @@ async function irisChamar(funcao, corpo) {
       headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${_accessToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify(corpo)
     });
+    if (r.status === 403) {
+      const corpo = await r.json().catch(() => ({}));
+      if (corpo.erro === 'sem_acesso') {
+        toast('Esta conta não tem acesso à Íris.', 'error');
+        return { erro: true };
+      }
+    }
     if (!r.ok) throw new Error(`${funcao} respondeu ${r.status}`);
     return await r.json();
   } catch (e) {

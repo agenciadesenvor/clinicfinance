@@ -660,3 +660,10 @@
   .iris-cel-pontos i { animation: none; opacity: .8; }
   .iris-sim-troca-btn, .iris-mais summary { transition: none; }
 }
+
+/* interruptor só de leitura (Agenda direto) */
+.iris-switch:has(input:disabled) { cursor: default; }
+.iris-switch input:disabled + .iris-switch-track { opacity: .55; }
+
+/* embrulho da aba Configurações (guarda o rascunho); não muda o layout */
+.iris-config { display: contents; }

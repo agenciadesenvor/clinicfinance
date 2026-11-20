@@ -496,7 +496,7 @@ function irisHtmlCelular(c) {
         <button type="button" class="btn btn-secondary" data-id="${esc(ativa.id)}" onclick="irisSimPagar(this.dataset.id)" ${pagando ? 'disabled aria-busy="true"' : ''}>${pagando ? 'Confirmando pagamento…' : 'Simular pagamento aprovado'}</button>
       </div>` : ''}
       <form class="iris-cel-campo" id="irisSimForm" onsubmit="event.preventDefault(); irisSimEnviar(event)">
-        <textarea class="iris-cel-texto" id="irisSimCampo" rows="1" data-campo="sim:${esc(c.id)}" placeholder="Escrever como paciente…" aria-label="Escrever como paciente" oninput="irisGuardarCampo(this)" onkeydown="irisEnterEnvia(event)" ${ocupado ? 'disabled' : ''}>${esc(_irisConv.campos[`sim:${c.id}`] || '')}</textarea>
+        <textarea class="iris-cel-texto" id="irisSimCampo" rows="1" maxlength="4000" data-campo="sim:${esc(c.id)}" placeholder="Escrever como paciente…" aria-label="Escrever como paciente" oninput="irisGuardarCampo(this)" onkeydown="irisEnterEnvia(event)" ${ocupado ? 'disabled' : ''}>${esc(_irisConv.campos[`sim:${c.id}`] || '')}</textarea>
         <button type="submit" class="iris-cel-enviar" aria-label="Enviar como paciente" ${ocupado ? 'disabled' : ''}>
           <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 20.4l17.45-7.48a1 1 0 000-1.84L3.4 3.6a.99.99 0 00-1.39.91L2 9.12c0 .5.37.93.87.99L17 12 2.87 13.88c-.5.07-.87.5-.87 1l.01 4.61c0 .71.73 1.2 1.39.91z"/></svg>
         </button>
