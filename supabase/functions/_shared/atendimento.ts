@@ -99,7 +99,8 @@ async function secaoTravada(p: Turno): Promise<{ desfecho: Desfecho; vistas: Set
       vistas = new Set(c.mensagens.map((m) => m.id));
       if (pendentes(c.mensagens).length === 0) return { desfecho: "respondida", vistas };
 
-      let conversa = c.conversa;
+      // Cópia: assim, depois do modelo, dá para saber se foi a própria Íris (chamar_equipe) que passou a conversa.
+      let conversa = { ...c.conversa };
       if (conversa.estado === "equipe") {
         // A equipe assumiu: a Íris só volta depois de 12h sem mensagem da equipe.
         const desde = conversa.equipe_desde ? new Date(conversa.equipe_desde).getTime() : null;
@@ -118,17 +119,22 @@ async function secaoTravada(p: Turno): Promise<{ desfecho: Desfecho; vistas: Set
         systemEstavel: montarSystem({ config: c.config, manual: c.manual, promocoes: c.promocoes, hoje }),
         systemContexto: montarContexto({ agora, conversa, pendencias: c.pendencias, reserva: c.reserva, canal: conversa.canal }),
         historico: montarHistorico(emOrdemDeResposta(c.mensagens)),
-        autorizados: valoresAutorizados(c.manual, c.promocoes, hoje),
+        autorizados: valoresAutorizados(c.manual, c.promocoes, hoje, c.config),
         // Renova antes de cada chamada ao modelo: quem perdeu a trava para sem rodar mais ferramentas.
         antesDeCadaChamada: renovar,
       });
       if (token === null) return { desfecho: "enfileirada", vistas };
 
+      const depois = await carregar(repo, id);
+      // A equipe assumiu ou escreveu enquanto o modelo pensava (spec §4): a resposta não sai, nem a nota.
+      const equipeAssumiu = depois.conversa.estado === "equipe" && conversa.estado !== "equipe";
+      const equipeEscreveu = depois.mensagens.some((m) => m.autor === "equipe" && m.status === "enviada" && !vistas.has(m.id));
+      if (equipeAssumiu || equipeEscreveu) return { desfecho: "equipe", vistas };
+
       // Rajada: se a paciente escreveu de novo enquanto o modelo pensava, a resposta já está velha.
       // Descarta os textos (notas das ferramentas ficam) e responde de novo com tudo.
       if (rodada < MAX_REPETICOES) {
-        const novas = (await carregar(repo, id)).mensagens;
-        if (novas.some((m) => m.autor === "paciente" && m.status === "enviada" && !vistas.has(m.id))) continue;
+        if (depois.mensagens.some((m) => m.autor === "paciente" && m.status === "enviada" && !vistas.has(m.id))) continue;
       }
       // Confere a posse logo antes de gravar: quem perdeu a trava não grava nada.
       if (!(await renovar())) return { desfecho: "enfileirada", vistas };

@@ -1,5 +1,6 @@
 // Guardas determinísticas aplicadas à saída do modelo, antes de qualquer envio.
-import type { ItemManual, Promocao } from "./tipos.ts";
+import { agendavel, sinalDe } from "./ferramentas.ts";
+import type { IrisConfig, ItemManual, Promocao } from "./tipos.ts";
 
 const MAX_MENSAGENS = 3;
 
@@ -34,13 +35,23 @@ function unicos(xs: number[]): number[] {
   return out;
 }
 
-export function valoresAutorizados(manual: ItemManual[], promocoes: Promocao[], hoje: string): number[] {
+// Campos das informações práticas que a Íris pode repetir; "nunca_dizer" fica de fora de propósito.
+const PRATICAS_CITAVEIS = [
+  "endereco", "como_chegar", "formas_pagamento", "politica_cancelamento", "politica_atraso", "frase_emergencia",
+] as const;
+
+export function valoresAutorizados(
+  manual: ItemManual[], promocoes: Promocao[], hoje: string, config: IrisConfig,
+): number[] {
   const vs: number[] = [];
   for (const it of manual) {
     if (it.informa_preco) vs.push(...valoresCitados(it.preco_texto ?? ""));
-    if (it.sinal_centavos != null) vs.push(it.sinal_centavos / 100);
+    if (it.sinal_centavos != null && it.sinal_centavos > 0) vs.push(it.sinal_centavos / 100);
   }
+  // O sinal que a reserva cobra (com o padrão, se o Manual não tiver) é o mesmo que o prompt mostra.
+  for (const it of manual) if (agendavel(it.chave)) vs.push(sinalDe(it.chave, manual) / 100);
   for (const p of promocoes) if (p.valido_ate >= hoje) vs.push(...valoresCitados(p.descricao));
+  for (const campo of PRATICAS_CITAVEIS) vs.push(...valoresCitados(String(config[campo] ?? "")));
   return unicos(vs);
 }
 

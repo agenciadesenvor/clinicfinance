@@ -397,3 +397,37 @@ Deno.test("trava perdida depois da última chamada: a renovação antes de grava
   assertEquals(notas(fake), []);
   assertEquals(await fake.travar(fake.conversa.id, 180), null);
 });
+
+Deno.test("a equipe assume enquanto o modelo pensa: resposta descartada, sem nota, trava liberada", async () => {
+  const fake = montar(QUI_22H30, { modo: "automatico" });
+  const c = cliente([fim("não deveria sair")], async () => {
+    await fake.atualizarConversa(fake.conversa.id, { estado: "equipe", equipe_desde: QUI_22H30.toISOString() });
+  });
+  assertEquals(await rodar(fake, c, QUI_22H30, "oi"), "equipe");
+  assertEquals(daIris(fake).length, 0);
+  assertEquals(notas(fake), []);
+  assert(await fake.travar(fake.conversa.id, 180), "a trava deveria estar livre");
+});
+
+Deno.test("a equipe escreve enquanto o modelo pensa: resposta descartada, sem nota, trava liberada", async () => {
+  const fake = montar(QUI_22H30, { modo: "automatico" });
+  const c = cliente([fim("não deveria sair")], async () => {
+    await fake.salvarMensagem(fake.conversa.id, { autor: "equipe", texto: "Oi, Camila, aqui é a Rosi.", status: "enviada" });
+  });
+  assertEquals(await rodar(fake, c, QUI_22H30, "oi"), "equipe");
+  assertEquals(daIris(fake).length, 0);
+  assertEquals(notas(fake), []);
+  assert(await fake.travar(fake.conversa.id, 180), "a trava deveria estar livre");
+});
+
+Deno.test("a própria Íris chama a equipe: a resposta dela à paciente é gravada", async () => {
+  const fake = montar(QUI_22H30, { modo: "automatico" });
+  const usa: Resp = {
+    stop_reason: "tool_use", usage: USO,
+    content: [{ type: "tool_use", id: "tu1", name: "chamar_equipe", input: { motivo: "pediu uma pessoa" } }],
+  };
+  const c = cliente([usa, fim("Claro, a Rosi já fala com você.")]);
+  assertEquals(await rodar(fake, c, QUI_22H30, "quero falar com uma pessoa"), "respondida");
+  assertEquals(daIris(fake).map((m) => m.texto), ["Claro, a Rosi já fala com você."]);
+  assertEquals(fake.conversa.estado, "equipe");
+});

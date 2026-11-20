@@ -2,7 +2,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { atender } from "../_shared/atendimento.ts";
 import { clienteAnthropic } from "../_shared/cerebro.ts";
-import { cors, json, usuario } from "../_shared/http.ts";
+import { cors, json, temAcesso, usuario } from "../_shared/http.ts";
 import { repoSupabase } from "../_shared/repo.ts";
 
 const MAX_TEXTO = 4000;
@@ -14,8 +14,9 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: h });
   if (req.method !== "POST") return json({ erro: "metodo_nao_permitido" }, 405, h);
   try {
-    const uid = await usuario(req);
-    if (!uid) return json({ erro: "nao_autenticado" }, 401, h);
+    const u = await usuario(req);
+    if (!u) return json({ erro: "nao_autenticado" }, 401, h);
+    if (!temAcesso(u.email, Deno.env.get("IRIS_EMAILS"))) return json({ erro: "sem_acesso" }, 403, h);
 
     // Corpo grande é recusado antes de ler (pelo cabeçalho) e depois de ler (pelo tamanho real).
     if (Number(req.headers.get("content-length") ?? 0) > MAX_CORPO) return json({ erro: "corpo_grande" }, 400, h);
@@ -39,7 +40,7 @@ Deno.serve(async (req) => {
     const { data: conversa, error } = await db.from("iris_conversas").select("user_id, canal").eq("id", conversa_id)
       .maybeSingle();
     if (error) throw new Error(`conversa: ${error.message}`);
-    if (!conversa || conversa.user_id !== uid) return json({ erro: "nao_encontrada" }, 404, h);
+    if (!conversa || conversa.user_id !== u.id) return json({ erro: "nao_encontrada" }, 404, h);
     if (conversa.canal !== "simulador") return json({ erro: "canal_nao_suportado" }, 400, h);
 
     const desfecho = await atender({

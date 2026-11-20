@@ -77,10 +77,10 @@ export function duracaoOcupado(o: Ocupado): number {
 
 export function slotsLivres(p: {
   agora: Date; procedimento: Procedimento; horarios: Horarios; ocupados: Ocupado[];
-  aPartirDe?: string; periodo?: "manha" | "tarde" | "qualquer"; max?: number;
+  aPartirDe?: string; periodo?: "manha" | "tarde" | "qualquer"; max?: number; duracaoMin?: number;
 }): Slot[] {
   const max = p.max ?? 6;
-  const dur = DURACAO_MIN[p.procedimento];
+  const dur = p.duracaoMin ?? DURACAO_MIN[p.procedimento];
   const hoje = agoraRecife(p.agora).data;
   // Mais cedo permitido: agora + antecedência, arredondado PARA CIMA na grade (minutos absolutos de Recife).
   const localMin = (p.agora.getTime() - 3 * 60 * MS_MIN) / MS_MIN;

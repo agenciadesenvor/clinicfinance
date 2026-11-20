@@ -1,10 +1,14 @@
 // Montagem do prompt: bloco estável (cacheável), bloco volátil e histórico só com texto.
 import type { Conversa, IrisConfig, ItemManual, Mensagem, Pendencia, Promocao, Reserva } from "./tipos.ts";
 import { KIT } from "./kit.ts";
+import { agendavel, duracaoDe, sinalDe } from "./ferramentas.ts";
 import { agoraRecife, rotuloSlot } from "./horarios.ts";
 
 const NAO_INFORMADO = "(ainda não informado — se perguntarem, diga que vai confirmar com a equipe)";
-const NAO_APROVADO = "Conteúdo ainda não aprovado pela Dra.: qualquer pergunta sobre este procedimento vai para a Dra.";
+const NAO_APROVADO =
+  'Os textos descritivos deste procedimento (o que é, para quem é indicado, preparo e cuidados) ainda não foram aprovados pela Dra., então você não sabe como ele funciona: perguntas sobre isso, sobre indicação, preparo ou cuidados vão para a Dra. (motivo "fora_do_manual"). As linhas acima, de preço, agendamento e sinal (quando houver), continuam valendo e você pode usá-las.';
+// Marca dos textos do Manual padrão; o app tira ao aprovar, e aqui sai de novo por garantia.
+const MARCA_RASCUNHO = /\s*\(rascunho — a Dra\. revisa\)/g;
 const MAX_HISTORICO = 60;
 const DIAS = ["domingo", "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado"];
 
@@ -47,18 +51,23 @@ function blocoItem(it: ItemManual): string {
       ? `Preço que você pode informar: ${it.preco_texto.trim()}`
       : 'Preço: não informar. Diga que "o valor é definido na avaliação".',
   );
-  linhas.push(`Tempo na agenda: ${it.duracao_min != null ? `${it.duracao_min} min` : "não definido"}`);
-  linhas.push(
-    it.agenda_direto
-      ? "Agendamento: você agenda direto."
-      : "Agendamento: só depois da avaliação, e quem agenda é a clínica.",
-  );
-  linhas.push(`Sinal para reservar: ${it.sinal_centavos != null ? reais(it.sinal_centavos) : "não há"}`);
+  // Tempo, agendamento e sinal saem do que as ferramentas fazem, não do que está gravado: a Íris só agenda
+  // avaliação e limpeza de pele, com a duração e o sinal efetivos.
+  if (agendavel(it.chave)) {
+    linhas.push(`Tempo na agenda: ${duracaoDe(it.chave, [it])} min`);
+    linhas.push("Agendamento: você agenda direto.");
+    linhas.push(`Sinal para reservar: ${reais(sinalDe(it.chave, [it]))}`);
+  } else {
+    linhas.push("Agendamento: só depois da avaliação, e quem agenda é a clínica.");
+  }
   if (it.aprovado) {
     const textos: [string, string][] = [
       ["O que é", it.o_que_e], ["Para quem é indicado", it.indicacao], ["Preparo", it.preparo], ["Cuidados depois", it.cuidados],
     ];
-    for (const [rotulo, texto] of textos) if (texto?.trim()) linhas.push(`${rotulo}: ${texto.trim()}`);
+    for (const [rotulo, texto] of textos) {
+      const limpo = (texto ?? "").replace(MARCA_RASCUNHO, "").trim();
+      if (limpo) linhas.push(`${rotulo}: ${limpo}`);
+    }
   } else {
     linhas.push(NAO_APROVADO);
   }

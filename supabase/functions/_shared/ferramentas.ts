@@ -15,7 +15,10 @@ export const ETIQUETA_MOTIVO: Record<string, string> = {
   foto_para_avaliar: "Avaliar foto",
 };
 
-const PROCS = ["avaliacao", "limpeza_de_pele"];
+// Só estes dois a Íris agenda sozinha nesta fase; os outros são agendados pela clínica.
+export const AGENDAVEIS: readonly Procedimento[] = ["avaliacao", "limpeza_de_pele"];
+export const agendavel = (chave: string): chave is Procedimento => (AGENDAVEIS as readonly string[]).includes(chave);
+
 const MOTIVOS = Object.keys(ETIQUETA_MOTIVO);
 const NOME_PROC: Record<Procedimento, string> = { avaliacao: "Avaliação", limpeza_de_pele: "Limpeza de pele" };
 const SINAL_PADRAO: Record<Procedimento, number> = { avaliacao: 10000, limpeza_de_pele: 6500 };
@@ -31,7 +34,7 @@ export const FERRAMENTAS: Ferramenta[] = [
     name: "consultar_horarios", strict: true,
     description: "Lista até 6 horários livres para um procedimento. Chame antes de oferecer qualquer horário à paciente.",
     input_schema: fechar({
-      procedimento: { type: "string", enum: PROCS },
+      procedimento: { type: "string", enum: [...AGENDAVEIS] },
       a_partir_de: texto("Data YYYY-MM-DD para começar a busca, ou null para hoje."),
       periodo: { type: "string", enum: ["manha", "tarde", "qualquer"] },
     }),
@@ -41,7 +44,7 @@ export const FERRAMENTAS: Ferramenta[] = [
     description:
       "Segura por 30 minutos um horário escolhido pela paciente e devolve o valor do sinal e o link de pagamento. Chame só depois de ela escolher um horário que veio de consultar_horarios.",
     input_schema: fechar({
-      procedimento: { type: "string", enum: PROCS },
+      procedimento: { type: "string", enum: [...AGENDAVEIS] },
       data: { type: "string", description: "Data no formato YYYY-MM-DD." },
       hora: { type: "string", description: "Hora de início no formato HH:MM." },
     }),
@@ -57,7 +60,7 @@ export const FERRAMENTAS: Ferramenta[] = [
   {
     name: "passar_para_dra", strict: true,
     description:
-      "Encaminha o caso para a Dra. Patrícia e avisa a paciente que ela responde. Chame para dúvida clínica, desconto, insatisfação, cancelamento, foto para avaliar ou algo fora do Manual.",
+      "Registra o assunto para a Dra. Patrícia responder depois. A ferramenta não escreve nada para a paciente: a frase avisando que a Dra. vai responder é você quem escreve, na sua resposta. Chame para dúvida clínica, desconto, insatisfação, cancelamento, foto para avaliar ou algo fora do Manual.",
     input_schema: fechar({
       motivo: { type: "string", enum: MOTIVOS },
       resumo: { type: "string", description: "Resumo curto do que a Dra. precisa saber." },
@@ -66,7 +69,8 @@ export const FERRAMENTAS: Ferramenta[] = [
   },
   {
     name: "chamar_equipe", strict: true,
-    description: "Entrega a conversa para a equipe humana e pausa a Íris. Chame quando a paciente pedir uma pessoa ou você não puder ajudar.",
+    description:
+      "Entrega a conversa para a equipe humana. Chame quando a paciente pedir para falar com uma pessoa ou pedir para remarcar. Depois dela, suas respostas ficam pausadas nesta conversa até a equipe devolver a conversa para você.",
     input_schema: fechar({ motivo: { type: "string", description: "Por que a equipe precisa assumir." } }),
   },
 ];
@@ -103,9 +107,16 @@ function reais(centavos: number): string {
   const [int, dec] = (centavos / 100).toFixed(2).split(".");
   return `R$ ${int.replace(/\B(?=(\d{3})+(?!\d))/g, ".")},${dec}`;
 }
-function sinalDe(proc: Procedimento, manual: ItemManual[]): number {
+// Sinal que a reserva vai cobrar: o do Manual quando positivo, senão o padrão. O prompt mostra este mesmo valor.
+export function sinalDe(proc: Procedimento, manual: ItemManual[]): number {
   const s = manual.find((i) => i.chave === proc)?.sinal_centavos;
   return typeof s === "number" && s > 0 ? s : SINAL_PADRAO[proc];
+}
+
+// Tempo na agenda: o do Manual quando é múltiplo positivo de 30 (a grade), senão o padrão.
+export function duracaoDe(proc: Procedimento, manual: ItemManual[]): number {
+  const d = manual.find((i) => i.chave === proc)?.duracao_min;
+  return typeof d === "number" && Number.isInteger(d) && d > 0 && d % 30 === 0 ? d : DURACAO_MIN[proc];
 }
 
 // Ocupados da janela [início, início+15 dias], com início = max(hoje, desde). Reservas de teste só contam
@@ -127,21 +138,24 @@ const ocupadosDe = (ctx: Ctx, desde?: string) =>
 
 async function consultarHorarios(entrada: unknown, ctx: Ctx) {
   const o = objeto(entrada, ["procedimento", "a_partir_de", "periodo"]);
-  const procedimento = enumDe<Procedimento>(o.procedimento, PROCS);
+  const procedimento = enumDe<Procedimento>(o.procedimento, AGENDAVEIS);
   const aPartirDe = o.a_partir_de === null ? undefined : dataValida(o.a_partir_de);
   const periodo = enumDe<"manha" | "tarde" | "qualquer">(o.periodo, ["manha", "tarde", "qualquer"]);
   const ocupados = await ocupadosDe(ctx, aPartirDe);
-  const slots = slotsLivres({ agora: ctx.agora, procedimento, horarios: ctx.config.horarios, ocupados, aPartirDe, periodo, max: 6 });
+  const slots = slotsLivres({
+    agora: ctx.agora, procedimento, horarios: ctx.config.horarios, ocupados, aPartirDe, periodo, max: 6,
+    duracaoMin: duracaoDe(procedimento, ctx.manual),
+  });
   return slots.length ? { horarios: slots.map(rotulado) } : { horarios: [], aviso: "sem_horarios_no_periodo" };
 }
 
 async function segurarHorario(entrada: unknown, ctx: Ctx) {
   const o = objeto(entrada, ["procedimento", "data", "hora"]);
-  const proc = enumDe<Procedimento>(o.procedimento, PROCS);
+  const proc = enumDe<Procedimento>(o.procedimento, AGENDAVEIS);
   const data = dataValida(o.data);
   const hora = horaValida(o.hora);
   const ocupados = await ocupadosDe(ctx, data);
-  const base = { agora: ctx.agora, procedimento: proc, horarios: ctx.config.horarios };
+  const base = { agora: ctx.agora, procedimento: proc, horarios: ctx.config.horarios, duracaoMin: duracaoDe(proc, ctx.manual) };
   const slot = slotsLivres({ ...base, ocupados, aPartirDe: data, max: 400 }).find((s) => s.data === data && s.hora === hora);
   const reserva = slot ? await ctx.repo.segurar(ctx.conversa.id, proc, slot, sinalDe(proc, ctx.manual)) : null;
   if (!slot || !reserva) {

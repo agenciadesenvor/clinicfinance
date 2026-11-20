@@ -1,8 +1,8 @@
 // Confirmação de pagamento de uma reserva: sem HTTP, sem SQL, sem relógio (quem chama passa `agora`).
 import { duracaoOcupado, rotuloSlot, slotsLivres } from "./horarios.ts";
-import { ocupadosJanela } from "./ferramentas.ts";
+import { duracaoDe, ocupadosJanela } from "./ferramentas.ts";
 import type { Repo } from "./repo.ts";
-import type { Efeitos, IrisConfig, Procedimento, Reserva } from "./tipos.ts";
+import type { Efeitos, IrisConfig, ItemManual, Procedimento, Reserva } from "./tipos.ts";
 
 export type Resultado = "confirmada" | "ja_confirmada" | "horario_perdido" | "inexistente";
 
@@ -22,10 +22,12 @@ export async function confirmarReserva(p: {
   if (r.status === "expirada") return "horario_perdido"; // o caminho do horário perdido já rodou
 
   const noPrazo = r.status === "ativa" && new Date(r.expira_em).getTime() > agora.getTime();
-  const userId = noPrazo ? "" : (await repo.carregar(r.conversa_id))?.conversa.user_id;
-  if (userId === undefined) throw new Error(`conversa ${r.conversa_id} não existe`);
+  const carregado = noPrazo ? null : await repo.carregar(r.conversa_id);
+  if (!noPrazo && !carregado) throw new Error(`conversa ${r.conversa_id} não existe`);
 
-  if (!noPrazo && await horarioOcupado(repo, userId, r)) return await perderHorario(p, r, userId, anterior);
+  if (carregado && await horarioOcupado(repo, carregado.conversa.user_id, r)) {
+    return await perderHorario(p, r, carregado.conversa.user_id, carregado.manual, anterior);
+  }
 
   if (!await repo.pagarReserva(r.id)) return "ja_confirmada";
   // Troca consciente: se algo falhar depois do portão, devolvemos o status anterior para a paciente paga não ficar
@@ -59,7 +61,8 @@ async function horarioOcupado(repo: Repo, userId: string, r: Reserva): Promise<b
 }
 
 async function perderHorario(
-  p: Parameters<typeof confirmarReserva>[0], r: Reserva, userId: string, anterior: Reserva["status"],
+  p: Parameters<typeof confirmarReserva>[0], r: Reserva, userId: string, manual: ItemManual[],
+  anterior: Reserva["status"],
 ): Promise<Resultado> {
   const { repo, agora, config } = p;
   // Só quem expirou a reserva abre a pendência e avisa; se perdeu a corrida, o outro lado já decidiu.
@@ -72,7 +75,10 @@ async function perderHorario(
       resumo: `Pagamento recebido depois do prazo e o horário de ${rotuloDe(r)} já estava ocupado. Valor fica como crédito.`,
     });
     const ocupados = await ocupadosJanela({ repo, userId, agora, incluirTestes: r.teste });
-    const livres = slotsLivres({ agora, procedimento: r.procedimento, horarios: config.horarios, ocupados, max: 2 });
+    const livres = slotsLivres({
+      agora, procedimento: r.procedimento, horarios: config.horarios, ocupados, max: 2,
+      duracaoMin: duracaoDe(r.procedimento, manual),
+    });
     const base = `Recebi seu pagamento${vocativo(p.nome)}, mas esse horário acabou de ser ocupado. Seu valor fica como crédito.`;
     const texto = livres.length === 2
       ? `${base} Posso te oferecer ${rotuloSlot(livres[0])} ou ${rotuloSlot(livres[1])}?`

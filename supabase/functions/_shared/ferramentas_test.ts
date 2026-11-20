@@ -207,3 +207,35 @@ Deno.test("consultar_horarios a_partir_de adiante respeita ocupação daquele di
   const horas = r.horarios.filter((h: { data: string }) => h.data === "2026-12-01").map((h: { hora: string }) => h.hora);
   assert(horas.length > 0 && !horas.includes("09:00") && !horas.includes("09:30"));
 });
+
+const comDuracao = (chave: string, duracao_min: number | null): ItemManual => ({ ...item(chave, null), duracao_min });
+const horas = (r: { horarios: { data: string; hora: string }[] }) => r.horarios.filter((h) => h.data === "2026-11-13").map((h) => h.hora);
+
+Deno.test("avaliação com 60 min no Manual: nenhum horário termina dentro do almoço e o hold dura 1h", async () => {
+  const { fake, ctx } = montar([comDuracao("avaliacao", 60)]);
+  const c = await rodar("consultar_horarios", { procedimento: "avaliacao", a_partir_de: "2026-11-13", periodo: "manha" }, ctx);
+  assertEquals(horas(c), ["09:00", "09:30", "10:00", "10:30", "11:00"]);
+  const r = await rodar("segurar_horario", { procedimento: "avaliacao", data: "2026-11-13", hora: "09:00" }, ctx);
+  assertEquals(r.ok, true);
+  assertEquals([fake.reservas[0].hora_inicio, fake.reservas[0].hora_fim], ["09:00", "10:00"]);
+  const almoco = await rodar("segurar_horario", { procedimento: "avaliacao", data: "2026-11-13", hora: "11:30" }, ctx);
+  assertEquals(almoco.ok, false);
+});
+
+Deno.test("duração inválida no Manual (0, 45, null): vale a duração padrão", async () => {
+  for (const dur of [0, 45, null]) {
+    const { fake, ctx } = montar([comDuracao("avaliacao", dur)]);
+    const c = await rodar("consultar_horarios", { procedimento: "avaliacao", a_partir_de: "2026-11-13", periodo: "manha" }, ctx);
+    assertEquals(horas(c), ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30"], String(dur));
+    await rodar("segurar_horario", { procedimento: "avaliacao", data: "2026-11-13", hora: "09:00" }, ctx);
+    assertEquals(fake.reservas[0].hora_fim, "09:30", String(dur));
+  }
+});
+
+Deno.test("alternativas do horário perdido usam a duração do Manual", async () => {
+  const { fake, ctx } = montar([comDuracao("avaliacao", 120)]);
+  fake.ocupar({ data: "2026-11-13", inicio: "09:00", fim: "10:00", procedimento: "Limpeza" });
+  const r = await rodar("segurar_horario", { procedimento: "avaliacao", data: "2026-11-13", hora: "09:00" }, ctx);
+  assertEquals(r.ok, false);
+  assertEquals(r.alternativas.map((a: { hora: string }) => a.hora), ["10:00", "13:00"]);
+});

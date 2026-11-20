@@ -87,3 +87,10 @@ Deno.test("max limita o resultado", () => {
   const s = slotsLivres({ agora: new Date("2026-11-13T01:30:00Z"), procedimento: "avaliacao", horarios: H, ocupados: [], max: 3 });
   assertEquals(s.length, 3);
 });
+Deno.test("duracaoMin substitui a duração padrão do procedimento", () => {
+  const agora = new Date("2026-11-13T01:30:00Z");
+  const s = slotsLivres({ agora, procedimento: "avaliacao", horarios: H, ocupados: [], duracaoMin: 60, max: 6 });
+  assertEquals(s.map((x) => `${x.hora}-${x.fim}`), ["09:00-10:00", "09:30-10:30", "10:00-11:00", "10:30-11:30", "11:00-12:00", "13:00-14:00"]);
+  const padrao = slotsLivres({ agora, procedimento: "avaliacao", horarios: H, ocupados: [], max: 1 });
+  assertEquals(padrao[0], { data: "2026-11-13", hora: "09:00", fim: "09:30" });
+});

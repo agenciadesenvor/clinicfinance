@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import type { ItemManual } from "./tipos.ts";
+import type { IrisConfig, ItemManual } from "./tipos.ts";
 import { dividirMensagens, valoresAutorizados, valoresNaoAutorizados } from "./guardas.ts";
 
 const item = (p: Partial<ItemManual> & { chave: string }): ItemManual => ({
@@ -7,6 +7,12 @@ const item = (p: Partial<ItemManual> & { chave: string }): ItemManual => ({
   duracao_min: null, agenda_direto: false, sinal_centavos: null, aprovado: true, ...p,
 });
 const ordenar = (xs: number[]) => [...xs].sort((a, b) => a - b);
+const CONFIG: IrisConfig = {
+  modo: "supervisionado",
+  horarios: { semana: { "1": null, "2": null, "3": null, "4": null, "5": null, "6": null }, almoco: { inicio: "12:00", fim: "13:00" }, excecoes: [] },
+  endereco: "", como_chegar: "", formas_pagamento: "", politica_cancelamento: "", politica_atraso: "", nunca_dizer: "",
+  frase_emergencia: "",
+};
 
 Deno.test("divide em até 3 mensagens", () => assertEquals(dividirMensagens("a\n\nb\n\n\nc\n\nd"), ["a", "b", "c\n\nd"]));
 Deno.test("divide: apara e descarta vazias", () => assertEquals(dividirMensagens("  a  \n \n\n  \n b\n"), ["a", "b"]));
@@ -30,12 +36,12 @@ Deno.test("valores autorizados: preços informáveis, sinais e promoções váli
     item({ chave: "botox", informa_preco: true, preco_texto: "A partir de R$ 1.000, depende das áreas" }),
     item({ chave: "laser", informa_preco: false, preco_texto: "R$ 777" }),
   ];
-  assertEquals(ordenar(valoresAutorizados(manual, [], "2026-11-12")), [65, 100, 130, 1000]);
+  assertEquals(ordenar(valoresAutorizados(manual, [], "2026-11-12", CONFIG)), [65, 100, 130, 1000]);
   const promos = [
     { procedimento_chave: "botox", descricao: "Botox por R$ 1.450,50 até o fim do mês", valido_ate: "2026-11-12" },
     { procedimento_chave: "laser", descricao: "Laser R$ 300", valido_ate: "2026-11-11" },
   ];
-  assertEquals(ordenar(valoresAutorizados(manual, promos, "2026-11-12")), [65, 100, 130, 1000, 1450.5]);
+  assertEquals(ordenar(valoresAutorizados(manual, promos, "2026-11-12", CONFIG)), [65, 100, 130, 1000, 1450.5]);
 });
 Deno.test("pega variações de R$: minúsculo, espaço antes do $ e RS", () => {
   assertEquals(valoresNaoAutorizados("Fica r$ 900.", [100]), [900]);
@@ -48,3 +54,19 @@ Deno.test("não confunde telefone, data, hora nem palavras com rs", () => {
   assertEquals(valoresNaoAutorizados("Tenho quinta às 14h ou sexta às 10h.", [100]), []);
 });
 Deno.test("divide: normaliza \\r\\n", () => assertEquals(dividirMensagens("a\r\n\r\nb"), ["a", "b"]));
+Deno.test("valores autorizados: R$ das informações práticas entram, os de 'nunca dizer' não", () => {
+  const config: IrisConfig = {
+    ...CONFIG,
+    politica_cancelamento: "Cancelamento com menos de 24h tem taxa de R$ 50.",
+    formas_pagamento: "Pix ou cartão; parcelas a partir de R$ 200,00.",
+    nunca_dizer: "Nunca diga que a Dra. cobra R$ 3.000 de ninguém.",
+  };
+  const v = valoresAutorizados([], [], "2026-11-12", config);
+  assertEquals(ordenar(v), [50, 200]);
+  assertEquals(valoresNaoAutorizados("Com menos de 24h a taxa é de R$ 50.", v), []);
+  assertEquals(valoresNaoAutorizados("Fica R$ 3.000.", v), [3000]);
+});
+Deno.test("valores autorizados: o sinal efetivo de avaliação e limpeza entra mesmo sem sinal no Manual", () => {
+  const manual = [item({ chave: "avaliacao" }), item({ chave: "limpeza_de_pele", sinal_centavos: 0 })];
+  assertEquals(ordenar(valoresAutorizados(manual, [], "2026-11-12", CONFIG)), [65, 100]);
+});

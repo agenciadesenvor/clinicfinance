@@ -96,7 +96,7 @@ export async function executarRepeticao(caso: Caso, cliente: ClienteClaude, m: M
       systemEstavel: montarSystem({ config: c.config, manual: c.manual, promocoes: c.promocoes, hoje }),
       systemContexto: montarContexto({ agora: AGORA, conversa: c.conversa, pendencias: c.pendencias, reserva: c.reserva, canal: c.conversa.canal }),
       historico: montarHistorico(emOrdemDeResposta(c.mensagens)),
-      autorizados: valoresAutorizados(c.manual, c.promocoes, hoje),
+      autorizados: valoresAutorizados(c.manual, c.promocoes, hoje, c.config),
     });
     for (const k of Object.keys(m.uso) as (keyof Uso)[]) m.uso[k] += r.uso[k];
     const ultimo = i === caso.turnos.length - 1;

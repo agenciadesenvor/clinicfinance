@@ -2,14 +2,14 @@ import { assertEquals, assertRejects } from "@std/assert";
 import { criarRepoFake } from "./repo_fake.ts";
 import { efeitosSimulados } from "./ferramentas.ts";
 import { confirmarReserva } from "./reservas.ts";
-import type { Procedimento } from "./tipos.ts";
+import type { ItemManual, Procedimento } from "./tipos.ts";
 
 const AGORA = new Date("2026-11-13T01:30:00Z"); // quinta 22:30 em Recife
 const ENDERECO = "Rua das Flores, 100, sala 2";
 const SLOT = { data: "2026-11-13", hora: "09:00", fim: "09:30" };
 
-async function montar(opts: { endereco?: string; proc?: Procedimento } = {}) {
-  const fake = criarRepoFake({ agora: AGORA, config: { endereco: opts.endereco ?? ENDERECO } });
+async function montar(opts: { endereco?: string; proc?: Procedimento; manual?: ItemManual[] } = {}) {
+  const fake = criarRepoFake({ agora: AGORA, config: { endereco: opts.endereco ?? ENDERECO }, manual: opts.manual });
   const proc = opts.proc ?? "avaliacao";
   const s = proc === "avaliacao" ? SLOT : { ...SLOT, fim: "10:00" };
   const reserva = (await fake.segurar(fake.conversa.id, proc, s, 10000))!;
@@ -199,4 +199,19 @@ Deno.test("recuperação no horário perdido: abrirPendencia falha uma vez e o r
   assertEquals(await confirmar("Camila", DEPOIS), "horario_perdido");
   assertEquals(fake.pendencias.length, 1);
   assertEquals(textos("iris").length, 1);
+});
+
+Deno.test("horário perdido: as alternativas usam a duração do Manual", async () => {
+  const aval: ItemManual = {
+    chave: "avaliacao", nome: "Avaliação", o_que_e: "", indicacao: "", preparo: "", cuidados: "", informa_preco: true,
+    preco_texto: "R$ 100", duracao_min: 120, agenda_direto: true, sinal_centavos: 10000, aprovado: true,
+  };
+  const { fake, confirmar, textos, DEPOIS } = await montar({ manual: [aval] });
+  fake.ocupar({ data: "2026-11-13", inicio: "09:00", fim: "09:30", procedimento: "avaliacao" });
+  fake.ocupar({ data: "2026-11-13", inicio: "10:30", fim: "11:00", procedimento: "avaliacao" });
+  assertEquals(await confirmar("Camila", DEPOIS), "horario_perdido");
+  // Com 30 min seriam 9h30 e 10h; com 2h nada da manhã cabe antes do ocupado das 10h30 ou do almoço.
+  assertEquals(textos("iris"), [
+    "Recebi seu pagamento, Camila, mas esse horário acabou de ser ocupado. Seu valor fica como crédito. Posso te oferecer sexta, 13/11, às 13h ou sexta, 13/11, às 13h30?",
+  ]);
 });

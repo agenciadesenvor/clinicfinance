@@ -1,5 +1,5 @@
 import { assertEquals } from "@std/assert";
-import { agendamentoParaOcupado, linhasDeMensagens } from "./repo.ts";
+import { agendamentoParaOcupado, linhasDeMensagens, MAX_MENSAGENS_CARREGADAS, ordemDaConversa } from "./repo.ts";
 import { criarRepoFake } from "./repo_fake.ts";
 
 Deno.test("agendamento sem hora de início não bloqueia", () => {
@@ -49,4 +49,11 @@ Deno.test("linhasDeMensagens: created_at estritamente crescente na ordem e campo
     ["u1", "c1", "iris", "b", "enviada", true, {}],
     ["u1", "c1", "iris", "c", "rascunho", false, {}],
   ]);
+});
+
+Deno.test("mensagens: as mais novas vêm primeiro do banco e voltam para a ordem da conversa", () => {
+  const doBanco = [{ id: "c" }, { id: "b" }, { id: "a" }];
+  assertEquals(ordemDaConversa(doBanco).map((m) => m.id), ["a", "b", "c"]);
+  assertEquals(doBanco.map((m) => m.id), ["c", "b", "a"]); // não altera o array recebido
+  assertEquals(MAX_MENSAGENS_CARREGADAS, 300);
 });

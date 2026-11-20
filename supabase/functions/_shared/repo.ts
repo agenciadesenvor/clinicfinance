@@ -94,6 +94,12 @@ export function linhasDeMensagens(conversaId: string, userId: string, ms: NovaMe
   }));
 }
 
+// Quantas mensagens recentes carregar. O PostgREST corta em 1000 linhas; em ordem crescente o corte levaria
+// as mais NOVAS e pendentes() nunca veria a mensagem nova da paciente. Por isso a consulta vem da mais nova
+// para a mais antiga, com limite, e volta para a ordem da conversa aqui.
+export const MAX_MENSAGENS_CARREGADAS = 300;
+export const ordemDaConversa = <T>(maisNovasPrimeiro: T[]): T[] => [...maisNovasPrimeiro].reverse();
+
 export function repoSupabase(db: SupabaseClient): Repo {
   // Todo write precisa do user_id da conversa (as tabelas filhas exigem).
   async function donoDe(conversaId: string): Promise<string> {
@@ -112,7 +118,8 @@ export function repoSupabase(db: SupabaseClient): Repo {
         db.from("iris_manual").select("*").eq("user_id", c.user_id).order("ordem", { ascending: true }),
         db.from("iris_promocoes").select("*").eq("user_id", c.user_id),
         db.from("iris_mensagens").select("*").eq("conversa_id", conversaId)
-          .order("created_at", { ascending: true }).order("id", { ascending: true }), // desempate determinístico
+          .order("created_at", { ascending: false }).order("id", { ascending: false }) // desempate determinístico
+          .limit(MAX_MENSAGENS_CARREGADAS),
         db.from("iris_pendencias").select("*").eq("conversa_id", conversaId).eq("status", "aberta")
           .order("created_at", { ascending: true }),
         db.from("iris_reservas").select("*").eq("conversa_id", conversaId).eq("status", "ativa").gt("expira_em", agora)
@@ -141,7 +148,7 @@ export function repoSupabase(db: SupabaseClient): Repo {
         promocoes: (ler(pro, "promocoes") ?? []).map((p: Linha): Promocao => ({
           procedimento_chave: p.procedimento_chave ?? "", descricao: p.descricao, valido_ate: p.valido_ate,
         })),
-        mensagens: (ler(men, "mensagens") ?? []).map((m: Linha): Mensagem => ({
+        mensagens: ordemDaConversa<Linha>(ler(men, "mensagens") ?? []).map((m: Linha): Mensagem => ({
           id: m.id, autor: m.autor, texto: m.texto, status: m.status, created_at: m.created_at, meta: m.meta ?? {},
         })),
         pendencias: (ler(pen, "pendencias") ?? []).map((p: Linha): Pendencia => ({

@@ -34,7 +34,59 @@ const msg = (autor: Mensagem["autor"], texto: string, status: Mensagem["status"]
 Deno.test("texto de item não aprovado não entra no prompt", () => {
   const s = montarSystem({ config: C, manual: M, promocoes: [], hoje: "2026-11-12" });
   assert(s.includes("TEXTO-AVAL")); assert(!s.includes("TEXTO-SECRETO"));
-  assert(s.includes("Conteúdo ainda não aprovado pela Dra."));
+  assert(s.includes("Os textos descritivos deste procedimento"));
+});
+const blocoDe = (s: string, chave: string) => s.slice(s.indexOf(`(${chave})`), s.indexOf("\n\n", s.indexOf(`(${chave})`)));
+Deno.test("item não aprovado: preço, agenda e sinal continuam valendo; dúvidas descritivas vão para a Dra.", () => {
+  const aval = item({ chave: "avaliacao", nome: "Avaliação", o_que_e: "TEXTO-AVAL", informa_preco: true, preco_texto: "R$ 100",
+    duracao_min: 30, agenda_direto: true, sinal_centavos: 10000, aprovado: false });
+  const b = blocoDe(montarSystem({ config: C, manual: [aval], promocoes: [], hoje: "2026-11-12" }), "avaliacao");
+  assert(b.includes("Preço que você pode informar: R$ 100"));
+  assert(b.includes("Agendamento: você agenda direto."));
+  assert(b.includes("Sinal para reservar: R$ 100,00"));
+  assert(!b.includes("TEXTO-AVAL"));
+  const marcador = b.split("\n").at(-1)!;
+  assert(marcador.includes("fora_do_manual"), marcador);
+  assert(/preço, agendamento e sinal/.test(marcador), marcador);
+  assert(!/qualquer pergunta sobre este procedimento/.test(marcador), marcador);
+});
+Deno.test("só avaliação e limpeza de pele aparecem como 'você agenda direto', qualquer que seja o valor gravado", () => {
+  const s = montarSystem({ config: C, hoje: "2026-11-12", promocoes: [], manual: [
+    item({ chave: "botox", nome: "Botox", agenda_direto: true, sinal_centavos: 20000, duracao_min: 60 }),
+    item({ chave: "limpeza_de_pele", nome: "Limpeza de pele", agenda_direto: false }),
+  ] });
+  const botox = blocoDe(s, "botox"), limpeza = blocoDe(s, "limpeza_de_pele");
+  assert(!botox.includes("você agenda direto"), botox);
+  assert(botox.includes("quem agenda é a clínica"), botox);
+  assert(!botox.includes("R$ 200,00"), botox);
+  assert(limpeza.includes("Agendamento: você agenda direto."), limpeza);
+});
+Deno.test("sinal no prompt é o mesmo que a ferramenta cobra (padrão quando o Manual não tem)", () => {
+  const s = montarSystem({ config: C, hoje: "2026-11-12", promocoes: [], manual: [
+    item({ chave: "avaliacao", nome: "Avaliação", sinal_centavos: null }),
+    item({ chave: "limpeza_de_pele", nome: "Limpeza de pele", sinal_centavos: 0 }),
+  ] });
+  assert(blocoDe(s, "avaliacao").includes("Sinal para reservar: R$ 100,00"));
+  assert(blocoDe(s, "limpeza_de_pele").includes("Sinal para reservar: R$ 65,00"));
+  assert(!s.includes("Sinal para reservar: não há"));
+});
+Deno.test("tempo na agenda no prompt é o que a ferramenta usa", () => {
+  const s = montarSystem({ config: C, hoje: "2026-11-12", promocoes: [], manual: [
+    item({ chave: "avaliacao", nome: "Avaliação", duracao_min: 60 }),
+    item({ chave: "limpeza_de_pele", nome: "Limpeza de pele", duracao_min: 45 }),
+  ] });
+  assert(blocoDe(s, "avaliacao").includes("Tempo na agenda: 60 min"));
+  assert(blocoDe(s, "limpeza_de_pele").includes("Tempo na agenda: 60 min"));
+});
+Deno.test("texto aprovado sai sem a marca de rascunho do Manual padrão", () => {
+  const s = montarSystem({ config: C, hoje: "2026-11-12", promocoes: [], manual: [
+    item({ chave: "botox", nome: "Botox", aprovado: true, o_que_e: "Relaxa a musculatura. (rascunho — a Dra. revisa)  ",
+      cuidados: " (rascunho — a Dra. revisa)" }),
+  ] });
+  const b = blocoDe(s, "botox");
+  assert(b.includes("O que é: Relaxa a musculatura.\n") || b.endsWith("O que é: Relaxa a musculatura."), b);
+  assert(!b.includes("rascunho"), b);
+  assert(!b.includes("Cuidados depois"), b);
 });
 Deno.test("bloco estável não muda com a hora nem com a conversa", () => {
   const a = montarSystem({ config: C, manual: M, promocoes: [], hoje: "2026-11-12" });

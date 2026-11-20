@@ -1,7 +1,7 @@
 // POST /functions/v1/iris-pagamento — confirma o pagamento simulado de uma reserva.
 import { createClient } from "@supabase/supabase-js";
 import { efeitosSimulados } from "../_shared/ferramentas.ts";
-import { cors, json, usuario } from "../_shared/http.ts";
+import { cors, json, temAcesso, usuario } from "../_shared/http.ts";
 import { repoSupabase } from "../_shared/repo.ts";
 import { confirmarReserva } from "../_shared/reservas.ts";
 
@@ -13,8 +13,9 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: h });
   if (req.method !== "POST") return json({ erro: "metodo_nao_permitido" }, 405, h);
   try {
-    const uid = await usuario(req);
-    if (!uid) return json({ erro: "nao_autenticado" }, 401, h);
+    const u = await usuario(req);
+    if (!u) return json({ erro: "nao_autenticado" }, 401, h);
+    if (!temAcesso(u.email, Deno.env.get("IRIS_EMAILS"))) return json({ erro: "sem_acesso" }, 403, h);
 
     if (Number(req.headers.get("content-length") ?? 0) > MAX_CORPO) return json({ erro: "corpo_grande" }, 400, h);
     const bruto = await req.text();
@@ -35,7 +36,7 @@ Deno.serve(async (req) => {
     const repo = repoSupabase(db);
     const reserva = await repo.reserva(reserva_id);
     const carregado = reserva ? await repo.carregar(reserva.conversa_id) : null;
-    if (!reserva || !carregado || carregado.conversa.user_id !== uid) return json({ erro: "nao_encontrada" }, 404, h);
+    if (!reserva || !carregado || carregado.conversa.user_id !== u.id) return json({ erro: "nao_encontrada" }, 404, h);
     const { conversa, config } = carregado;
     if (conversa.canal !== "simulador") return json({ erro: "canal_nao_suportado" }, 403, h);
 
