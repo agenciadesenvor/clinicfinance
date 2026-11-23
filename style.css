@@ -3769,3 +3769,4 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text-1
   .docs-recent-list button { grid-template-columns: auto minmax(0, 1fr) auto; }
   .docs-recent-type { display: none; }
 }
+.chart-bars { padding: 6px 2px 2px; min-height: 120px; }

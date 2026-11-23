@@ -68,7 +68,7 @@ function renderCrm() {
     <div class="card-header"><span class="card-title">Métricas do CRM</span><span class="card-sub">Visão geral dos pacientes e leads</span></div>
     <div class="card-body crm-metrics-grid">
       <div class="crm-chart-box"><div class="crm-chart-title">Funil por etapa</div><div class="chart-wrap"><canvas id="crmChartFunil" height="200"></canvas></div></div>
-      <div class="crm-chart-box"><div class="crm-chart-title">Leads por origem</div><div class="chart-wrap"><canvas id="crmChartOrigem" height="200"></canvas></div></div>
+      <div class="crm-chart-box"><div class="crm-chart-title">Leads por origem</div><div class="chart-bars" id="crmBarsOrigem"></div></div>
       <div class="crm-chart-box"><div class="crm-chart-title">Novos cadastros por mês</div><div class="chart-wrap"><canvas id="crmChartMes" height="200"></canvas></div></div>
     </div>
   </div>
@@ -205,7 +205,6 @@ function renderCrmCharts() {
   // Leads por origem
   const origemKeys = Object.keys(CRM_ORIGEM).filter(k => ps.some(p => p.origem === k));
   const origemData = origemKeys.map(k => ps.filter(p => p.origem === k).length);
-  const palette = CHART_COLORS.series;
   // Novos cadastros nos últimos 6 meses
   const meses = [], labels = [];
   const base = new Date();
@@ -223,11 +222,8 @@ function renderCrmCharts() {
       data: { labels: funilKeys.map(k => CRM_STATUS[k].label), datasets: [{ data: funilData, backgroundColor: BAR, hoverBackgroundColor: CHART_COLORS.orange, borderRadius: 6, maxBarThickness: 18 }] },
       options: { ...base_, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0, color: TXT }, grid: { color: GRID } }, x: { ticks: { color: TXT, font: { size: 10 } }, grid: { display: false } } } }
     });
-    createChart('crmChartOrigem', {
-      type: 'doughnut',
-      data: { labels: origemKeys.map(k => CRM_ORIGEM[k]), datasets: [{ data: origemData, backgroundColor: palette, borderWidth: 0 }] },
-      options: { ...base_, cutout: '72%', plugins: { legend: { position: 'bottom', labels: { color: TXT, font: { size: 11 }, boxWidth: 12, padding: 10 } } } }
-    });
+    const boxOrigem = document.getElementById('crmBarsOrigem');
+    if (boxOrigem) boxOrigem.innerHTML = catBarsHTML(origemKeys.map((k, i) => ({ label: CRM_ORIGEM[k], value: origemData[i] })).sort((x, y) => y.value - x.value), { money: false, empty: 'Sem leads com origem.' });
     createChart('crmChartMes', {
       type: 'line',
       data: { labels, datasets: [{ data: porMes, borderColor: LINE, backgroundColor: 'rgba(200,112,42,0.08)', fill: true, peakLabel: true }] },

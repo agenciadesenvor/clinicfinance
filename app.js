@@ -2270,11 +2270,11 @@ function renderGraficos() {
     </div>
     <div class="card">
       <div class="card-header"><span class="card-title">Gastos por Categoria</span><span class="card-sub">No período selecionado</span></div>
-      <div class="chart-wrap"><canvas id="gChartCat" height="280"></canvas></div>
+      <div class="chart-bars" id="gBarsCat"></div>
     </div>
     <div class="card">
       <div class="card-header"><span class="card-title">Formas de Pagamento</span><span class="card-sub">No período selecionado</span></div>
-      <div class="chart-wrap"><canvas id="gChartPay" height="280"></canvas></div>
+      <div class="chart-bars" id="gBarsPay"></div>
     </div>
     <div class="card">
       <div class="card-header"><span class="card-title">Margem por Procedimento</span><span class="card-sub">No período selecionado</span></div>
@@ -2317,19 +2317,13 @@ function initGraficosCharts() {
     ...Object.keys(EXIT_CATEGORIES).map(k => fx.filter(e=>e.category===k).reduce((s,e)=>s+e.value,0)),
     fc.reduce((s,e)=>s+e.value,0)
   ];
-  createChart('gChartCat', {
-    type:'doughnut',
-    data:{ labels: catLabels, datasets:[{ data: catData, backgroundColor: CHART_COLORS.series, hoverOffset:6 }] },
-    options:{ responsive:true, cutout:'72%', plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, padding:14 } }, tooltip:{ callbacks:{ label: ctx => ` ${ctx.label}: ${fCurrency(ctx.raw)}` } } } }
-  });
+  const boxCat = document.getElementById('gBarsCat');
+  if (boxCat) boxCat.innerHTML = catBarsHTML(catLabels.map((label, i) => ({ label, value: catData[i] })).sort((x, y) => y.value - x.value), { empty: 'Sem despesas neste período.' });
 
   const payLabels = Object.values(PAYMENT_METHODS);
   const payData   = Object.keys(PAYMENT_METHODS).map(k => fe.filter(e=>e.payment===k).reduce((s,e)=>s+e.value,0));
-  createChart('gChartPay', {
-    type:'doughnut',
-    data:{ labels: payLabels, datasets:[{ data: payData, backgroundColor: CHART_COLORS.series, hoverOffset:6 }] },
-    options:{ responsive:true, cutout:'72%', plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, padding:14 } }, tooltip:{ callbacks:{ label: ctx => ` ${ctx.label}: ${fCurrency(ctx.raw)}` } } } }
-  });
+  const boxPay = document.getElementById('gBarsPay');
+  if (boxPay) boxPay.innerHTML = catBarsHTML(payLabels.map((label, i) => ({ label, value: payData[i] })).sort((x, y) => y.value - x.value), { empty: 'Sem entradas neste período.' });
 
   const totalRev     = fe.reduce((s,e)=>s+e.value,0);
   const totalClinicG = fc.reduce((s,e)=>s+e.value,0);
