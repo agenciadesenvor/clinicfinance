@@ -90,7 +90,7 @@ function dashHeroHTML() {
       <div class="hero-actions">
         <button type="button" class="hero-pill" onclick="openEntradaModal()">+ Entrada</button>
         <button type="button" class="hero-pill" onclick="openSaidaModal()">+ Saída</button>
-        <button type="button" class="hero-pill" onclick="navigateTo('agenda')">+ Agendamento</button>
+        <button type="button" class="hero-pill" onclick="novoAgendamentoDaCapa()">+ Agendamento</button>
         <button type="button" class="hero-pill" onclick="navigateTo('pacientes'); setTimeout(() => openCrmModal(null, 'pacientes'), 80)">+ Paciente</button>
       </div>
     </div>
@@ -99,6 +99,12 @@ function dashHeroHTML() {
       <span>Trocar foto</span>
     </button>
   </section>`;
+}
+// Abre a Agenda já com a janela de novo agendamento (espera a lista de pacientes carregar)
+async function novoAgendamentoDaCapa() {
+  navigateTo('agenda');
+  if (typeof loadAgenda === 'function') await loadAgenda();
+  if (state.currentView === 'agenda' && typeof openAgendaModal === 'function') openAgendaModal(null, today());
 }
 // Põe (ou tira) a foto da capa sem redesenhar a tela
 function applyCapa() {
@@ -277,6 +283,8 @@ function initDashboardCharts() {
   fitBigNumbers();
 }
 
+// Ao mudar o tamanho da janela, os números grandes se reajustam
+window.addEventListener('resize', () => { clearTimeout(fitBigNumbers._t); fitBigNumbers._t = setTimeout(fitBigNumbers, 150); });
 // Números grandes diminuem a letra até caber no cartão (valores longos não são cortados)
 function fitBigNumbers() {
   document.querySelectorAll('#content .h3-big').forEach(el => {

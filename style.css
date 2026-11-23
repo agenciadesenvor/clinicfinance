@@ -3823,3 +3823,11 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text-1
   .sidebar.collapsed .nav-item .nav-ill { width: 22px; height: 22px; }
 }
 @media (prefers-reduced-motion: reduce) { .sidebar .nav-item:hover .nav-ill { transform: none; } }
+
+/* --- Capa: botão "Trocar foto" ocupado e posição no celular --- */
+.hero-change.is-busy { opacity: 1; cursor: progress; }
+.hero-change:disabled { cursor: progress; }
+@media (max-width: 767px) {
+  .hero-trail { padding-right: 46px; }
+  .hero-change.is-busy span { display: inline; }
+}

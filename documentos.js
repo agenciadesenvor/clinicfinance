@@ -1126,16 +1126,17 @@ function renderDocumentos() {
 async function loadDocumentosResumo() {
   const vazio = { counts: { anamnese: 0, receituario: 0, exames: 0, contratos: 0 }, recentes: [], erro: false };
   if (typeof currentUser === 'undefined' || !currentUser) return vazio;
-  const res = await Promise.all(DOC_PASTAS.map(p =>
-    db(p.table).select('id,patient_name,doc_date,created_at').eq('user_id', currentUser.id).order('created_at', { ascending: false })
-  ));
+  // Por tipo: o total (só a contagem, sem baixar as linhas) e os 6 mais recentes
+  const res = await Promise.all(DOC_PASTAS.map(p => Promise.all([
+    db(p.table).select('id').eq('user_id', currentUser.id).limit(1).count(),
+    db(p.table).select('id,patient_name,doc_date,created_at').eq('user_id', currentUser.id).order('created_at', { ascending: false }).limit(6)
+  ])));
   const out = { counts: {}, recentes: [], erro: false };
-  res.forEach(({ data, error }, i) => {
+  res.forEach(([cnt, rec], i) => {
     const p = DOC_PASTAS[i];
-    if (error) out.erro = true;
-    const rows = (!error && data) || [];
-    out.counts[p.type] = rows.length;
-    rows.slice(0, 6).forEach(r => out.recentes.push({ type: p.type, id: r.id, nome: r.patient_name || '(sem nome)', data: r.doc_date || (r.created_at || '').slice(0, 10), criado: r.created_at || '' }));
+    if (cnt.error || rec.error) out.erro = true;
+    out.counts[p.type] = cnt.error ? 0 : (Number.isFinite(cnt.count) ? cnt.count : (cnt.data || []).length);
+    ((!rec.error && rec.data) || []).forEach(r => out.recentes.push({ type: p.type, id: r.id, nome: r.patient_name || '(sem nome)', data: r.doc_date || (r.created_at || '').slice(0, 10), criado: r.created_at || '' }));
   });
   out.recentes.sort((a, b) => String(b.criado).localeCompare(String(a.criado)));
   out.recentes = out.recentes.slice(0, 6);
@@ -1163,6 +1164,7 @@ function pintarDocumentos(r) {
 
 function abrirDocumentoRecente(type, id) {
   navigateTo(type);
-  if (type === 'contratos') { setTimeout(() => setContratosTab('assinados'), 60); return; }
+  // contrato assinado: abre a aba dos assinados e o PDF daquele termo
+  if (type === 'contratos') { setTimeout(() => { setContratosTab('assinados'); baixarContratoAssinado(id); }, 60); return; }
   setTimeout(() => openDoc(type, id), 120);
 }

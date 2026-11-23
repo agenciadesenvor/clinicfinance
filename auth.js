@@ -139,11 +139,11 @@ function checkStrength(pw) {
   if (/[A-Z]/.test(pw) && /[a-z]/.test(pw))  score++;
   if (/\d/.test(pw))                          score++;
   if (/[^A-Za-z0-9]/.test(pw))               score++;
-  const colors = ['#B85C44','#C9A06A','#7F9C7A','#5E8C61'];
+  const colors = ['#B4472E','#C8702A','#7D8F6E','#2F4A2C'];
   const labels = ['Fraca','Razoável','Boa','Forte'];
   for (let i = 1; i <= 4; i++) {
     const bar = document.getElementById(`pwBar${i}`);
-    bar.style.background = i <= score ? colors[score-1] : '#E4D9C9';
+    bar.style.background = i <= score ? colors[score-1] : '#E2D6C3';
   }
   document.getElementById('pwLabel').textContent = labels[score-1] || '';
   document.getElementById('pwLabel').style.color = colors[score-1] || '#A89A89';

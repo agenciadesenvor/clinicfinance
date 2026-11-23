@@ -39,9 +39,10 @@ function db(table, signal) {
   return {
     // SELECT
     select(cols = '*') {
-      let _filters = [], _order = null, _limit = null, _single = false;
+      let _filters = [], _order = null, _limit = null, _single = false, _count = false;
       const q = {
         eq(col, val)        { _filters.push(`${col}=eq.${encodeURIComponent(val)}`); return q; },
+        count()             { _count = true; return q; }, // devolve também { count } (total de linhas do filtro)
         gte(col, val)       { _filters.push(`${col}=gte.${encodeURIComponent(val)}`); return q; },
         lte(col, val)       { _filters.push(`${col}=lte.${encodeURIComponent(val)}`); return q; },
         order(col, opts)    { _order = `${col}.${opts?.ascending === false ? 'desc' : 'asc'}`; return q; },
@@ -54,11 +55,13 @@ function db(table, signal) {
           if (_limit) url += `&limit=${_limit}`;
           const hdrs = { ...headers() };
           if (_single) hdrs['Accept'] = 'application/vnd.pgrst.object+json';
+          if (_count) hdrs['Prefer'] = 'count=exact';
           try {
             const r = await fetch(url, { headers: hdrs, ...sig });
             if (!r.ok) { const e = await r.json().catch(()=>({message:r.statusText})); resolve({ data: _single?null:[], error: e }); return; }
             const data = await r.json();
-            resolve({ data, error: null });
+            const total = _count ? Number((r.headers.get('content-range') || '').split('/')[1]) : NaN;
+            resolve({ data, error: null, count: Number.isFinite(total) ? total : (Array.isArray(data) ? data.length : 0) });
           } catch(e) {
             if (e.name === 'AbortError') { resolve({ data: _single?null:[], error: null }); return; }
             resolve({ data: _single?null:[], error: { message: e.message } });
@@ -1337,9 +1340,9 @@ function renderSaidas() {
   const totalClinic   = fc.reduce((s,e) => s+e.value, 0);
 
   const originBadge = (origin) => {
-    if (origin === 'product') return '<span style="font-size:11px;background:rgba(139,92,246,0.1);color:#7C3AED;padding:2px 8px;border-radius:6px;font-weight:600">Produto</span>';
+    if (origin === 'product') return '<span style="font-size:11px;background:rgba(200,112,42,0.12);color:#A85A1E;padding:2px 8px;border-radius:6px;font-weight:600">Produto</span>';
     if (origin === 'clinic')  return '<span style="font-size:11px;background:rgba(79,122,63,0.12);color:#4F7A3F;padding:2px 8px;border-radius:6px;font-weight:600">Consultório</span>';
-    return '<span style="font-size:11px;background:rgba(100,116,139,0.1);color:#64748B;padding:2px 8px;border-radius:6px;font-weight:600">Manual</span>';
+    return '<span style="font-size:11px;background:rgba(46,42,36,0.07);color:#6F6558;padding:2px 8px;border-radius:6px;font-weight:600">Manual</span>';
   };
   const rowBg = (origin) => {
     if (origin === 'product') return ' style="background:rgba(139,92,246,0.04)"';
@@ -2457,10 +2460,10 @@ function renderPerfil() {
           <div class="perfil-section-sub">Aparece no alto da tela inicial. Uma foto da clínica, do consultório ou a que você preferir.</div>
           <div class="perfil-logo-row">
             <div class="perfil-logo-preview perfil-capa-preview" id="pfCapaDisp">
-              ${currentProfile.capa_data ? `<img src="${currentProfile.capa_data}" alt="Foto da capa" />` : '<span class="perfil-logo-empty">Sem foto — a tela inicial usa uma textura</span>'}
+              ${currentProfile.capa_data ? `<img src="${esc(currentProfile.capa_data)}" alt="Foto da capa" />` : '<span class="perfil-logo-empty">Sem foto — a tela inicial usa uma textura</span>'}
             </div>
             <div class="perfil-logo-actions">
-              <button type="button" class="btn btn-secondary btn-sm" onclick="pickCapa()">Trocar foto</button>
+              <button type="button" class="btn btn-secondary btn-sm pf-capa-trocar" onclick="pickCapa()">Trocar foto</button>
               <button type="button" class="btn btn-ghost btn-sm" id="pfCapaRemove" style="${currentProfile.capa_data ? '' : 'display:none'}" onclick="removeCapa()">Remover</button>
               <div class="perfil-logo-hint">JPG ou PNG · reduzida automaticamente</div>
             </div>
@@ -2597,17 +2600,31 @@ async function salvarCapa(dataUrl) {
   if (document.getElementById('pfCapaDisp')) renderCapaPreview();
   return true;
 }
+// Mostra "Enviando foto…" na capa e no Perfil enquanto a foto sobe
+function capaOcupada(on) {
+  document.querySelectorAll('.hero-change, .pf-capa-trocar').forEach(b => {
+    b.disabled = on; b.classList.toggle('is-busy', on);
+    const t = b.querySelector('span') || b;
+    if (on) { b.dataset.txt = t.textContent; t.textContent = 'Enviando foto…'; }
+    else if (b.dataset.txt) { t.textContent = b.dataset.txt; delete b.dataset.txt; }
+  });
+}
 function pickCapa() {
+  if (pickCapa.enviando) return;
   const input = document.createElement('input');
   input.type = 'file'; input.accept = 'image/*';
   input.onchange = async () => {
     const file = input.files[0];
     if (!file) return;
     if (!file.type.startsWith('image/')) { toast('Escolha uma imagem (JPG ou PNG).', 'error'); return; }
-    let dataUrl;
-    try { dataUrl = await capaParaDataUrl(file); }
-    catch (e) { toast('Não consegui abrir essa imagem. Tente uma foto em JPG ou PNG.', 'error'); return; }
-    if (await salvarCapa(dataUrl)) toast('Foto da capa atualizada.', 'success');
+    if (pickCapa.enviando) return;
+    pickCapa.enviando = true; capaOcupada(true);
+    try {
+      let dataUrl;
+      try { dataUrl = await capaParaDataUrl(file); }
+      catch (e) { toast('Não consegui abrir essa imagem. Tente uma foto em JPG ou PNG.', 'error'); return; }
+      if (await salvarCapa(dataUrl)) toast('Foto da capa atualizada.', 'success');
+    } finally { pickCapa.enviando = false; capaOcupada(false); }
   };
   input.click();
 }
@@ -2617,7 +2634,7 @@ async function removeCapa() {
 function renderCapaPreview() {
   const el = document.getElementById('pfCapaDisp'); if (!el) return;
   const d = currentProfile.capa_data || '';
-  el.innerHTML = d ? `<img src="${d}" alt="Foto da capa" />` : '<span class="perfil-logo-empty">Sem foto — a tela inicial usa uma textura</span>';
+  el.innerHTML = d ? `<img src="${esc(d)}" alt="Foto da capa" />` : '<span class="perfil-logo-empty">Sem foto — a tela inicial usa uma textura</span>';
   const rm = document.getElementById('pfCapaRemove'); if (rm) rm.style.display = d ? '' : 'none';
 }
 
@@ -2785,6 +2802,7 @@ function toggleSidebarCollapse() {
   const isCollapsed = sidebar.classList.toggle('collapsed');
   document.body.classList.toggle('sidebar-collapsed', isCollapsed);
   try { localStorage.setItem('cf-sidebar-collapsed', isCollapsed ? '1' : '0'); } catch (e) {}
+  if (typeof fitBigNumbers === 'function') setTimeout(fitBigNumbers, 320); // depois da animação do menu
   syncSidebarToggle();
   hideNavTip();
   closeNavFlyout();
@@ -3112,7 +3130,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Se o Supabase não inicializou (ex.: script do CDN falhou), evita erro fatal e avisa.
   if (!sb) {
     const loading = document.getElementById('authLoading');
-    if (loading) loading.innerHTML = '<p style="padding:24px;text-align:center;color:#7C6F63">Não foi possível conectar ao servidor. Verifique sua conexão e recarregue a página.</p>';
+    if (loading) loading.innerHTML = '<p style="padding:24px;text-align:center;color:#6F6558">Não foi possível conectar ao servidor. Verifique sua conexão e recarregue a página.</p>';
     return;
   }
 
