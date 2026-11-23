@@ -3809,3 +3809,17 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text-1
     bottom: -14px; top: auto; background: radial-gradient(circle at 0 100%, var(--card) 13.5px, var(--bg) 14px);
   }
 }
+
+/* --- Ícones coloridos do menu (desenhos próprios nas cores do sistema) --- */
+.sidebar .nav-item .nav-ill { width: 21px; height: 21px; opacity: 1; flex-shrink: 0; filter: none; }
+.sidebar .nav-item:not(.active) .nav-ill { filter: saturate(.9); }
+.sidebar .nav-item:hover .nav-ill { transform: translateY(-1px); transition: transform .15s ease; }
+@media (min-width: 769px) {
+  /* recolhido: o ativo é um círculo claro com contorno verde (o verde cheio escondia as partes verdes do desenho) */
+  .sidebar.collapsed .nav-item.active,
+  .sidebar.collapsed .nav-item.active:hover {
+    background: var(--bg); color: var(--text-1); box-shadow: inset 0 0 0 1.5px var(--moss);
+  }
+  .sidebar.collapsed .nav-item .nav-ill { width: 22px; height: 22px; }
+}
+@media (prefers-reduced-motion: reduce) { .sidebar .nav-item:hover .nav-ill { transform: none; } }

@@ -15,7 +15,7 @@
   <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://accounts.google.com/gsi/client" async></script>
-  <link rel="stylesheet" href="style.css?v=30" />
+  <link rel="stylesheet" href="style.css?v=31" />
   <link rel="stylesheet" href="iris.css?v=6" />
 </head>
 <body>
@@ -48,102 +48,68 @@
     <nav class="sidebar-nav">
       <div class="nav-section-label">Principal</div>
       <a href="#" class="nav-item active" data-view="dashboard" data-tooltip="Início">
-        <svg aria-hidden="true" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-          <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
-        </svg>
+        <svg aria-hidden="true" class="nav-icon nav-ill" viewBox="0 0 24 24" fill="none"><path d="M6.5 17a5.5 5.5 0 0111 0z" fill="#C8702A"/><path d="M12 5.5v2M5.2 8.8l1.4 1.4M18.8 8.8l-1.4 1.4M2.8 13.5h1.8M19.4 13.5h1.8" stroke="#C8702A" stroke-width="1.8" stroke-linecap="round"/><path d="M3 17.2h18" stroke="#2E2A24" stroke-width="1.8" stroke-linecap="round"/><path d="M7 20.6h10" stroke="#A9B89A" stroke-width="1.8" stroke-linecap="round"/></svg>
         <span>Início</span>
       </a>
       <a href="#" class="nav-item" data-view="entradas" data-tooltip="Entradas">
-        <svg aria-hidden="true" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 19V5M5 12l7-7 7 7"/>
-        </svg>
+        <svg aria-hidden="true" class="nav-icon nav-ill" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="13" r="8" fill="#2F4A2C"/><path d="M11 17V9.6M7.9 12.6L11 9.5l3.1 3.1" stroke="#FBF6EE" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="19" cy="5.2" r="2.8" fill="#C8702A"/></svg>
         <span>Entradas</span>
       </a>
       <a href="#" class="nav-item" data-view="saidas" data-tooltip="Saídas">
-        <svg aria-hidden="true" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 5v14M5 12l7 7 7-7"/>
-        </svg>
+        <svg aria-hidden="true" class="nav-icon nav-ill" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="13" r="8" fill="#C8702A"/><path d="M11 9v7.4M7.9 13.3l3.1 3.1 3.1-3.1" stroke="#FBF6EE" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" fill="none"/><circle cx="19" cy="5.2" r="2.8" fill="#2F4A2C"/></svg>
         <span>Saídas</span>
       </a>
       <a href="#" class="nav-item" data-view="pacientes" data-tooltip="Pacientes">
-        <svg aria-hidden="true" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>
-        </svg>
+        <svg aria-hidden="true" class="nav-icon nav-ill" viewBox="0 0 24 24" fill="none"><path d="M4 21.2c0-4.4 3.6-7.6 8-7.6s8 3.2 8 7.6z" fill="#2F4A2C"/><circle cx="12" cy="8.2" r="4.2" fill="#EFC59A"/><path d="M7.8 8.1a4.2 4.2 0 018.4 0c-1.3-1.5-2.9-2.2-4.2-2.2S9.1 6.6 7.8 8.1z" fill="#2E2A24"/></svg>
         <span>Pacientes</span>
       </a>
       <a href="#" class="nav-item" data-view="consultorio" data-tooltip="Consultório">
-        <svg aria-hidden="true" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-          <polyline points="9 22 9 12 15 12 15 22"/>
-        </svg>
+        <svg aria-hidden="true" class="nav-icon nav-ill" viewBox="0 0 24 24" fill="none"><path d="M5 10.6h14V21H5z" fill="#E6D3B3"/><path d="M2.8 11.2L12 3.4l9.2 7.8z" fill="#C8702A"/><path d="M10 21v-4.6a2 2 0 014 0V21z" fill="#2F4A2C"/><rect x="15.2" y="13" width="2.4" height="2.4" rx=".5" fill="#FBF6EE"/></svg>
         <span>Consultório</span>
       </a>
 
       <div class="nav-section-label">Análises</div>
       <a href="#" class="nav-item" data-view="produtos" data-tooltip="Produtos">
-        <svg aria-hidden="true" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3.3 7.6L12 12.5l8.7-4.9M12 22V12.5"/>
-        </svg>
+        <svg aria-hidden="true" class="nav-icon nav-ill" viewBox="0 0 24 24" fill="none"><rect x="9" y="2.4" width="6" height="4" rx="1" fill="#2F4A2C"/><rect x="10.2" y="6.2" width="3.6" height="2.4" fill="#2E2A24"/><rect x="6.5" y="8.4" width="11" height="13.2" rx="3" fill="#A9B89A"/><rect x="8.5" y="12.3" width="7" height="5.4" rx="1" fill="#FBF6EE"/><path d="M12 13.3c.9 1.1 1.4 1.8 1.4 2.4a1.4 1.4 0 01-2.8 0c0-.6.5-1.3 1.4-2.4z" fill="#C8702A"/></svg>
         <span>Produtos & Insumos</span>
       </a>
       <a href="#" class="nav-item" data-view="margem" data-tooltip="Margem de Lucro">
-        <svg aria-hidden="true" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
-        </svg>
+        <svg aria-hidden="true" class="nav-icon nav-ill" viewBox="0 0 24 24" fill="none"><circle cx="11" cy="13" r="8.5" fill="#2F4A2C"/><path d="M13.2 2.5a8.3 8.3 0 018.3 8.3h-8.3z" fill="#C8702A"/></svg>
         <span>Margem de Lucro</span>
       </a>
       <a href="#" class="nav-item" data-view="precificacao" data-tooltip="Precificação">
-        <svg aria-hidden="true" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="5" y="2.5" width="14" height="19" rx="2.5"/><rect x="8" y="5.5" width="8" height="4" rx="1"/>
-          <path d="M8.5 13.5h.01M12 13.5h.01M15.5 13.5h.01M8.5 17.5h.01M12 17.5h.01M15.5 17.5h.01"/>
-        </svg>
+        <svg aria-hidden="true" class="nav-icon nav-ill" viewBox="0 0 24 24" fill="none"><path d="M3.5 12.2V4.5a1 1 0 011-1h7.7a1 1 0 01.7.3l8.3 8.3a1 1 0 010 1.4l-7.7 7.7a1 1 0 01-1.4 0l-8.3-8.3a1 1 0 01-.3-.7z" fill="#C8702A"/><circle cx="8" cy="8" r="1.8" fill="#FBF6EE"/><path d="M11 13.5l3-3" stroke="#FBF6EE" stroke-width="1.6" stroke-linecap="round"/></svg>
         <span>Precificação</span>
       </a>
       <a href="#" class="nav-item" data-view="graficos" data-tooltip="Gráficos">
-        <svg aria-hidden="true" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
-          <line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/>
-        </svg>
+        <svg aria-hidden="true" class="nav-icon nav-ill" viewBox="0 0 24 24" fill="none"><rect x="3.5" y="12" width="4.2" height="8.6" rx="1.3" fill="#A9B89A"/><rect x="9.9" y="7.2" width="4.2" height="13.4" rx="1.3" fill="#2F4A2C"/><rect x="16.3" y="3.4" width="4.2" height="17.2" rx="1.3" fill="#C8702A"/></svg>
         <span>Gráficos</span>
       </a>
 
       <div class="nav-section-label">Atendimento</div>
       <a href="#" class="nav-item" data-view="crm" data-tooltip="CRM de Atendimento">
-        <svg aria-hidden="true" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
-          <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
-        </svg>
+        <svg aria-hidden="true" class="nav-icon nav-ill" viewBox="0 0 24 24" fill="none"><path d="M3 5.5A2.5 2.5 0 015.5 3h9A2.5 2.5 0 0117 5.5v5a2.5 2.5 0 01-2.5 2.5H8.2L4.6 16v-3.1A2.5 2.5 0 013 10.5z" fill="#2F4A2C"/><path d="M10 11.6A2.5 2.5 0 0112.5 9.1h6a2.5 2.5 0 012.5 2.5v4a2.5 2.5 0 01-1.6 2.3V21l-3.4-2.9h-3.5a2.5 2.5 0 01-2.5-2.5z" fill="#C8702A"/><path d="M14 13.6h4" stroke="#FBF6EE" stroke-width="1.6" stroke-linecap="round"/></svg>
         <span>CRM de Atendimento</span>
       </a>
       <a href="#" class="nav-item" data-view="agenda" data-tooltip="Agenda">
-        <svg aria-hidden="true" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
-          <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-        </svg>
+        <svg aria-hidden="true" class="nav-icon nav-ill" viewBox="0 0 24 24" fill="none"><rect x="3.5" y="5" width="17" height="15.6" rx="2.6" fill="#E6D3B3"/><path d="M3.5 7.6A2.6 2.6 0 016.1 5h11.8a2.6 2.6 0 012.6 2.6V10h-17z" fill="#C8702A"/><path d="M8 3v4M16 3v4" stroke="#2E2A24" stroke-width="1.8" stroke-linecap="round"/><circle cx="15.4" cy="15.4" r="2.3" fill="#2F4A2C"/></svg>
         <span>Agenda</span>
       </a>
       <a href="#" class="nav-item" data-view="iris" data-tooltip="Íris" hidden>
-        <svg aria-hidden="true" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
-        </svg>
+        <svg aria-hidden="true" class="nav-icon nav-ill" viewBox="0 0 24 24" fill="none"><path d="M11 2.5c.6 4.6 2.9 6.9 7.5 7.5-4.6.6-6.9 2.9-7.5 7.5-.6-4.6-2.9-6.9-7.5-7.5 4.6-.6 6.9-2.9 7.5-7.5z" fill="#C8702A"/><path d="M18.6 14.2c.3 2 1.2 2.9 3.1 3.2-1.9.3-2.8 1.2-3.1 3.2-.3-2-1.2-2.9-3.1-3.2 1.9-.3 2.8-1.2 3.1-3.2z" fill="#2F4A2C"/></svg>
         <span>Íris</span>
       </a>
 
       <div class="nav-section-label nav-label-docs">Documentos</div>
       <a href="#" class="nav-item" data-view="documentos" data-tooltip="Documentos">
-        <svg aria-hidden="true" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
-        </svg>
+        <svg aria-hidden="true" class="nav-icon nav-ill" viewBox="0 0 24 24" fill="none"><path d="M3 6.5A1.5 1.5 0 014.5 5h4.6l2 2h8.4A1.5 1.5 0 0121 8.5V19a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 19z" fill="#D9A08B"/><rect x="6" y="7.6" width="12" height="7" rx="1" fill="#FBF6EE"/><path d="M8.4 10h7.2" stroke="#A9B89A" stroke-width="1.4" stroke-linecap="round"/><path d="M3 12A1.5 1.5 0 014.5 10.5h15A1.5 1.5 0 0121 12v7a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 19z" fill="#EFC59A"/></svg>
         <span>Documentos</span>
       </a>
       </div>
 
       <div class="nav-section-label nav-label-conta">Conta</div>
       <a href="#" class="nav-item" data-view="perfil" data-tooltip="Meu Perfil">
-        <svg aria-hidden="true" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"/><circle cx="12" cy="10" r="3"/><path d="M6.2 18.6a7 7 0 0111.6 0"/>
-        </svg>
+        <svg aria-hidden="true" class="nav-icon nav-ill" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9.5" fill="#E6D3B3"/><circle cx="12" cy="10" r="3.4" fill="#2F4A2C"/><path d="M5.8 18.7a7 7 0 0112.4 0A9.5 9.5 0 0112 21.5a9.5 9.5 0 01-6.2-2.8z" fill="#2F4A2C"/></svg>
         <span>Meu Perfil</span>
       </a>
     </nav>
