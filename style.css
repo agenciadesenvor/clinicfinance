@@ -3784,3 +3784,28 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text-1
   .h3-top { grid-template-columns: 1fr 1fr; }
   .h3-top .h3-fin { grid-column: 1 / -1; }
 }
+
+/* --- Menu: item ativo vira uma "aba" que se abre para a página (efeito da referência) ---
+   O item ganha a cor do fundo da página e encosta na borda direita do painel;
+   dois cantos côncavos (::before/::after) curvam o painel em volta dele. */
+@media (min-width: 769px) {
+  .sidebar:not(.collapsed) .sidebar-nav { border-right-color: transparent; }
+  .sidebar:not(.collapsed) .sidebar-nav .nav-item.active,
+  .sidebar:not(.collapsed) .sidebar-nav .nav-item.active:hover {
+    position: relative; overflow: visible;
+    margin-right: -11px; padding-right: 25px;
+    border-radius: 14px 0 0 14px;
+    background: var(--bg); box-shadow: none;
+  }
+  .sidebar:not(.collapsed) .sidebar-nav .nav-item.active::before,
+  .sidebar:not(.collapsed) .sidebar-nav .nav-item.active::after {
+    content: ''; display: block !important; position: absolute; right: 0; left: auto;
+    width: 14px; height: 14px; pointer-events: none; box-shadow: none; border-radius: 0; transform: none;
+  }
+  .sidebar:not(.collapsed) .sidebar-nav .nav-item.active::before {
+    top: -14px; background: radial-gradient(circle at 0 0, var(--card) 13.5px, var(--bg) 14px);
+  }
+  .sidebar:not(.collapsed) .sidebar-nav .nav-item.active::after {
+    bottom: -14px; top: auto; background: radial-gradient(circle at 0 100%, var(--card) 13.5px, var(--bg) 14px);
+  }
+}
