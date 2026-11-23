@@ -711,8 +711,10 @@ function pageHeader(view) {
 function navigateTo(view) {
   destroyAllCharts();
   state.currentView = view;
+  // As quatro telas de documento ficam "dentro" de Documentos no menu
+  const navView = ['anamnese', 'receituario', 'exames', 'contratos'].includes(view) ? 'documentos' : view;
   document.querySelectorAll('.nav-item[data-view]').forEach(el => {
-    el.classList.toggle('active', el.dataset.view === view);
+    el.classList.toggle('active', el.dataset.view === navView);
   });
   syncNavGroups();
   if (typeof updateTopbarTitle === 'function') updateTopbarTitle(view);
@@ -733,6 +735,7 @@ function renderView(view) {
     receituario: (typeof renderReceituario === 'function' ? renderReceituario : () => ''),
     exames: (typeof renderExames === 'function' ? renderExames : () => ''),
     contratos: (typeof renderContratos === 'function' ? renderContratos : () => ''),
+    documentos: (typeof renderDocumentos === 'function' ? renderDocumentos : () => ''),
     iris: (typeof renderIris === 'function' ? renderIris : () => '')
   };
   // Se uma ação assíncrona (salvar/excluir) terminar depois que o usuário trocou de aba,

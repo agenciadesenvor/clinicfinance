@@ -3705,3 +3705,67 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text-1
 .h3-bottom .d2-req { grid-template-columns: auto minmax(0, 1fr) auto; }
 .h3-bottom .d2-req-who { font-size: 0; gap: 0; }
 .h3-bottom .d2-req-main b, .h3-bottom .d2-req-main small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+
+/* --- Documentos: pastas --- */
+.folders { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 22px; margin-bottom: 22px; }
+.folder {
+  --tone: var(--peach); position: relative; height: 236px; border: none; background: none; padding: 0;
+  cursor: pointer; text-align: left; font: inherit; color: var(--text-1);
+}
+.folder--peach { --tone: var(--peach); }
+.folder--rose  { --tone: var(--rose); }
+.folder--sage  { --tone: var(--sage); }
+.folder--sand  { --tone: var(--sand); }
+.folder-tab {
+  position: absolute; top: 34px; left: 10px; width: 44%; height: 30px; border-radius: 14px 14px 0 0;
+  background: var(--tone); filter: brightness(.9) saturate(1.05);
+}
+.folder-sheets { position: absolute; top: 6px; left: 16%; right: 12%; height: 120px; }
+.folder-sheet {
+  position: absolute; inset: 0; border-radius: 8px; background: #FFFDF8; border: 1px solid rgba(46,42,36,.08);
+  box-shadow: 0 2px 6px rgba(46,42,36,.06); padding: 16px 14px; display: flex; flex-direction: column; gap: 7px;
+  transition: transform .25s ease;
+}
+.folder-sheet i { display: block; height: 4px; border-radius: 2px; background: rgba(46,42,36,.1); }
+.folder-sheet i:nth-child(1) { width: 55%; background: rgba(46,42,36,.16); }
+.folder-sheet i:nth-child(3) { width: 80%; }
+.folder-sheet i:nth-child(4) { width: 65%; }
+.folder-sheet:nth-child(1) { transform: rotate(-7deg) translate(-8px, 6px); }
+.folder-sheet:nth-child(2) { transform: rotate(4deg) translate(10px, 2px); }
+.folder-sheet:nth-child(3) { transform: rotate(-1deg) translateY(10px); }
+.folder:hover .folder-sheet:nth-child(1) { transform: rotate(-10deg) translate(-14px, -4px); }
+.folder:hover .folder-sheet:nth-child(2) { transform: rotate(7deg) translate(16px, -8px); }
+.folder:hover .folder-sheet:nth-child(3) { transform: rotate(-1deg) translateY(-4px); }
+.folder.is-empty .folder-sheets { opacity: .45; }
+.folder-front {
+  position: absolute; left: 0; right: 0; top: 58px; bottom: 34px; border-radius: 18px;
+  background: var(--tone); box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 10px 22px -14px rgba(46,42,36,.35);
+  display: flex; flex-direction: column; justify-content: flex-end; padding: 16px 18px;
+}
+.folder-count { font-family: var(--font-display); font-weight: 400; font-size: 46px; line-height: 1; letter-spacing: -1px; color: rgba(46,42,36,.82); }
+.folder-unit { color: rgba(46,42,36,.6); margin-top: 4px; }
+.folder-name { position: absolute; left: 0; right: 0; bottom: 4px; text-align: center; font-family: var(--font-display); font-size: 17px; }
+.folder:focus-visible { outline: 2px solid var(--orange); outline-offset: 6px; border-radius: 18px; }
+
+.docs-recent-list { list-style: none; margin: 0; padding: 0; }
+.docs-recent-list li + li { border-top: 1px solid var(--line); }
+.docs-recent-list button {
+  width: 100%; display: grid; grid-template-columns: auto minmax(0, 1.4fr) minmax(0, 1fr) auto; gap: 14px; align-items: center;
+  padding: 12px 6px; border: none; background: none; cursor: pointer; font: inherit; text-align: left; color: var(--text-1); border-radius: 10px;
+}
+.docs-recent-list button:hover { background: var(--card-2); }
+.docs-recent-dot { width: 10px; height: 10px; border-radius: 3px; }
+.docs-recent-dot--peach { background: var(--peach); } .docs-recent-dot--rose { background: var(--rose); }
+.docs-recent-dot--sage { background: var(--sage); } .docs-recent-dot--sand { background: var(--sand); }
+.docs-recent-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+.docs-recent-type { color: var(--text-2); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+@media (max-width: 1100px) { .folders { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 767px) {
+  .folders { gap: 14px; }
+  .folder { height: 200px; }
+  .folder-count { font-size: 38px; }
+  .folder-name { font-size: 15px; }
+  .docs-recent-list button { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .docs-recent-type { display: none; }
+}

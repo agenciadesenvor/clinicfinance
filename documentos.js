@@ -1086,3 +1086,83 @@ async function excluirContratoAssinado(id) {
   toast('Termo excluído.', 'success');
   await loadContratosAssinados();
 }
+
+
+/* ============================================================
+   Documentos — tela com as quatro pastas (visual Pinhal)
+   ============================================================ */
+const DOC_PASTAS = [
+  { type: 'anamnese',    nome: 'Fichas de anamnese',  tom: 'peach', table: 'anamneses' },
+  { type: 'receituario', nome: 'Receituários',        tom: 'rose',  table: 'receituarios' },
+  { type: 'exames',      nome: 'Pedidos de exame',    tom: 'sage',  table: 'exames' },
+  { type: 'contratos',   nome: 'Contratos assinados', tom: 'sand',  table: 'contratos_assinados' }
+];
+const DOC_TIPO_CURTO = { anamnese: 'Ficha de anamnese', receituario: 'Receituário', exames: 'Pedido de exame', contratos: 'Contrato assinado' };
+
+function renderDocumentos() {
+  setTimeout(() => loadDocumentosResumo().then(pintarDocumentos), 0);
+  const folha = '<span class="folder-sheet"><i></i><i></i><i></i><i></i></span>';
+  return `
+  <div class="section-header">${pageHeader('documentos')}</div>
+  <section class="folders" aria-label="Pastas de documentos">
+    ${DOC_PASTAS.map(p => `
+    <button type="button" class="folder folder--${p.tom}" data-type="${p.type}" onclick="navigateTo('${p.type}')" aria-label="Abrir ${esc(p.nome)}">
+      <span class="folder-sheets" aria-hidden="true">${folha}${folha}${folha}</span>
+      <span class="folder-tab" aria-hidden="true"></span>
+      <span class="folder-front">
+        <span class="folder-count" data-count-for="${p.type}">–</span>
+        <span class="folder-unit mono-label" data-unit-for="${p.type}">documentos</span>
+      </span>
+      <span class="folder-name">${esc(p.nome)}</span>
+    </button>`).join('')}
+  </section>
+  <section class="d2-card docs-recent">
+    <div class="d2-card-head"><h3>Últimos documentos</h3></div>
+    <div id="docsRecent"><div class="doc-list-empty">Carregando…</div></div>
+  </section>`;
+}
+
+// Quantos documentos de cada tipo e os 6 mais recentes dos quatro juntos
+async function loadDocumentosResumo() {
+  const vazio = { counts: { anamnese: 0, receituario: 0, exames: 0, contratos: 0 }, recentes: [], erro: false };
+  if (typeof currentUser === 'undefined' || !currentUser) return vazio;
+  const res = await Promise.all(DOC_PASTAS.map(p =>
+    db(p.table).select('id,patient_name,doc_date,created_at').eq('user_id', currentUser.id).order('created_at', { ascending: false })
+  ));
+  const out = { counts: {}, recentes: [], erro: false };
+  res.forEach(({ data, error }, i) => {
+    const p = DOC_PASTAS[i];
+    if (error) out.erro = true;
+    const rows = (!error && data) || [];
+    out.counts[p.type] = rows.length;
+    rows.slice(0, 6).forEach(r => out.recentes.push({ type: p.type, id: r.id, nome: r.patient_name || '(sem nome)', data: r.doc_date || (r.created_at || '').slice(0, 10), criado: r.created_at || '' }));
+  });
+  out.recentes.sort((a, b) => String(b.criado).localeCompare(String(a.criado)));
+  out.recentes = out.recentes.slice(0, 6);
+  return out;
+}
+
+function pintarDocumentos(r) {
+  if (state.currentView !== 'documentos') return;
+  DOC_PASTAS.forEach(p => {
+    const n = r.counts[p.type] || 0;
+    const c = document.querySelector(`[data-count-for="${p.type}"]`); if (c) c.textContent = n;
+    const u = document.querySelector(`[data-unit-for="${p.type}"]`); if (u) u.textContent = n === 1 ? 'documento' : 'documentos';
+    const f = document.querySelector(`.folder[data-type="${p.type}"]`); if (f) f.classList.toggle('is-empty', !n);
+  });
+  const box = document.getElementById('docsRecent'); if (!box) return;
+  if (!r.recentes.length) { box.innerHTML = `<div class="doc-list-empty">${r.erro ? 'Não foi possível carregar os documentos.' : 'Nenhum documento salvo ainda.'}</div>`; return; }
+  box.innerHTML = `<ul class="docs-recent-list">${r.recentes.map(d => `
+    <li><button type="button" onclick="abrirDocumentoRecente('${d.type}','${esc(d.id)}')">
+      <span class="docs-recent-dot docs-recent-dot--${DOC_PASTAS.find(p => p.type === d.type).tom}" aria-hidden="true"></span>
+      <span class="docs-recent-name">${esc(d.nome)}</span>
+      <span class="docs-recent-type">${esc(DOC_TIPO_CURTO[d.type])}</span>
+      <span class="docs-recent-date mono-label">${d.data ? fDate(d.data) : ''}</span>
+    </button></li>`).join('')}</ul>`;
+}
+
+function abrirDocumentoRecente(type, id) {
+  navigateTo(type);
+  if (type === 'contratos') { setTimeout(() => setContratosTab('assinados'), 60); return; }
+  setTimeout(() => openDoc(type, id), 120);
+}
