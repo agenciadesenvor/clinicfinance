@@ -2626,11 +2626,11 @@ function syncSidebarToggle() {
   btn.dataset.tooltip = label;
   btn.querySelector('span').textContent = label;
 }
-// Padrão: menu compacto em cápsula (só ícones). Expandido só se a pessoa escolheu.
+// Padrão: menu aberto com os nomes (visual Pinhal). Recolhido só se a pessoa escolheu.
 function initSidebarState() {
   let pref = null;
   try { pref = localStorage.getItem('cf-sidebar-collapsed'); } catch (e) {}
-  if (pref !== '0') {
+  if (pref === '1') {
     document.getElementById('sidebar').classList.add('collapsed');
     document.body.classList.add('sidebar-collapsed');
   }

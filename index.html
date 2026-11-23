@@ -31,25 +31,28 @@
       <div class="brand-default" id="brandDefault">
         <div class="brand-icon">
           <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none">
-            <path d="M12 2L2 7l10 5 10-5-10-5z" fill="#C9A06A"/>
-            <path d="M2 17l10 5 10-5M2 12l10 5 10-5" stroke="#C9A06A" stroke-width="2" stroke-linecap="round"/>
+            <path d="M12 2L2 7l10 5 10-5-10-5z" fill="#C8702A"/>
+            <path d="M2 17l10 5 10-5M2 12l10 5 10-5" stroke="#C8702A" stroke-width="2" stroke-linecap="round"/>
           </svg>
         </div>
         <div class="brand-text">
-          <span class="brand-name">ClinicFinance</span>
-          <span class="brand-sub">Gestão Financeira</span>
+          <span class="brand-name">Clinic<em>Finance</em></span>
+          <span class="brand-sub">Gestão da clínica</span>
         </div>
       </div>
+      <button type="button" class="sb-plus" id="sidebarQuickAdd" aria-label="Nova entrada" data-tooltip="Nova entrada" onclick="openEntradaModal()">
+        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
     </div>
 
     <nav class="sidebar-nav">
       <div class="nav-section-label">Principal</div>
-      <a href="#" class="nav-item active" data-view="dashboard" data-tooltip="Dashboard">
+      <a href="#" class="nav-item active" data-view="dashboard" data-tooltip="Início">
         <svg aria-hidden="true" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
           <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
         </svg>
-        <span>Dashboard</span>
+        <span>Início</span>
       </a>
       <a href="#" class="nav-item" data-view="entradas" data-tooltip="Entradas">
         <svg aria-hidden="true" class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
