@@ -3579,3 +3579,7 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text-1
   :root { --sidebar-w: 272px; }
   .sidebar .sidebar-brand { padding: 18px 16px 14px; }
 }
+
+/* --- Perfil: prévia da foto da capa --- */
+.perfil-capa-preview { width: 220px; height: 96px; border-radius: 14px; overflow: hidden; }
+.perfil-capa-preview img { width: 100%; height: 100%; object-fit: cover; }

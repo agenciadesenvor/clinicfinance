@@ -395,6 +395,8 @@ async function loadAllData(signal) {
       agendaHoje:     (agH.data || []).map(r => ({ id: r.id, pacienteNome: r.paciente_nome || '', procedimento: r.procedimento || '', horaInicio: r.hora_inicio || '', horaFim: r.hora_fim || '', status: r.status || 'agendado' }))
     };
     currentProfile = pf.data || {};
+    currentProfile.capa_data = '';
+    loadCapa();
     updateSidebarProfile();
   } catch(e) {
     if (e.name === 'AbortError') return; // carga cancelada por novo evento de auth
@@ -2394,8 +2396,23 @@ function renderPerfil() {
           </div>
         </div>
 
+        <div class="perfil-form-section">
+          <div class="perfil-section-title">Foto da capa da tela inicial</div>
+          <div class="perfil-section-sub">Aparece no alto da tela inicial. Uma foto da clínica, do consultório ou a que você preferir.</div>
+          <div class="perfil-logo-row">
+            <div class="perfil-logo-preview perfil-capa-preview" id="pfCapaDisp">
+              ${currentProfile.capa_data ? `<img src="${currentProfile.capa_data}" alt="Foto da capa" />` : '<span class="perfil-logo-empty">Sem foto — a tela inicial usa uma textura</span>'}
+            </div>
+            <div class="perfil-logo-actions">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="pickCapa()">Trocar foto</button>
+              <button type="button" class="btn btn-ghost btn-sm" id="pfCapaRemove" style="${currentProfile.capa_data ? '' : 'display:none'}" onclick="removeCapa()">Remover</button>
+              <div class="perfil-logo-hint">JPG ou PNG · reduzida automaticamente</div>
+            </div>
+          </div>
+        </div>
+
         <!-- Ações -->
-        <div class="perfil-form-section" style="background:#FAFBFD">
+        <div class="perfil-form-section">
           <div style="display:flex;gap:12px;justify-content:flex-end">
             <button type="submit" class="btn btn-primary" id="savePerfilBtn">
               ${iconCheck()} Salvar Alterações
@@ -2448,6 +2465,71 @@ function handlePerfilPhoto(input) {
 }
 
 /* ===== Logo da empresa ===== */
+/* ===== Foto da capa da tela inicial =====
+   Fica em profiles.capa_data (capa.sql). Lida numa consulta separada para o app
+   abrir normalmente mesmo antes de a coluna existir. */
+async function loadCapa() {
+  if (!currentUser) return;
+  try {
+    const { data, error } = await db('profiles').select('capa_data').eq('id', currentUser.id).single();
+    currentProfile.capa_data = (!error && data && data.capa_data) || '';
+  } catch (e) { currentProfile.capa_data = ''; }
+  if (typeof applyCapa === 'function') applyCapa();
+  const pv = document.getElementById('pfCapaDisp');
+  if (pv) renderCapaPreview();
+}
+function capaParaDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const ratio = Math.min(1600 / img.width, 1600 / img.height, 1);
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * ratio); c.height = Math.round(img.height * ratio);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL('image/jpeg', 0.8));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('imagem')); };
+    img.src = url;
+  });
+}
+async function salvarCapa(dataUrl) {
+  const { error } = await db('profiles').update({ capa_data: dataUrl }).eq('id', currentUser.id);
+  if (error) {
+    const semColuna = /capa_data|column|PGRST204/i.test(error.message || error.code || '');
+    toast(semColuna ? 'A foto da capa ainda não está ativada. Rode o capa.sql no Supabase.' : 'Não foi possível salvar a foto. Tente de novo.', 'error');
+    return false;
+  }
+  currentProfile.capa_data = dataUrl;
+  if (typeof applyCapa === 'function') applyCapa();
+  if (document.getElementById('pfCapaDisp')) renderCapaPreview();
+  return true;
+}
+function pickCapa() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = 'image/*';
+  input.onchange = async () => {
+    const file = input.files[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) { toast('Escolha uma imagem (JPG ou PNG).', 'error'); return; }
+    let dataUrl;
+    try { dataUrl = await capaParaDataUrl(file); }
+    catch (e) { toast('Não consegui abrir essa imagem. Tente uma foto em JPG ou PNG.', 'error'); return; }
+    if (await salvarCapa(dataUrl)) toast('Foto da capa atualizada.', 'success');
+  };
+  input.click();
+}
+async function removeCapa() {
+  if (await salvarCapa(null)) { currentProfile.capa_data = ''; toast('Foto da capa removida.', 'success'); if (typeof applyCapa === 'function') applyCapa(); renderCapaPreview(); }
+}
+function renderCapaPreview() {
+  const el = document.getElementById('pfCapaDisp'); if (!el) return;
+  const d = currentProfile.capa_data || '';
+  el.innerHTML = d ? `<img src="${d}" alt="Foto da capa" />` : '<span class="perfil-logo-empty">Sem foto — a tela inicial usa uma textura</span>';
+  const rm = document.getElementById('pfCapaRemove'); if (rm) rm.style.display = d ? '' : 'none';
+}
+
 function handleLogoUpload(input) {
   const file = input.files[0];
   if (!file) return;
