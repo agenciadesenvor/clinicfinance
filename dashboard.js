@@ -66,8 +66,13 @@ function dashSaudacao() {
   const h = new Date().getHours();
   return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
 }
-function dashHeroHTML() {
+// "Boa tarde, Dra. Patrícia" — o tratamento vem do Perfil (nunca deduzido do nome)
+function dashSaudacaoHTML() {
   const nome = (currentProfile?.first_name || '').trim().split(/\s+/)[0] || '';
+  const trat = ['Dra.', 'Dr.'].includes(currentProfile?.tratamento) ? currentProfile.tratamento + ' ' : '';
+  return `${dashSaudacao()}${nome ? `, <em>${esc(trat + nome)}</em>` : ''}`;
+}
+function dashHeroHTML() {
   const hoje = new Date();
   const dataTxt = hoje.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
   const nAg = getTodayAppointments().length;
@@ -80,7 +85,7 @@ function dashHeroHTML() {
     <div class="hero-photo" id="heroPhoto" aria-hidden="true"></div>
     <div class="hero-text">
       <div class="mono-label hero-trail">ClinicFinance / Início · ${esc(dataTxt)}</div>
-      <h1 class="hero-hello">${dashSaudacao()}${nome ? `, <em>${esc(nome)}</em>` : ''}</h1>
+      <h1 class="hero-hello">${dashSaudacaoHTML()}</h1>
       <p class="mono-label hero-sum">${esc(resumo)}</p>
       <div class="hero-actions">
         <button type="button" class="hero-pill" onclick="openEntradaModal()">+ Entrada</button>

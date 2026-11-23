@@ -400,6 +400,8 @@ async function loadAllData(signal) {
     // A foto da capa é buscada uma vez por sessão (por usuário); recargas de dados reaproveitam
     if (_capaCache.uid === uid) currentProfile.capa_data = _capaCache.data;
     else { currentProfile.capa_data = ''; loadCapa(); }
+    if (_tratCache.uid === uid) currentProfile.tratamento = _tratCache.data;
+    else { currentProfile.tratamento = ''; loadTratamento(); }
     updateSidebarProfile();
   } catch(e) {
     if (e.name === 'AbortError') return; // carga cancelada por novo evento de auth
@@ -2413,6 +2415,13 @@ function renderPerfil() {
               </select>
             </div>
             <div class="form-group">
+              <label class="form-label" for="pfTratamento">Saudação na tela inicial</label>
+              <select class="form-control" id="pfTratamento" onchange="salvarTratamento(this.value)">
+                ${[['Dra.', 'Dra. (Boa tarde, Dra. ' + esc(firstName || 'Nome') + ')'], ['Dr.', 'Dr. (Boa tarde, Dr. ' + esc(firstName || 'Nome') + ')'], ['', 'Sem título (Boa tarde, ' + esc(firstName || 'Nome') + ')']]
+                  .map(([v, l]) => `<option value="${v}" ${(currentProfile.tratamento || '') === v ? 'selected' : ''}>${l}</option>`).join('')}
+              </select>
+            </div>
+            <div class="form-group">
               <label class="form-label">E-mail</label>
               <div class="perfil-readonly">${esc(email)}</div>
             </div>
@@ -2515,6 +2524,37 @@ function handlePerfilPhoto(input) {
 /* ===== Foto da capa da tela inicial =====
    Fica em profiles.capa_data (capa.sql). Lida numa consulta separada para o app
    abrir normalmente mesmo antes de a coluna existir. */
+/* ===== Tratamento na saudação (Dra./Dr.) =====
+   Fica em profiles.tratamento (tratamento.sql). Consulta separada, como a capa,
+   para o app abrir normalmente antes de a coluna existir. */
+const TRATAMENTOS = ['Dra.', 'Dr.'];
+const _tratCache = { uid: null, data: '' };
+async function loadTratamento() {
+  if (!currentUser) return;
+  const uid = currentUser.id;
+  try {
+    const { data, error } = await db('profiles').select('tratamento').eq('id', uid).single();
+    const v = (!error && data && data.tratamento) || '';
+    currentProfile.tratamento = TRATAMENTOS.includes(v) ? v : '';
+    if (!error) { _tratCache.uid = uid; _tratCache.data = currentProfile.tratamento; }
+  } catch (e) { currentProfile.tratamento = ''; }
+  if (state.currentView === 'dashboard' && typeof dashSaudacaoHTML === 'function') {
+    const h = document.querySelector('#dashHero .hero-hello'); if (h) h.innerHTML = dashSaudacaoHTML();
+  }
+}
+async function salvarTratamento(v) {
+  v = TRATAMENTOS.includes(v) ? v : '';
+  const { error } = await db('profiles').update({ tratamento: v || null }).eq('id', currentUser.id);
+  if (error) {
+    const semColuna = /tratamento|column|PGRST204/i.test(error.message || error.code || '');
+    toast(semColuna ? 'A saudação com Dra./Dr. ainda não está ativada. Rode o tratamento.sql no Supabase.' : 'Não foi possível salvar. Tente de novo.', 'error');
+    return false;
+  }
+  currentProfile.tratamento = v; _tratCache.uid = currentUser.id; _tratCache.data = v;
+  toast('Saudação atualizada.', 'success');
+  return true;
+}
+
 const _capaCache = { uid: null, data: '' };
 async function loadCapa() {
   if (!currentUser) return;
