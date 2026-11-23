@@ -903,7 +903,7 @@ function statCard(label, value, color, sub, icon, badge) {
 
 /* Gera cor de avatar a partir do nome (hash determinístico) */
 function avatarColor(name) {
-  const colors = ['#5E8C61','#6E8595','#94808C','#C9A06A','#B85C44','#6E8595','#B3907A','#8A7B4E'];
+  const colors = ['#2F4A2C','#C8702A','#7D8F6E','#A85A1E','#B4472E','#4F7A3F','#9C6B4E','#5F6F52'];
   let h = 0;
   for (let i = 0; i < (name||'?').length; i++) h = (h * 31 + (name||'?').charCodeAt(i)) >>> 0;
   return colors[h % colors.length];
@@ -1333,12 +1333,12 @@ function renderSaidas() {
 
   const originBadge = (origin) => {
     if (origin === 'product') return '<span style="font-size:11px;background:rgba(139,92,246,0.1);color:#7C3AED;padding:2px 8px;border-radius:6px;font-weight:600">Produto</span>';
-    if (origin === 'clinic')  return '<span style="font-size:11px;background:rgba(94,140,97,0.1);color:#5E8C61;padding:2px 8px;border-radius:6px;font-weight:600">Consultório</span>';
+    if (origin === 'clinic')  return '<span style="font-size:11px;background:rgba(79,122,63,0.12);color:#4F7A3F;padding:2px 8px;border-radius:6px;font-weight:600">Consultório</span>';
     return '<span style="font-size:11px;background:rgba(100,116,139,0.1);color:#64748B;padding:2px 8px;border-radius:6px;font-weight:600">Manual</span>';
   };
   const rowBg = (origin) => {
     if (origin === 'product') return ' style="background:rgba(139,92,246,0.04)"';
-    if (origin === 'clinic')  return ' style="background:rgba(94,140,97,0.04)"';
+    if (origin === 'clinic')  return ' style="background:rgba(79,122,63,0.05)"';
     return '';
   };
 
@@ -1505,7 +1505,7 @@ function renderProdutosContent() {
       const pp = p.procedurePrice || 0;
       const lucro  = pp > 0 ? pp - p.unitCost : null;
       const margem = pp > 0 ? ((lucro / pp) * 100) : null;
-      const margemColor = margem === null ? 'var(--text-3)' : margem >= 60 ? '#5E8C61' : margem >= 30 ? '#B07D3F' : '#B85C44';
+      const margemColor = margem === null ? 'var(--text-3)' : margem >= 60 ? '#4F7A3F' : margem >= 30 ? '#A85A1E' : '#B4472E';
       return `<tr>
         <td><div class="fw-600 fs-13">${esc(p.name)}</div>${p.notes ? `<div style="font-size:11px;color:var(--text-3);margin-top:1px">${esc(p.notes)}</div>` : ''}</td>
         <td>${badgeProductCategory(p.category)}</td>
@@ -2033,9 +2033,9 @@ function renderMargem() {
   </div>
   ${cards.length ? `<div class="margem-grid">
     ${cards.map(c => {
-      const barColor   = c.marginBruto>=60?'#5E8C61':c.marginBruto>=40?'#C9A06A':c.marginBruto>=20?'#6E8595':'#B85C44';
+      const barColor   = c.marginBruto>=60?'#4F7A3F':c.marginBruto>=40?'#C8702A':c.marginBruto>=20?'#7D8F6E':'#B4472E';
       const badgeColor = c.marginBruto>=60?'badge-green':c.marginBruto>=40?'badge-gold':c.marginBruto>=20?'badge-blue':'badge-red';
-      const realColor  = c.marginReal>=60?'#5E8C61':c.marginReal>=40?'#C9A06A':c.marginReal>=20?'#6E8595':'#B85C44';
+      const realColor  = c.marginReal>=60?'#4F7A3F':c.marginReal>=40?'#C8702A':c.marginReal>=20?'#7D8F6E':'#B4472E';
       return `<div class="margem-card">
         <div class="margem-card-header">
           <span class="margem-procedure">${c.name}</span>
@@ -2079,7 +2079,7 @@ function renderPrecificacao() {
   </div>
   <div class="pricing-grid">
     ${rows.map(r => {
-      const barColor   = r.margin !== null ? (r.margin >= 60 ? '#5E8C61' : r.margin >= 40 ? '#C9A06A' : r.margin >= 20 ? '#6E8595' : '#B85C44') : 'var(--border)';
+      const barColor   = r.margin !== null ? (r.margin >= 60 ? '#4F7A3F' : r.margin >= 40 ? '#C8702A' : r.margin >= 20 ? '#7D8F6E' : '#B4472E') : 'var(--border)';
       const badgeClass = r.margin !== null ? (r.margin >= 60 ? 'badge-green' : r.margin >= 40 ? 'badge-gold' : r.margin >= 20 ? 'badge-blue' : 'badge-red') : '';
       return `<div class="pricing-card">
         <div class="pricing-card-header">
@@ -2486,8 +2486,8 @@ function renderPerfil() {
       </div>
 
       <!-- Zona de Perigo -->
-      <div class="perfil-form-section" style="border-top:1px solid rgba(184,92,68,0.15)">
-        <div class="perfil-section-title" style="color:#B85C44">Zona de Perigo</div>
+      <div class="perfil-form-section" style="border-top:1px solid rgba(180,71,46,0.15)">
+        <div class="perfil-section-title" style="color:var(--brick)">Zona de Perigo</div>
         <div class="perfil-section-sub">Ação irreversível — seus dados serão perdidos.</div>
         <button class="btn btn-danger btn-sm" onclick="confirmDeleteAccount()">
           Excluir minha conta permanentemente

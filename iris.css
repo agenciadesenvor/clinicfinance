@@ -268,12 +268,12 @@
 }
 .iris-filtro:hover { color: var(--text-1); border-color: var(--accent); }
 .iris-filtro:focus-visible { outline: 2px solid var(--accent-2); outline-offset: 2px; }
-.iris-filtro.is-on { background: #3E322A; border-color: #3E322A; color: #FBF8F2; }
+.iris-filtro.is-on { background: var(--moss); border-color: var(--moss); color: var(--cream-ink); }
 .iris-filtro-n {
   min-width: 20px; padding: 1px 6px; border-radius: 999px; text-align: center;
   background: var(--bg); color: var(--text-2); font-size: 11.5px; font-variant-numeric: tabular-nums;
 }
-.iris-filtro.is-on .iris-filtro-n { background: rgba(251,248,242,.18); color: #FBF8F2; }
+.iris-filtro.is-on .iris-filtro-n { background: rgba(251,248,242,.18); color: var(--cream-ink); }
 .iris-filtro.is-alerta .iris-filtro-n { background: var(--red); color: #fff; }
 
 .iris-lista { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; min-height: 0; }
@@ -315,7 +315,7 @@
 .iris-sit--equipe    { background: var(--blue-light); color: #4E6575; }
 .iris-sit--dra       { background: var(--purple-light); color: #6E5A66; }
 .iris-sit--pagamento { background: #F1E6D2; color: #7E5A2A; }
-.iris-sit--pago      { background: var(--green-light); color: #4F7A52; }
+.iris-sit--pago      { background: var(--green-light); color: #4F7A3F; }
 .iris-sit--iris      { background: transparent; color: var(--text-2); border-color: var(--border); font-weight: 600; }
 
 /* ---------- Conversa ---------- */
@@ -403,7 +403,7 @@
 }
 .iris-msg--paciente .iris-bolha { background: var(--card); border: 1px solid var(--border-light); border-bottom-left-radius: 6px; box-shadow: var(--shadow-sm); }
 .iris-msg--iris .iris-bolha { background: var(--accent-light); border-bottom-right-radius: 6px; }
-.iris-msg--equipe .iris-bolha { background: #3E322A; color: #FBF8F2; border-bottom-right-radius: 6px; }
+.iris-msg--equipe .iris-bolha { background: var(--moss); color: var(--cream-ink); border-bottom-right-radius: 6px; }
 .iris-msg-info { margin-top: 4px; padding: 0 6px; font-size: 11.5px; color: var(--text-3); }
 .iris-msg--iris .iris-msg-info, .iris-msg--equipe .iris-msg-info { color: var(--text-2); }
 .iris-nota-sis {
@@ -573,12 +573,12 @@
 /* o celular */
 .iris-cel {
   display: flex; flex-direction: column; flex: 1; min-height: 260px; overflow: hidden;
-  border: 6px solid #3E322A; border-radius: 30px; background: #EFE6DA; box-shadow: var(--shadow-md, var(--shadow-sm));
+  border: 6px solid var(--moss); border-radius: 30px; background: var(--card); box-shadow: var(--shadow-md, var(--shadow-sm));
 }
-.iris-cel-topo { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #3E322A; color: #FBF8F2; flex-shrink: 0; }
+.iris-cel-topo { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--moss); color: var(--cream-ink); flex-shrink: 0; }
 .iris-cel-avatar {
   display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
-  background: var(--accent-light); color: #3E322A; font-family: var(--font-display); font-size: 15px; font-weight: 600;
+  background: var(--accent-light); color: var(--moss); font-family: var(--font-display); font-size: 15px; font-weight: 600;
 }
 .iris-cel-quem { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
 .iris-cel-quem strong { font-size: 13.5px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -593,7 +593,7 @@
 }
 .iris-cel-bolha time { display: block; margin-top: 2px; text-align: right; font-size: 10.5px; color: rgba(44,36,30,.55); white-space: nowrap; }
 .iris-cel-msg--eu .iris-cel-bolha { background: #D9E8CF; border-bottom-right-radius: 4px; }
-.iris-cel-msg--clinica .iris-cel-bolha { background: #FFFDF9; border-bottom-left-radius: 4px; }
+.iris-cel-msg--clinica .iris-cel-bolha { background: var(--card-2); border-bottom-left-radius: 4px; }
 .iris-cel-msg.is-enviando .iris-cel-bolha { opacity: .7; }
 .iris-cel-digitando { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-2); font-style: italic; }
 .iris-cel-pontos { display: inline-flex; gap: 3px; }
@@ -602,18 +602,18 @@
 .iris-cel-pontos i:nth-child(3) { animation-delay: .3s; }
 @keyframes irisPonto { 0%, 60%, 100% { transform: translateY(0); opacity: .45; } 30% { transform: translateY(-3px); opacity: 1; } }
 .iris-cel-pagar { padding: 8px 10px 0; flex-shrink: 0; }
-.iris-cel-pagar .btn { width: 100%; justify-content: center; background: #FFFDF9; border-color: #4F7A52; color: #3F6642; }
+.iris-cel-pagar .btn { width: 100%; justify-content: center; background: var(--card-2); border-color: var(--moss); color: #3F6642; }
 .iris-cel-pagar .btn:disabled { opacity: .6; cursor: not-allowed; }
 .iris-cel-campo { display: flex; align-items: flex-end; gap: 6px; padding: 8px; flex-shrink: 0; }
 .iris-cel-texto {
   flex: 1; min-width: 0; min-height: 38px; max-height: 110px; padding: 9px 14px; resize: none; border: 0; border-radius: 20px;
-  background: #FFFDF9; font: inherit; font-size: 13.5px; line-height: 1.4; color: var(--text-1); outline: none;
+  background: var(--card-2); font: inherit; font-size: 13.5px; line-height: 1.4; color: var(--text-1); outline: none;
 }
 .iris-cel-texto:focus-visible { box-shadow: 0 0 0 2px var(--accent); }
 .iris-cel-texto:disabled { opacity: .6; }
 .iris-cel-enviar {
   display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; flex-shrink: 0;
-  border: 0; border-radius: 50%; background: #3E322A; color: #FBF8F2; cursor: pointer;
+  border: 0; border-radius: 50%; background: var(--moss); color: var(--cream-ink); cursor: pointer;
 }
 .iris-cel-enviar svg { width: 17px; height: 17px; }
 .iris-cel-enviar:disabled { opacity: .45; cursor: not-allowed; }
