@@ -3771,3 +3771,16 @@ body { font-family: var(--font-body); background: var(--bg); color: var(--text-1
 }
 .chart-bars { padding: 6px 2px 2px; min-height: 120px; }
 .filter-label { font-family: var(--font-mono); font-weight: 500; font-size: 10.5px; letter-spacing: .08em; }
+
+/* --- Ajustes da revisão final: notebooks de 13–14" com o menu aberto --- */
+.h3-pair { flex-wrap: wrap; row-gap: 8px; }
+.h3-att-num { flex-wrap: wrap; row-gap: 4px; }
+.h3-att-num .h3-big { flex: none; }
+@media (max-width: 1400px) {
+  .h3-bottom { grid-template-columns: 1fr 1fr; }
+  .h3-bottom > :last-child { grid-column: 1 / -1; }
+}
+@media (max-width: 1400px) and (min-width: 768px) {
+  .h3-top { grid-template-columns: 1fr 1fr; }
+  .h3-top .h3-fin { grid-column: 1 / -1; }
+}

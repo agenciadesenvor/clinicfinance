@@ -397,8 +397,9 @@ async function loadAllData(signal) {
       agendaHoje:     (agH.data || []).map(r => ({ id: r.id, pacienteNome: r.paciente_nome || '', procedimento: r.procedimento || '', horaInicio: r.hora_inicio || '', horaFim: r.hora_fim || '', status: r.status || 'agendado' }))
     };
     currentProfile = pf.data || {};
-    currentProfile.capa_data = '';
-    loadCapa();
+    // A foto da capa é buscada uma vez por sessão (por usuário); recargas de dados reaproveitam
+    if (_capaCache.uid === uid) currentProfile.capa_data = _capaCache.data;
+    else { currentProfile.capa_data = ''; loadCapa(); }
     updateSidebarProfile();
   } catch(e) {
     if (e.name === 'AbortError') return; // carga cancelada por novo evento de auth
@@ -831,7 +832,9 @@ const peakLabelPlugin = {
       const x = Math.min(Math.max(pt.x - w / 2, chart.chartArea.left), chart.chartArea.right - w);
       const y = Math.max(pt.y - h - 8, 2);
       ctx.fillStyle = CHART_COLORS.orange;
-      ctx.beginPath(); ctx.roundRect(x, y, w, h, 10); ctx.fill();
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(x, y, w, h, 10); else ctx.rect(x, y, w, h); // Safari antigo não tem roundRect
+      ctx.fill();
       ctx.fillStyle = '#FBF6EE'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(txt, x + w / 2, y + h / 2 + .5);
       ctx.beginPath(); ctx.arc(pt.x, pt.y, 3.5, 0, Math.PI * 2);
@@ -2512,11 +2515,14 @@ function handlePerfilPhoto(input) {
 /* ===== Foto da capa da tela inicial =====
    Fica em profiles.capa_data (capa.sql). Lida numa consulta separada para o app
    abrir normalmente mesmo antes de a coluna existir. */
+const _capaCache = { uid: null, data: '' };
 async function loadCapa() {
   if (!currentUser) return;
+  const uid = currentUser.id;
   try {
-    const { data, error } = await db('profiles').select('capa_data').eq('id', currentUser.id).single();
+    const { data, error } = await db('profiles').select('capa_data').eq('id', uid).single();
     currentProfile.capa_data = (!error && data && data.capa_data) || '';
+    if (!error) { _capaCache.uid = uid; _capaCache.data = currentProfile.capa_data; }
   } catch (e) { currentProfile.capa_data = ''; }
   if (typeof applyCapa === 'function') applyCapa();
   const pv = document.getElementById('pfCapaDisp');
@@ -2545,7 +2551,8 @@ async function salvarCapa(dataUrl) {
     toast(semColuna ? 'A foto da capa ainda não está ativada. Rode o capa.sql no Supabase.' : 'Não foi possível salvar a foto. Tente de novo.', 'error');
     return false;
   }
-  currentProfile.capa_data = dataUrl;
+  currentProfile.capa_data = dataUrl || '';
+  _capaCache.uid = currentUser.id; _capaCache.data = currentProfile.capa_data;
   if (typeof applyCapa === 'function') applyCapa();
   if (document.getElementById('pfCapaDisp')) renderCapaPreview();
   return true;
