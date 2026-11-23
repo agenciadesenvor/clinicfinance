@@ -1,9 +1,9 @@
 /* ============================================================
    ClinicFinance — dashboard.js
-   Dashboard no layout "Paperpillar" (referência Figma), nas cores
-   da clínica: 3 indicadores com comparação ao período anterior,
-   gráfico de receita (dia em destaque listrado), rosca de despesas,
-   últimas entradas e agenda/pendências do dia.
+   Tela inicial no visual Pinhal: capa com foto, cartão Financeiro
+   (laranja, com o gráfico de receita), Atendimentos (verde, linha com
+   pico), mini calendário da agenda, últimas entradas, pendências do
+   dia e despesas por categoria em barras.
    ============================================================ */
 
 /* ===== Período anterior equivalente ao filtro escolhido ===== */
@@ -59,7 +59,102 @@ function dashKpi({ icon, tone, title, value, money, cur, prev, prevLabel, go, up
   </article>`;
 }
 
-/* ===== Tela ===== */
+/* ===== Tela (visual Pinhal) =====
+   Capa com foto · filtro de período · Financeiro (laranja) · Atendimentos (verde) ·
+   Agenda (mini calendário) · Últimas entradas · Agenda e pendências · Despesas por categoria */
+function dashSaudacao() {
+  const h = new Date().getHours();
+  return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
+}
+function dashHeroHTML() {
+  const nome = (currentProfile?.first_name || '').trim().split(/\s+/)[0] || '';
+  const hoje = new Date();
+  const dataTxt = hoje.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const nAg = getTodayAppointments().length;
+  const nPend = getFollowupsDue().length + getUpcomingClinicPayments().length;
+  const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`;
+  const resumo = nAg || nPend
+    ? `Você tem ${plural(nAg, 'agendamento', 'agendamentos')} hoje e ${plural(nPend, 'pendência', 'pendências')}`
+    : 'Agenda livre hoje e nada pendente';
+  return `<section class="hero" id="dashHero">
+    <div class="hero-photo" id="heroPhoto" aria-hidden="true"></div>
+    <div class="hero-text">
+      <div class="mono-label hero-trail">ClinicFinance / Início · ${esc(dataTxt)}</div>
+      <h1 class="hero-hello">${dashSaudacao()}${nome ? `, <em>${esc(nome)}</em>` : ''}</h1>
+      <p class="mono-label hero-sum">${esc(resumo)}</p>
+      <div class="hero-actions">
+        <button type="button" class="hero-pill" onclick="openEntradaModal()">+ Entrada</button>
+        <button type="button" class="hero-pill" onclick="openSaidaModal()">+ Saída</button>
+        <button type="button" class="hero-pill" onclick="navigateTo('agenda')">+ Agendamento</button>
+        <button type="button" class="hero-pill" onclick="navigateTo('pacientes'); setTimeout(() => openCrmModal(null, 'pacientes'), 80)">+ Paciente</button>
+      </div>
+    </div>
+    <button type="button" class="hero-change" onclick="pickCapa()" aria-label="Trocar a foto da capa">
+      <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h3l2-3h6l2 3h3a1 1 0 011 1v11a1 1 0 01-1 1H4a1 1 0 01-1-1V8a1 1 0 011-1z"/><circle cx="12" cy="13" r="3.5"/></svg>
+      <span>Trocar foto</span>
+    </button>
+  </section>`;
+}
+// Põe (ou tira) a foto da capa sem redesenhar a tela
+function applyCapa() {
+  const hero = document.getElementById('dashHero'), ph = document.getElementById('heroPhoto');
+  if (!hero || !ph) return;
+  const d = currentProfile?.capa_data || '';
+  hero.classList.toggle('has-photo', !!d);
+  ph.style.backgroundImage = d ? `url("${d}")` : '';
+}
+
+function dashMiniCalHTML() {
+  const now = new Date(), y = now.getFullYear(), m = now.getMonth();
+  const first = (new Date(y, m, 1).getDay() + 6) % 7; // segunda = 0
+  const days = new Date(y, m + 1, 0).getDate();
+  const iso = d => `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  const cells = [];
+  for (let i = 0; i < first; i++) cells.push('<span class="h3-day is-empty"></span>');
+  for (let d = 1; d <= days; d++) cells.push(`<span class="h3-day${d === now.getDate() ? ' is-today' : ''}" data-date="${iso(d)}">${d}</span>`);
+  const nAg = getTodayAppointments().length;
+  return `<div class="h3-cal-head mono-label">${['S', 'T', 'Q', 'Q', 'S', 'S', 'D'].map(l => `<span>${l}</span>`).join('')}</div>
+    <div class="h3-cal-grid">${cells.join('')}</div>
+    <div class="h3-cal-month">${esc((t => t[0].toUpperCase() + t.slice(1))(now.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })))}</div>
+    <button type="button" class="h3-cal-foot" onclick="navigateTo('agenda')"><span>Hoje · ${nAg} ${nAg === 1 ? 'agendamento' : 'agendamentos'}</span><span aria-hidden="true">↗</span></button>`;
+}
+// Datas (YYYY-MM-DD) do mês com agendamento não cancelado
+async function loadMonthAppointmentDays(year, month) {
+  if (typeof currentUser === 'undefined' || !currentUser) return new Set();
+  const pad = n => String(n).padStart(2, '0');
+  const ini = `${year}-${pad(month + 1)}-01`, fim = `${year}-${pad(month + 1)}-${pad(new Date(year, month + 1, 0).getDate())}`;
+  const { data, error } = await db('agendamentos').select('data,status').eq('user_id', currentUser.id).gte('data', ini).lte('data', fim);
+  if (error || !data) return new Set();
+  return new Set(data.filter(r => r.status !== 'cancelado').map(r => String(r.data).slice(0, 10)));
+}
+async function markCalendarDays() {
+  const now = new Date();
+  const dias = await loadMonthAppointmentDays(now.getFullYear(), now.getMonth());
+  document.querySelectorAll('#content .h3-day[data-date]').forEach(el => el.classList.toggle('has-appt', dias.has(el.dataset.date)));
+}
+
+// Barras horizontais por categoria (substituem as roscas)
+function catBarsHTML(items, opts = {}) {
+  const rows = items.filter(i => i.value > 0);
+  if (!rows.length) return `<div class="d2-empty">${esc(opts.empty || 'Nada neste período.')}</div>`;
+  const max = opts.max || Math.max(...rows.map(r => r.value));
+  const fmt = v => (opts.money === false ? String(v) : fCurrency(v));
+  return `<ul class="cat-bars">${rows.map((r, i) => `<li>
+      <div class="cat-bars-top"><span class="cat-bars-label">${esc(r.label)}</span><b>${fmt(r.value)}</b></div>
+      <div class="cat-bars-track"><i style="width:${Math.max(2, Math.round(r.value / max * 100))}%;${i === 0 ? '' : 'opacity:.55'}"></i></div>
+    </li>`).join('')}</ul>`;
+}
+function dashExpenseItems() {
+  const { exits, clinic } = getData();
+  const map = new Map();
+  filterByPeriod(exits).forEach(x => { const k = EXIT_CATEGORIES[x.category] || 'Outros'; map.set(k, (map.get(k) || 0) + x.value); });
+  filterClinicByPeriod(clinic).forEach(x => { const k = x.category === 'aluguel' ? 'Aluguel' : 'Consultório'; map.set(k, (map.get(k) || 0) + x.value); });
+  const rows = [...map.entries()].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+  const top = rows.slice(0, 6).map(([label, value]) => ({ label, value }));
+  if (rows.length > 6) top.push({ label: 'Outras', value: rows.slice(6).reduce((t, [, v]) => t + v, 0) });
+  return top;
+}
+
 function renderDashboard() {
   const { entries } = getData();
   const { s, e } = getDateRange();
@@ -67,48 +162,65 @@ function renderDashboard() {
   const pr = dashPrevRange();
   const prev = dashTotals(pr.s, pr.e);
   const fe = filterByPeriod(entries).slice().sort((a, b) => b.date.localeCompare(a.date));
+  const cmp = (c, p, money) => `${dashChip(c, p)}${p > 0 ? `<span>${esc(pr.label[0].toUpperCase() + pr.label.slice(1))}: ${money ? fCurrency(p) : p}</span>` : ''}`;
 
   return `
-  <div class="d2-toolbar">
-    ${periodFilterHTML()}
-    <button class="btn btn-primary d2-new" onclick="openEntradaModal()">${iconPlus()} Nova entrada</button>
-  </div>
+  ${dashHeroHTML()}
+  <div class="d2-toolbar h3-toolbar">${periodFilterHTML()}</div>
 
-  <section class="d2-kpis dash-anim">
-    ${dashKpi({ icon: iconTrend(), tone: 'sage', title: 'Receita', value: cur.rev, money: true, cur: cur.rev, prev: prev.rev, prevLabel: pr.label, go: 'entradas' })}
-    ${dashKpi({ icon: iconClip(), tone: 'stone', title: 'Atendimentos', value: cur.n, money: false, cur: cur.n, prev: prev.n, prevLabel: pr.label, go: 'entradas' })}
-    ${dashKpi({ icon: iconDollar(), tone: 'sand', title: 'Lucro líquido', value: cur.lucro, money: true, cur: cur.lucro, prev: prev.lucro > 0 && cur.lucro > 0 ? prev.lucro : null, prevLabel: pr.label, go: 'graficos' })}
-  </section>
-
-  <section class="d2-row d2-row-a">
-    <div class="d2-card d2-report">
-      <div class="d2-card-head">
-        <h3>Receita</h3>
-        <label class="d2-select">${iconCalendar()}
+  <section class="h3-row h3-top dash-anim">
+    <article class="h3-card h3-fin">
+      <div class="h3-card-head">
+        <h3>Financeiro</h3>
+        <label class="h3-select">
           <select aria-label="Período do gráfico" onchange="setDashChart(this.value)">
             ${[['semana', 'Esta semana'], ['6', 'Últimos 6 meses'], ['12', 'Últimos 12 meses']].map(([v, l]) => `<option value="${v}" ${dashChartMode() === v ? 'selected' : ''}>${l}</option>`).join('')}
           </select>
         </label>
       </div>
-      <div class="rev-summary" id="revSummary"></div>
-      <div class="d2-chart"><canvas id="chartRevExp"></canvas></div>
-    </div>
-    <div class="d2-card d2-cost">
-      <div class="d2-card-head"><h3>Despesas</h3><button class="d2-link" onclick="navigateTo('saidas')">Ver detalhes</button></div>
-      <div id="costBox"></div>
-    </div>
+      <div class="h3-fin-body">
+        <div class="h3-fin-nums">
+          <span class="h3-big" data-count="${cur.lucro}" data-money="1">${fCurrency(cur.lucro)}</span>
+          <span class="mono-label">Lucro líquido</span>
+          <div class="h3-pair">
+            <div><b>${fCurrency(cur.rev)}</b><span class="mono-label">Receita</span></div>
+            <div><b>${fCurrency(cur.exp)}</b><span class="mono-label">Despesas</span></div>
+          </div>
+          <div class="h3-cmp">${cmp(cur.lucro, prev.lucro > 0 && cur.lucro > 0 ? prev.lucro : null, true)}</div>
+        </div>
+        <div class="h3-fin-chart"><canvas id="chartRevExp"></canvas></div>
+      </div>
+      <div class="rev-summary h3-rev-summary" id="revSummary"></div>
+    </article>
+
+    <article class="h3-card h3-att" role="link" tabindex="0" onclick="navigateTo('entradas')" onkeydown="if(event.key==='Enter')navigateTo('entradas')">
+      <div class="h3-card-head"><h3>Atendimentos</h3><span class="mono-label">${esc(dashPeriodLabel())}</span></div>
+      <div class="h3-att-num"><span class="h3-big" data-count="${cur.n}" data-money="0">${cur.n}</span><span class="mono-label">atendimentos registrados</span></div>
+      <div class="h3-att-chart"><canvas id="chartAtend"></canvas></div>
+      <div class="h3-cmp">${cmp(cur.n, prev.n, false)}</div>
+    </article>
+
+    <article class="h3-card h3-cal">${dashMiniCalHTML()}</article>
   </section>
 
-  <section class="d2-row d2-row-b">
+  <section class="h3-row h3-bottom">
     <div class="d2-card">
-      <div class="d2-card-head"><h3>Últimas entradas</h3><button class="d2-link" onclick="navigateTo('entradas')">Ver todas</button></div>
+      <div class="d2-card-head"><h3>Últimas entradas</h3><button class="pill-btn" onclick="navigateTo('entradas')">Ver todas</button></div>
       ${dashLastEntries(fe.slice(0, 5))}
     </div>
     <div class="d2-card">
-      <div class="d2-card-head"><h3>Agenda e pendências</h3><button class="d2-link" onclick="navigateTo('agenda')">Ver agenda</button></div>
+      <div class="d2-card-head"><h3>Agenda e pendências</h3><button class="pill-btn" onclick="navigateTo('agenda')">Ver agenda</button></div>
       ${dashPendencias()}
     </div>
+    <div class="d2-card">
+      <div class="d2-card-head"><h3>Despesas por categoria</h3><button class="pill-btn" onclick="navigateTo('saidas')">Abrir</button></div>
+      ${catBarsHTML(dashExpenseItems(), { empty: 'Sem despesas neste período.' })}
+    </div>
   </section>`;
+}
+function dashPeriodLabel() {
+  const p = state.filter.period;
+  return { today: 'Hoje', week: 'Esta semana', month: 'Este mês', year: 'Este ano' }[p] || 'Período';
 }
 
 const dashInitials = n => (n || '?').trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase();
@@ -151,9 +263,53 @@ const iconWhatsSmall = () => svg('<path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.
 /* ===== Gráficos ===== */
 function initDashboardCharts() {
   applyChartTheme();
+  applyCapa();
   renderRevChart();
-  renderCostChart();
+  renderAttChart();
+  markCalendarDays();
   animateDashboard();
+  setTimeout(fitBigNumbers, 950); // depois da contagem animada
+  fitBigNumbers();
+}
+
+// Números grandes diminuem a letra até caber no cartão (valores longos não são cortados)
+function fitBigNumbers() {
+  document.querySelectorAll('#content .h3-big').forEach(el => {
+    el.style.fontSize = '';
+    let size = parseFloat(getComputedStyle(el).fontSize);
+    while (el.scrollWidth > el.clientWidth + 1 && size > 22) { size -= 2; el.style.fontSize = size + 'px'; }
+  });
+}
+
+// Linha de atendimentos (entradas registradas) no período; por mês quando o período passa de 62 dias.
+// Períodos curtos (hoje, semana) mostram pelo menos os últimos 14 dias, para a linha ter forma.
+function renderAttChart() {
+  if (!document.getElementById('chartAtend')) return;
+  const { entries } = getData();
+  let { s, e } = getDateRange();
+  const DIA = 86400000;
+  if ((e - s) / DIA < 13) s = new Date(e.getFullYear(), e.getMonth(), e.getDate() - 13);
+  const porMes = (e - s) / DIA > 62;
+  const buckets = [];
+  if (porMes) {
+    for (let d = new Date(s.getFullYear(), s.getMonth(), 1); d <= e; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) {
+      buckets.push({ s: d, e: new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59), label: MES_CURTO[d.getMonth()] });
+    }
+  } else {
+    for (let d = new Date(s.getFullYear(), s.getMonth(), s.getDate()); d <= e; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) {
+      buckets.push({ s: d, e: new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59), label: `${d.getDate()}/${d.getMonth() + 1}` });
+    }
+  }
+  const values = buckets.map(b => entries.filter(x => { const d = new Date(x.date + 'T12:00:00'); return d >= b.s && d <= b.e; }).length);
+  createChart('chartAtend', {
+    type: 'line',
+    data: { labels: buckets.map(b => b.label), datasets: [{ label: 'Atendimentos', data: values, borderColor: '#FBF6EE', borderWidth: 2, tension: .35, fill: false, pointRadius: 0, pointHoverRadius: 4, peakLabel: true, peakFormat: v => String(v) }] },
+    options: {
+      responsive: true, layout: { padding: { top: 26, right: 8 } },
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.raw} atendimento${c.raw === 1 ? '' : 's'}` } } },
+      scales: { x: { display: false }, y: { display: false, beginAtZero: true } }
+    }
+  });
 }
 
 function dashChartMode() {
@@ -164,16 +320,6 @@ function setDashChart(v) {
   state.dashChart = v;
   try { localStorage.setItem('cf_dash_chart', v); } catch (e) {}
   renderRevChart();
-}
-
-// Padrão listrado (dia/mês em destaque), como na referência
-function hatchPattern(ctx) {
-  const c = document.createElement('canvas'); c.width = c.height = 10;
-  const g = c.getContext('2d');
-  g.fillStyle = '#6E5749'; g.fillRect(0, 0, 10, 10);
-  g.strokeStyle = 'rgba(255,253,249,.28)'; g.lineWidth = 2;
-  g.beginPath(); g.moveTo(-2, 12); g.lineTo(12, -2); g.moveTo(-2, 2); g.lineTo(2, -2); g.moveTo(8, 12); g.lineTo(12, 8); g.stroke();
-  return ctx.createPattern(c, 'repeat');
 }
 
 function renderRevChart() {
@@ -220,12 +366,11 @@ function renderRevChart() {
     } else box.innerHTML = '';
   }
 
-  const ctx = canvas.getContext('2d');
-  const pat = hatchPattern(ctx);
-  const bg = values.map((_, i) => (i === hi ? pat : '#EFE4D3'));
+  // Barras creme sobre o cartão laranja; o período atual em creme cheio
+  const bg = values.map((_, i) => (i === hi ? '#FBF6EE' : 'rgba(251,246,238,.38)'));
   createChart('chartRevExp', {
     type: 'bar',
-    data: { labels, datasets: [{ label: 'Receita', data: values, backgroundColor: bg, hoverBackgroundColor: values.map((_, i) => (i === hi ? pat : '#E2D2BA')), borderRadius: 12, borderSkipped: false, maxBarThickness: mode === '12' ? 30 : 54, categoryPercentage: 0.78, barPercentage: 0.92, minBarLength: 6 }] },
+    data: { labels, datasets: [{ label: 'Receita', data: values, backgroundColor: bg, hoverBackgroundColor: values.map((_, i) => (i === hi ? '#FFFFFF' : 'rgba(251,246,238,.6)')), borderRadius: 6, borderSkipped: false, maxBarThickness: mode === '12' ? 12 : 16, categoryPercentage: 0.78, barPercentage: 0.92, minBarLength: 6 }] },
     options: {
       responsive: true,
       animation: { duration: 800, easing: 'easeOutQuart', delay: c => (c.type === 'data' && c.mode === 'default' ? c.dataIndex * 60 : 0) },
@@ -241,8 +386,8 @@ function renderRevChart() {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: '#FFFDF9', titleColor: '#33291F', bodyColor: '#76695C', footerColor: '#7F6658',
-          borderColor: '#EFE7DA', borderWidth: 1, padding: 12, cornerRadius: 12, displayColors: false, caretSize: 6,
+          backgroundColor: '#FBF6EE', titleColor: '#2E2A24', bodyColor: '#6F6558', footerColor: '#A85A1E',
+          borderColor: '#E2D6C3', borderWidth: 1, padding: 12, cornerRadius: 12, displayColors: false, caretSize: 6,
           titleFont: { weight: '700', size: 13 }, bodyFont: { size: 12 }, footerFont: { weight: '700', size: 12 },
           callbacks: {
             title: items => fCurrency(items[0].raw),
@@ -252,8 +397,8 @@ function renderRevChart() {
         }
       },
       scales: {
-        x: { grid: { display: false }, border: { display: false }, ticks: { color: '#8A7D70', font: c => ({ size: 12, weight: c.index === hi ? '700' : '400' }) } },
-        y: { beginAtZero: true, border: { display: false }, grid: { color: 'rgba(127,102,88,0.12)', borderDash: [4, 4], tickBorderDash: [4, 4] }, ticks: { callback: v => fCompact(v), maxTicksLimit: 5, color: '#8A7D70' } }
+        x: { grid: { display: false }, border: { display: false }, ticks: { color: 'rgba(251,246,238,.75)', font: c => ({ family: "'IBM Plex Mono', monospace", size: 10, weight: c.index === hi ? '500' : '400' }) } },
+        y: { display: false, beginAtZero: true }
       }
     }
   });
@@ -262,31 +407,6 @@ function renderRevChart() {
   if (chart && values[hi] > 0) setTimeout(() => {
     try { chart.tooltip.setActiveElements([{ datasetIndex: 0, index: hi }], { x: 0, y: 0 }); chart.update('none'); } catch (e) {}
   }, 950);
-}
-
-function renderCostChart() {
-  const box = document.getElementById('costBox');
-  if (!box) return;
-  const { exits, clinic } = getData();
-  const fx = filterByPeriod(exits), fc = filterClinicByPeriod(clinic);
-  const map = new Map();
-  fx.forEach(x => { const k = EXIT_CATEGORIES[x.category] || 'Outros'; map.set(k, (map.get(k) || 0) + x.value); });
-  fc.forEach(x => { const k = x.category === 'aluguel' ? 'Aluguel' : 'Consultório'; map.set(k, (map.get(k) || 0) + x.value); });
-  const rows = [...map.entries()].filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
-  const total = rows.reduce((t, [, v]) => t + v, 0);
-  if (!rows.length) { box.innerHTML = `<div class="d2-empty">Sem despesas neste período.</div>`; return; }
-  const cores = ['#A8BBA0', '#E3D3B5', '#C9D6D3', '#BDB9D3', '#D9B8A6', '#CBBBA9', '#B9C7D1'];
-  const top = rows.slice(0, 6);
-  if (rows.length > 6) top.push(['Outros', rows.slice(6).reduce((t, [, v]) => t + v, 0)]);
-  box.innerHTML = `<div class="d2-cost-body">
-    <div class="d2-donut"><canvas id="chartCost"></canvas><div class="d2-donut-center"><b>${fCompact(total)}</b><span>no período</span></div></div>
-    <ul class="d2-legend">${top.map(([k, v], i) => `<li><i style="background:${cores[i % cores.length]}"></i><span>${esc(k)}</span><b>${fCompact(v)}</b></li>`).join('')}</ul>
-  </div>`;
-  createChart('chartCost', {
-    type: 'doughnut',
-    data: { labels: top.map(([k]) => k), datasets: [{ data: top.map(([, v]) => v), backgroundColor: top.map((_, i) => cores[i % cores.length]), borderWidth: 4, borderColor: '#FFFDF9', borderRadius: 6, hoverOffset: 6 }] },
-    options: { responsive: true, cutout: '58%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => ` ${c.label}: ${fCurrency(c.raw)} (${Math.round(c.raw / total * 100)}%)` } } } }
-  });
 }
 
 // Números contam do zero (respeita "reduzir movimento")

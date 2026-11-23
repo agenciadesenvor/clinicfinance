@@ -42,6 +42,8 @@ function db(table, signal) {
       let _filters = [], _order = null, _limit = null, _single = false;
       const q = {
         eq(col, val)        { _filters.push(`${col}=eq.${encodeURIComponent(val)}`); return q; },
+        gte(col, val)       { _filters.push(`${col}=gte.${encodeURIComponent(val)}`); return q; },
+        lte(col, val)       { _filters.push(`${col}=lte.${encodeURIComponent(val)}`); return q; },
         order(col, opts)    { _order = `${col}.${opts?.ascending === false ? 'desc' : 'asc'}`; return q; },
         limit(n)            { _limit = n; return q; },
         single()            { _single = true; return q; },
