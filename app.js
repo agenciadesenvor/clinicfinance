@@ -801,34 +801,79 @@ const fCompact = v => {
   if (a >= 1000) return 'R$ ' + (v / 1000).toLocaleString('pt-BR', { maximumFractionDigits: a >= 10000 ? 0 : 1 }) + 'k';
   return 'R$ ' + Math.round(v);
 };
+/* Cores dos gráficos (visual Pinhal) */
+const CHART_COLORS = {
+  orange: '#C8702A', green: '#2F4A2C', rose: '#D9A08B', sage: '#A9B89A', peach: '#EFC59A',
+  sand: '#E6D3B3', brick: '#B4472E', ink: '#2E2A24', muted: '#A3978A', grid: 'rgba(46,42,36,0.06)',
+  series: ['#C8702A', '#2F4A2C', '#D9A08B', '#A9B89A', '#EFC59A', '#7D8F6E', '#E6D3B3']
+};
+/* Pílula laranja com o valor no ponto mais alto de uma linha (dataset com peakLabel: true) */
+const peakLabelPlugin = {
+  id: 'peakLabel',
+  afterDatasetsDraw(chart) {
+    const { ctx } = chart;
+    chart.data.datasets.forEach((ds, di) => {
+      if (!ds.peakLabel) return;
+      const meta = chart.getDatasetMeta(di);
+      if (meta.hidden || !meta.data.length) return;
+      const vals = ds.data.map(Number);
+      const max = Math.max(...vals);
+      if (!(max > 0)) return;
+      const i = vals.indexOf(max), pt = meta.data[i];
+      if (!pt) return;
+      const txt = ds.peakFormat ? ds.peakFormat(max) : String(max);
+      ctx.save();
+      ctx.font = "500 11px 'IBM Plex Mono', monospace";
+      const w = ctx.measureText(txt).width + 14, h = 20;
+      const x = Math.min(Math.max(pt.x - w / 2, chart.chartArea.left), chart.chartArea.right - w);
+      const y = Math.max(pt.y - h - 8, 2);
+      ctx.fillStyle = CHART_COLORS.orange;
+      ctx.beginPath(); ctx.roundRect(x, y, w, h, 10); ctx.fill();
+      ctx.fillStyle = '#FBF6EE'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(txt, x + w / 2, y + h / 2 + .5);
+      ctx.beginPath(); ctx.arc(pt.x, pt.y, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = CHART_COLORS.orange; ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = '#FBF6EE'; ctx.stroke();
+      ctx.restore();
+    });
+  }
+};
 function applyChartTheme() {
   if (typeof Chart === 'undefined') return;
+  if (!applyChartTheme.ok) { Chart.register(peakLabelPlugin); applyChartTheme.ok = true; }
   const d = Chart.defaults;
-  d.font.family = "'DM Sans', sans-serif";
+  d.font.family = "'IBM Plex Mono', ui-monospace, monospace";
   d.maintainAspectRatio = false; // altura vem do CSS (.chart-wrap)
-  d.font.size = 12;
-  d.color = '#8A7D70';
-  d.borderColor = 'rgba(127,102,88,0.08)';
+  d.font.size = 10;
+  d.color = CHART_COLORS.muted;
+  d.borderColor = 'transparent';
+  d.scale.grid.color = CHART_COLORS.grid;
+  d.scale.border = { display: false, dash: [3, 4] };
   d.plugins.legend.labels.usePointStyle = true;
   d.plugins.legend.labels.pointStyle = 'circle';
-  d.plugins.legend.labels.boxWidth = 8;
-  d.plugins.legend.labels.boxHeight = 8;
-  d.plugins.legend.labels.padding = 16;
-  d.plugins.tooltip.backgroundColor = '#3E322A';
-  d.plugins.tooltip.titleColor = '#F7EFE3';
-  d.plugins.tooltip.bodyColor = '#F1E8DA';
-  d.plugins.tooltip.padding = 12;
-  d.plugins.tooltip.cornerRadius = 12;
-  d.plugins.tooltip.titleFont = { weight: '700', size: 12 };
-  d.plugins.tooltip.boxPadding = 6;
+  d.plugins.legend.labels.boxWidth = 7;
+  d.plugins.legend.labels.boxHeight = 7;
+  d.plugins.legend.labels.padding = 14;
+  d.plugins.legend.labels.font = { family: "'DM Sans', sans-serif", size: 12 };
+  d.plugins.legend.labels.color = '#6F6558';
+  d.plugins.tooltip.backgroundColor = CHART_COLORS.ink;
+  d.plugins.tooltip.titleColor = '#FBF6EE';
+  d.plugins.tooltip.bodyColor = '#EFE6D7';
+  d.plugins.tooltip.padding = 10;
+  d.plugins.tooltip.cornerRadius = 10;
+  d.plugins.tooltip.titleFont = { family: "'DM Sans', sans-serif", weight: '700', size: 12 };
+  d.plugins.tooltip.bodyFont = { family: "'DM Sans', sans-serif", size: 12 };
+  d.plugins.tooltip.boxPadding = 5;
   d.plugins.tooltip.displayColors = true;
-  d.elements.bar.borderRadius = 8;
+  d.elements.bar.borderRadius = 6;
   d.elements.bar.borderSkipped = false;
+  d.datasets.bar.maxBarThickness = 14;
   d.elements.arc.borderWidth = 3;
-  d.elements.arc.borderColor = '#FFFDF9';
-  d.elements.line.tension = 0.38;
-  d.elements.point.radius = 3;
-  d.elements.point.hoverRadius = 6;
+  d.elements.arc.borderColor = '#EFE6D7';
+  d.elements.line.tension = 0.35;
+  d.elements.line.borderWidth = 2;
+  d.elements.point.radius = 0;
+  d.elements.point.hoverRadius = 4;
 }
 
 /* ===== Indicadores com mini-barras (inspirado no StatsCard) ===== */
@@ -2248,19 +2293,19 @@ function initGraficosCharts() {
     data: {
       labels: monthly.map(m => m.label),
       datasets: [
-        { label:'Receita',  data: monthly.map(m=>m.revenue),  borderColor:'#7F9C7A', backgroundColor:'rgba(94,140,97,0.08)',  fill:true, tension:0.3, borderWidth:2.5, pointRadius:4, pointBackgroundColor:'#7F9C7A' },
-        { label:'Despesas', data: monthly.map(m=>m.expenses), borderColor:'#C98A72', backgroundColor:'rgba(184,92,68,0.05)',   fill:true, tension:0.3, borderWidth:2.5, pointRadius:4, pointBackgroundColor:'#C98A72' },
-        { label:'Lucro',    data: monthly.map(m=>m.profit),   borderColor:'#C9A06A', backgroundColor:'rgba(201,160,106,0.06)',  fill:true, tension:0.3, borderWidth:2.5, pointRadius:4, pointBackgroundColor:'#C9A06A' }
+        { label:'Receita',  data: monthly.map(m=>m.revenue),  borderColor: CHART_COLORS.green,  backgroundColor:'rgba(47,74,44,0.06)', fill:true, peakLabel:true, peakFormat: v => fCompact(v) },
+        { label:'Despesas', data: monthly.map(m=>m.expenses), borderColor: CHART_COLORS.rose,   backgroundColor:'transparent', fill:false },
+        { label:'Lucro',    data: monthly.map(m=>m.profit),   borderColor: CHART_COLORS.orange, backgroundColor:'transparent', fill:false, borderDash:[5,4] }
       ]
     },
-    options: { responsive:true, plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, padding:16 } }, tooltip:{ callbacks:{ label: ctx => ` ${ctx.dataset.label}: ${fCurrency(ctx.raw)}` } } }, scales:{ x:{ grid:{ display:false } }, y:{ grid:{ color:'rgba(127,102,88,0.07)' }, border:{ display:false }, ticks:{ callback: v => fCompact(v), maxTicksLimit: 6 } } } }
+    options: { responsive:true, plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, padding:16 } }, tooltip:{ callbacks:{ label: ctx => ` ${ctx.dataset.label}: ${fCurrency(ctx.raw)}` } } }, layout:{ padding:{ top:24 } }, scales:{ x:{ grid:{ display:false } }, y:{ border:{ display:false, dash:[3,4] }, ticks:{ callback: v => fCompact(v), maxTicksLimit: 6 } } } }
   });
 
   const procData = Object.entries(PROCEDURES).map(([k,v]) => ({ label:v, val: fe.filter(e=>e.procedure===k).reduce((s,e)=>s+e.value,0) })).filter(x=>x.val>0).sort((a,b)=>b.val-a.val);
   createChart('gChartProc', {
     type:'bar',
-    data:{ labels: procData.map(p=>p.label), datasets:[{ label:'Receita', data: procData.map(p=>p.val), backgroundColor:['#7F9C7A','#8DA0AC','#B39AA7','#C9A06A','#C98A72','#B5AA84','#D2AE7C'], borderRadius:8 }] },
-    options:{ indexAxis:'y', responsive:true, plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label: ctx => ` ${fCurrency(ctx.raw)}` } } }, scales:{ x:{ grid:{ color:'rgba(127,102,88,0.07)' }, border:{ display:false }, ticks:{ callback: v => fCompact(v), maxTicksLimit: 6 } }, y:{ grid:{ display:false } } } }
+    data:{ labels: procData.map(p=>p.label), datasets:[{ label:'Receita', data: procData.map(p=>p.val), backgroundColor: procData.map((_, i) => i === 0 ? CHART_COLORS.orange : CHART_COLORS.green), borderRadius:6, maxBarThickness:14 }] },
+    options:{ indexAxis:'y', responsive:true, plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label: ctx => ` ${fCurrency(ctx.raw)}` } } }, scales:{ x:{ border:{ display:false, dash:[3,4] }, ticks:{ callback: v => fCompact(v), maxTicksLimit: 6 } }, y:{ grid:{ display:false }, ticks:{ font:{ family:"'DM Sans', sans-serif", size:12 }, color:'#6F6558' } } } }
   });
 
   // Despesas por categoria (saídas + consultório)
@@ -2271,7 +2316,7 @@ function initGraficosCharts() {
   ];
   createChart('gChartCat', {
     type:'doughnut',
-    data:{ labels: catLabels, datasets:[{ data: catData, backgroundColor:['#C98A72','#C9A06A','#8DA0AC','#B39AA7','#B5AA84','#B39581','#D9C2A5'], hoverOffset:6 }] },
+    data:{ labels: catLabels, datasets:[{ data: catData, backgroundColor: CHART_COLORS.series, hoverOffset:6 }] },
     options:{ responsive:true, cutout:'72%', plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, padding:14 } }, tooltip:{ callbacks:{ label: ctx => ` ${ctx.label}: ${fCurrency(ctx.raw)}` } } } }
   });
 
@@ -2279,7 +2324,7 @@ function initGraficosCharts() {
   const payData   = Object.keys(PAYMENT_METHODS).map(k => fe.filter(e=>e.payment===k).reduce((s,e)=>s+e.value,0));
   createChart('gChartPay', {
     type:'doughnut',
-    data:{ labels: payLabels, datasets:[{ data: payData, backgroundColor:['#7F9C7A','#8DA0AC','#C9A06A','#B39AA7','#D9CFC2'], hoverOffset:6 }] },
+    data:{ labels: payLabels, datasets:[{ data: payData, backgroundColor: CHART_COLORS.series, hoverOffset:6 }] },
     options:{ responsive:true, cutout:'72%', plugins:{ legend:{ position:'bottom', labels:{ usePointStyle:true, padding:14 } }, tooltip:{ callbacks:{ label: ctx => ` ${ctx.label}: ${fCurrency(ctx.raw)}` } } } }
   });
 
@@ -2295,8 +2340,8 @@ function initGraficosCharts() {
   }).filter(x => x.margin !== 0);
   createChart('gChartMargin', {
     type:'bar',
-    data:{ labels: margins.map(m=>m.label), datasets:[{ label:'Margem %', data: margins.map(m=>parseFloat(m.margin.toFixed(1))), backgroundColor: margins.map(m=>m.margin>=60?'#7F9C7A':m.margin>=40?'#C9A06A':m.margin>=20?'#8DA0AC':'#C98A72'), borderRadius:8 }] },
-    options:{ responsive:true, plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label: ctx => ` ${ctx.raw}%` } } }, scales:{ x:{ grid:{ display:false } }, y:{ grid:{ color:'rgba(127,102,88,0.07)' }, border:{ display:false }, ticks:{ callback: v => v+'%' }, max:100, min:0 } } }
+    data:{ labels: margins.map(m=>m.label), datasets:[{ label:'Margem %', data: margins.map(m=>parseFloat(m.margin.toFixed(1))), backgroundColor: margins.map(m=>m.margin>=60?CHART_COLORS.green:m.margin>=40?CHART_COLORS.sage:m.margin>=20?CHART_COLORS.orange:CHART_COLORS.brick), borderRadius:6, maxBarThickness:22 }] },
+    options:{ responsive:true, plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label: ctx => ` ${ctx.raw}%` } } }, scales:{ x:{ grid:{ display:false } }, y:{ border:{ display:false, dash:[3,4] }, ticks:{ callback: v => v+'%' }, max:100, min:0 } } }
   });
 }
 

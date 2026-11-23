@@ -196,7 +196,7 @@ function renderCrmCharts() {
   card.style.display = '';
 
   if (typeof applyChartTheme === 'function') applyChartTheme();
-  const BROWN = '#B39581', GOLD = '#C9A06A', TXT = '#8A7D70', GRID = 'rgba(127,102,88,0.07)';
+  const BAR = CHART_COLORS.green, LINE = CHART_COLORS.orange, TXT = CHART_COLORS.muted, GRID = CHART_COLORS.grid;
   const base_ = { responsive: true, maintainAspectRatio: false };
 
   // Funil por etapa
@@ -205,7 +205,7 @@ function renderCrmCharts() {
   // Leads por origem
   const origemKeys = Object.keys(CRM_ORIGEM).filter(k => ps.some(p => p.origem === k));
   const origemData = origemKeys.map(k => ps.filter(p => p.origem === k).length);
-  const palette = ['#B39581', '#D2AE7C', '#8FA88A', '#8DA0AC', '#B39AA7', '#D9C2A5', '#C98A72'];
+  const palette = CHART_COLORS.series;
   // Novos cadastros nos últimos 6 meses
   const meses = [], labels = [];
   const base = new Date();
@@ -220,7 +220,7 @@ function renderCrmCharts() {
   requestAnimationFrame(() => {
     createChart('crmChartFunil', {
       type: 'bar',
-      data: { labels: funilKeys.map(k => CRM_STATUS[k].label), datasets: [{ data: funilData, backgroundColor: BROWN, hoverBackgroundColor: '#9C7C66', borderRadius: 8, maxBarThickness: 30 }] },
+      data: { labels: funilKeys.map(k => CRM_STATUS[k].label), datasets: [{ data: funilData, backgroundColor: BAR, hoverBackgroundColor: CHART_COLORS.orange, borderRadius: 6, maxBarThickness: 18 }] },
       options: { ...base_, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0, color: TXT }, grid: { color: GRID } }, x: { ticks: { color: TXT, font: { size: 10 } }, grid: { display: false } } } }
     });
     createChart('crmChartOrigem', {
@@ -230,8 +230,8 @@ function renderCrmCharts() {
     });
     createChart('crmChartMes', {
       type: 'line',
-      data: { labels, datasets: [{ data: porMes, borderColor: GOLD, backgroundColor: 'rgba(201,160,106,0.14)', fill: true, tension: 0.38, pointBackgroundColor: '#FFFDF9', pointBorderColor: GOLD, pointBorderWidth: 2, pointRadius: 4 }] },
-      options: { ...base_, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0, color: TXT }, grid: { color: GRID } }, x: { ticks: { color: TXT }, grid: { display: false } } } }
+      data: { labels, datasets: [{ data: porMes, borderColor: LINE, backgroundColor: 'rgba(200,112,42,0.08)', fill: true, peakLabel: true }] },
+      options: { ...base_, layout: { padding: { top: 24 } }, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0, color: TXT }, grid: { color: GRID } }, x: { ticks: { color: TXT }, grid: { display: false } } } }
     });
   });
 }
