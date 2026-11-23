@@ -23,7 +23,7 @@ function renderIris() {
   setTimeout(() => irisCarregar(), 0);
   return `
   <div class="section-header">
-    <div><div class="section-title">Íris</div><div class="section-sub">A secretária que responde às pacientes: o que ela pode dizer, promoções e horários</div></div>
+    ${pageHeader('iris')}
   </div>
   <div class="subtabs iris-tabs" role="tablist" aria-label="Seções da Íris">
     ${IRIS_TABS.map(([k, label]) => `<button type="button" role="tab" class="subtab-btn ${_iris.tab === k ? 'active' : ''}" data-tab="${k}" aria-selected="${_iris.tab === k}" onclick="irisSetTab(this.dataset.tab)">${label}</button>`).join('')}

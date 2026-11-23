@@ -44,7 +44,7 @@ function renderAgenda() {
   const connected = agGoogleConnected();
   return `
   <div class="section-header">
-    <div><div class="section-title">Agenda</div><div class="section-sub">Consultas e compromissos da clínica</div></div>
+    ${pageHeader('agenda')}
     <div class="doc-actions">
       <button class="btn btn-secondary${connected ? ' ag-google-on' : ''}" id="agGoogleBtn" onclick="agConnectGoogle()" title="Sincronizar com Google Calendar">${connected ? `${iconCheck()} Google conectado` : `${iconGoogle()} Conectar Google Agenda`}</button>
       <button class="btn btn-primary" onclick="openAgendaModal()">${iconPlus()} Novo Agendamento</button>

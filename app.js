@@ -674,6 +674,36 @@ function closeNotifPanel() {
 }
 
 /* ===== NAVIGATION ===== */
+/* ===== Cabeçalho das telas (visual Pinhal): trilha mono + título serifado com subtítulo em itálico ===== */
+const SCREENS = {
+  dashboard:    { title: 'Início',                sub: '' },
+  entradas:     { title: 'Entradas',              sub: 'Atendimentos e receitas' },
+  saidas:       { title: 'Saídas',                sub: 'Despesas da clínica' },
+  pacientes:    { title: 'Pacientes',             sub: 'Cadastro e histórico' },
+  consultorio:  { title: 'Consultório',           sub: 'Gastos do espaço' },
+  produtos:     { title: 'Produtos & Insumos',    sub: 'Estoque e custos' },
+  precificacao: { title: 'Precificação',          sub: 'Quanto cobrar', note: 'Configure preços e insumos de cada procedimento para calcular margens reais.' },
+  margem:       { title: 'Margem de Lucro',       sub: 'O que sobra', note: 'Lucro bruto (catálogo) e lucro real (insumos registrados).' },
+  graficos:     { title: 'Gráficos & Relatórios', sub: 'Visão completa' },
+  crm:          { title: 'CRM de Atendimento',    sub: 'Funil e follow-ups' },
+  agenda:       { title: 'Agenda',                sub: 'Compromissos' },
+  iris:         { title: 'Íris',                  sub: 'Secretária virtual', note: 'A secretária que responde às pacientes: o que ela pode dizer, promoções e horários.' },
+  anamnese:     { title: 'Ficha de Anamnese',     sub: 'Harmonização facial', note: 'Preencha, salve na sua conta e gere o PDF.' },
+  receituario:  { title: 'Receituário',           sub: 'Prescrições', note: 'Escreva a prescrição, salve na sua conta e gere o PDF.' },
+  exames:       { title: 'Receituário de Exames', sub: 'Pedidos de exame', note: 'Marque os exames, salve na sua conta e gere o PDF.' },
+  contratos:    { title: 'Contratos & Termos',    sub: 'Consentimentos', note: 'Termos de consentimento (TCLE): baixe, ou preencha e assine na tela.' },
+  perfil:       { title: 'Meu Perfil',            sub: 'Sua conta' },
+  documentos:   { title: 'Documentos',            sub: 'Fichas e receitas' }
+};
+function pageHeader(view) {
+  const sc = SCREENS[view] || { title: view, sub: '' };
+  return `<div class="ph">
+    <div class="ph-trail mono-label">ClinicFinance / ${esc(sc.title)}</div>
+    <h1 class="ph-title">${esc(sc.title)}${sc.sub ? ` <em>${esc(sc.sub)}</em>` : ''}</h1>
+    ${sc.note ? `<p class="ph-note">${esc(sc.note)}</p>` : ''}
+  </div>`;
+}
+
 function navigateTo(view) {
   destroyAllCharts();
   state.currentView = view;
@@ -681,16 +711,7 @@ function navigateTo(view) {
     el.classList.toggle('active', el.dataset.view === view);
   });
   syncNavGroups();
-  const titles = {
-    dashboard:'Dashboard', entradas:'Entradas', saidas:'Saídas',
-    consultorio:'Consultório', produtos:'Produtos & Insumos',
-    margem:'Margem de Lucro', precificacao:'Precificação', graficos:'Gráficos & Relatórios', perfil:'Perfil',
-    crm:'CRM de Atendimento', agenda:'Agenda', pacientes:'Pacientes',
-    anamnese:'Ficha de Anamnese', receituario:'Receituário', exames:'Receituário de Exames',
-    contratos:'Contratos & Termos', iris:'Íris'
-  };
-  if (typeof updateTopbarTitle === 'function') updateTopbarTitle(view, titles[view] || view);
-  else document.getElementById('pageTitle').textContent = titles[view] || view;
+  if (typeof updateTopbarTitle === 'function') updateTopbarTitle(view);
   renderView(view);
   if (window.innerWidth < 768) closeSidebar();
 }
@@ -879,7 +900,7 @@ function renderEntradas() {
 
   return `
   <div class="section-header">
-    <div><div class="section-title">Entradas</div><div class="section-sub">Registre todas as receitas dos procedimentos</div></div>
+    ${pageHeader('entradas')}
     <button class="btn btn-primary" onclick="openEntradaModal()">${iconPlus()} Nova Entrada</button>
   </div>
   ${periodFilterHTML()}
@@ -1271,7 +1292,7 @@ function renderSaidas() {
 
   return `
   <div class="section-header">
-    <div><div class="section-title">Saídas</div><div class="section-sub">Todas as despesas: lançamentos e gastos do consultório</div></div>
+    ${pageHeader('saidas')}
     <button class="btn btn-primary" onclick="openSaidaModal()">${iconPlus()} Nova Saída</button>
   </div>
   ${periodFilterHTML()}
@@ -1392,7 +1413,7 @@ function renderProdutos() {
   const isNotas = state.produtosSubTab === 'notas';
   return `
   <div class="section-header">
-    <div><div class="section-title">Produtos & Insumos</div><div class="section-sub">Estoque, custos, lucro por produto e notas fiscais</div></div>
+    ${pageHeader('produtos')}
     <button class="btn btn-primary" onclick="${isNotas ? 'openNotaModal()' : 'openProdutoModal()'}">
       ${iconPlus()} ${isNotas ? 'Nova Nota Fiscal' : 'Novo Produto'}
     </button>
@@ -1760,7 +1781,7 @@ function renderConsultorio() {
 
   return `
   <div class="section-header">
-    <div><div class="section-title">Consultório</div><div class="section-sub">Gastos fixos e variáveis do espaço físico da clínica</div></div>
+    ${pageHeader('consultorio')}
     <button class="btn btn-primary" onclick="openConsultorioModal()">${iconPlus()} Novo Gasto</button>
   </div>
   ${periodFilterHTML()}
@@ -1948,8 +1969,7 @@ function renderMargem() {
 
   return `
   <div class="section-header">
-    <div><div class="section-title">Margem de Lucro</div>
-    <div class="section-sub">Lucro Bruto (catálogo) vs Lucro Real (insumos registrados)</div></div>
+    ${pageHeader('margem')}
     <button class="btn btn-secondary btn-sm" onclick="navigateTo('precificacao')">${iconDollar()} Precificação</button>
   </div>
   ${periodFilterHTML()}
@@ -2003,8 +2023,7 @@ function renderPrecificacao() {
 
   return `
   <div class="section-header">
-    <div><div class="section-title">Precificação</div>
-    <div class="section-sub">Configure preços e insumos de cada procedimento para calcular margens reais</div></div>
+    ${pageHeader('precificacao')}
   </div>
   <div class="pricing-grid">
     ${rows.map(r => {
@@ -2185,7 +2204,7 @@ async function savePrecificacao(event) {
 function renderGraficos() {
   return `
   <div class="section-header">
-    <div><div class="section-title">Gráficos & Relatórios</div><div class="section-sub">Visão completa dos dados financeiros</div></div>
+    ${pageHeader('graficos')}
   </div>
   ${periodFilterHTML()}
   <div class="graficos-grid">
@@ -2296,7 +2315,7 @@ function renderPerfil() {
 
   return `
   <div class="section-header">
-    <div><div class="section-title">Meu Perfil</div><div class="section-sub">Gerencie sua foto, informações e conta</div></div>
+    ${pageHeader('perfil')}
   </div>
   <div class="perfil-layout">
 
@@ -2905,8 +2924,6 @@ function updateTopbarAvatar() {
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   initSidebarState();
-  document.getElementById('dateBadge').textContent =
-    new Date().toLocaleDateString('pt-BR', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
 
   // Configura nav listeners UMA VEZ antes do onAuthStateChange
   let navListenersAttached = false;

@@ -50,7 +50,7 @@ function renderCrm() {
   setTimeout(() => loadCrm(), 0);
   return `
   <div class="section-header">
-    <div><div class="section-title">CRM de Atendimento</div><div class="section-sub">Gerencie pacientes, leads e o funil de atendimento</div></div>
+    ${pageHeader('crm')}
     <div class="section-actions">
       <div class="seg-mini crm-view-toggle" role="group" aria-label="Modo de visualização">
         <button type="button" data-v="lista" class="${_crm.view === 'lista' ? 'active' : ''}" onclick="crmSetView('lista')">Lista</button>
@@ -101,7 +101,7 @@ function renderPacientes() {
   setTimeout(() => loadCrm(), 0);
   return `
   <div class="section-header">
-    <div><div class="section-title">Pacientes</div><div class="section-sub">Cadastro de pacientes: nome, celular, nascimento, CPF e histórico</div></div>
+    ${pageHeader('pacientes')}
     <button class="btn btn-primary" onclick="openCrmModal(null, 'pacientes')">${iconPlus()} Novo Paciente</button>
   </div>
   <div class="table-container">

@@ -186,7 +186,7 @@ function renderExames() {
 
   const html = `
   <div class="section-header">
-    <div><div class="section-title">Receituário de Exames</div><div class="section-sub">Marque os exames, salve na sua conta e gere o PDF</div></div>
+    ${pageHeader('exames')}
     <div class="doc-actions">
       <button class="btn btn-secondary" onclick="newDoc('exames')">${iconPlus()} Novo</button>
       <button class="btn btn-secondary" onclick="pdfExames()">${iconDownload()} Gerar PDF</button>
@@ -309,7 +309,7 @@ async function pdfExames() {
 function renderReceituario() {
   const html = `
   <div class="section-header">
-    <div><div class="section-title">Receituário</div><div class="section-sub">Escreva a prescrição, salve na sua conta e gere o PDF</div></div>
+    ${pageHeader('receituario')}
     <div class="doc-actions">
       <button class="btn btn-secondary" onclick="newDoc('receituario')">${iconPlus()} Novo</button>
       <button class="btn btn-secondary" onclick="pdfReceituario()">${iconDownload()} Gerar PDF</button>
@@ -436,7 +436,7 @@ function renderAnamnese() {
   const isSaved = _anamneseTab === 'saved';
   const html = `
   <div class="section-header">
-    <div><div class="section-title">Ficha de Anamnese</div><div class="section-sub">Harmonização Facial — preencha, salve na sua conta e gere o PDF</div></div>
+    ${pageHeader('anamnese')}
     <div class="doc-actions" id="anamneseFormActions"${isSaved ? ' style="display:none"' : ''}>
       <button class="btn btn-secondary" onclick="newDoc('anamnese')">${iconPlus()} Nova ficha</button>
       <button class="btn btn-secondary" onclick="pdfAnamnese()">${iconDownload()} Gerar PDF</button>
@@ -816,7 +816,7 @@ function renderContratos() {
 
   const html = `
   <div class="section-header">
-    <div><div class="section-title">Contratos &amp; Termos</div><div class="section-sub">Termos de Consentimento (TCLE) — baixe, ou preencha e assine na tela</div></div>
+    ${pageHeader('contratos')}
   </div>
 
   <div class="subtabs">

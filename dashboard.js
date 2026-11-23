@@ -306,20 +306,9 @@ function animateDashboard() {
 }
 
 /* ===== Topo: saudação no Dashboard ===== */
-function updateTopbarTitle(view, fallback) {
-  const el = document.getElementById('pageTitle');
-  if (!el) return;
-  const left = el.closest('.topbar-left');
-  if (view === 'dashboard') {
-    const nome = (typeof currentProfile !== 'undefined' && currentProfile?.first_name) ? currentProfile.first_name.split(' ')[0] : '';
-    const h = new Date().getHours();
-    const saud = h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite';
-    el.innerHTML = `<span class="tb-hello">${saud}${nome ? ', ' + esc(nome) : ''}!</span><span class="tb-sub">Veja o movimento do consultório hoje, ${new Date().toLocaleDateString('pt-BR', { day: 'numeric', month: 'long' })}</span>`;
-    left?.classList.add('is-hello');
-  } else {
-    el.textContent = fallback;
-    left?.classList.remove('is-hello');
-  }
+function updateTopbarTitle(view) {
+  const sc = (typeof SCREENS !== 'undefined' && SCREENS[view]) || null;
+  document.title = (sc ? sc.title + ' — ' : '') + 'ClinicFinance';
 }
 
 /* ===== Busca global (pacientes) ===== */
